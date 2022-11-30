@@ -142,7 +142,7 @@ struct String
 String Str(u8* data, u64 len);
 String Str(const char* cstr);
 
-bool StrRead(String* str, u64 offset, u8* out, u64 size);
+bool StrRead(String* str, u64 offset, u8* out, u64 n);
 bool StrRead(String* str, u8* out);
 // TODO(caio)#STRING: Make more StrRead overloads
 
@@ -152,6 +152,13 @@ String StrAlloc(MemArena* arena, u8* data, u64 len);
 String StrAlloc(MemArena* arena, const char* cstr);
 String StrfAlloc(MemArena* arena, const char* fmt, ...);
 
-// TODO(caio)#STRING: String comparison
-// TODO(caio)#STRING: Finding substrings
-// TODO(caio)#STRING: Split string by delimiter
+bool StrCompare(String str1, String str2);
+bool StrCompare(String str1, String str2, u64 n);
+
+String StrPrefix(String str, u64 n);
+String StrSuffix(String str, u64 n);
+String StrSubstr(String str, u64 start, u64 n);
+i64 StrFind(String haystack, String needle);
+i64 StrFindR(String haystack, String needle);
+
+Array StrSplit(MemArena* arena, String str, char delim = ' ');

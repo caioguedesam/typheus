@@ -47,13 +47,17 @@ int main()
     a = 10;
 
     String str3 = StrAlloc(&arena, (u8*)readBuffer, 20);
-    String str4 = StrAlloc(&arena, "Test string 4 (cstr)");
+    String str4 = StrAlloc(&arena, "Test string 4 (cstr)abbb");
 
     a = 10;
 
     String str5 = Strf((u8*)readBuffer, "Format test %d %f %s", 3, 4.5f, "hi!");
     String str6 = StrfAlloc(&arena, "Second format test! %d %c %.2f", 5, 'u', 10.2f);
 
+    i64 f = StrFind(str4, Str("ababa"));
+    f = StrFindR(str4, Str("ab"));
+    f = StrFindR(str4, Str("bb"));
+    f = StrFindR(str4, Str("abb"));
     a = 10;
 
     return 0;

@@ -137,15 +137,15 @@ String Str(const char* cstr)
     };
 }
 
-bool StrRead(String* str, u64 offset, u8* out, u64 size)
+bool StrRead(String* str, u64 offset, u8* out, u64 n)
 {
     // This trusts the output buffer to have enough size for the string.
     ASSERT(out);
     bool result = false;
-    if(offset + size <= str->len)
+    if(offset + n <= str->len)
     {
         result = true;
-        memcpy(out, (str->data + offset), size);
+        memcpy(out, (str->data + offset), n);
     }
     return result;
 };
@@ -218,4 +218,108 @@ String StrfAlloc(MemArena* arena, const char* fmt, ...)
     va_end(args);
     va_end(args2);
     return result;
+}
+
+bool StrCompare(String str1, String str2)
+{
+    if(str1.len != str2.len) return false;
+    return memcmp(str1.data, str2.data, str1.len) == 0;
+}
+
+bool StrCompare(String str1, String str2, u64 n)
+{
+    if(str1.len < n || str2.len < n) return false;
+    return memcmp(str1.data, str2.data, str1.len) == 0;
+}
+
+String StrPrefix(String str, u64 n)
+{
+    ASSERT(str.len >= n);
+    return
+    {
+        str.data,
+        n
+    };
+}
+
+String StrSuffix(String str, u64 n)
+{
+    ASSERT(str.len >= n);
+    return
+    {
+        str.data + str.len - n,
+        n
+    };
+}
+
+String StrSubstr(String str, u64 start, u64 n)
+{
+    ASSERT(str.len >= start + n);
+    return
+    {
+        str.data + start,
+        n
+    };
+}
+
+i64 StrFind(String haystack, String needle)
+{
+    if(needle.len > haystack.len) return -1;
+    // TODO(caio)#STRING: This is naive string search. Improve only if needed.
+    i64 cursor = 0;
+    i64 match = -1;
+    while(cursor < haystack.len)
+    {
+        if(haystack.data[cursor] == needle.data[0])
+        {
+            match = cursor;
+            for(i64 needleCursor = 1; needleCursor < needle.len; needleCursor++)
+            {
+                if(haystack.data[cursor + needleCursor] != needle.data[needleCursor])
+                {
+                    cursor = match;
+                    match = -1;
+                    break;
+                }
+            }
+            if(match != -1) break;
+        }
+        cursor++;
+    }
+
+    return match;
+}
+
+// TODO(caio)#CONTINUE: Continue from here. Implement and test this. StrFind might need more tests aswell.
+i64 StrFindR(String haystack, String needle)
+{
+    if(needle.len > haystack.len) return -1;
+    // TODO(caio)#STRING: This is naive string search. Improve only if needed.
+    i64 cursor = haystack.len - 1;
+    i64 match = -1;
+    while(cursor >= 0)
+    {
+        if(haystack.data[cursor] == needle.data[needle.len - 1])
+        {
+            match = cursor - (needle.len - 1);
+            for(i64 needleCursor = 1; needleCursor < needle.len; needleCursor++)
+            {
+                if(needle.data[needle.len - 1 - needleCursor] != haystack.data[cursor - needleCursor])
+                {
+                    cursor = match + needle.len;
+                    match = -1;
+                    break;
+                }
+            }
+            if(match != -1) break;
+        }
+        cursor--;
+    }
+
+    return match;
+}
+
+Array StrSplit(MemArena* arena, String str, char delim)
+{
+    return {};  // IMPLEMENT ME
 }
