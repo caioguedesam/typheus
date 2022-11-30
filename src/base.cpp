@@ -294,32 +294,71 @@ i64 StrFind(String haystack, String needle)
 i64 StrFindR(String haystack, String needle)
 {
     if(needle.len > haystack.len) return -1;
-    // TODO(caio)#STRING: This is naive string search. Improve only if needed.
-    i64 cursor = haystack.len - 1;
+    i64 cursor = haystack.len - (needle.len - 1);
     i64 match = -1;
     while(cursor >= 0)
     {
-        if(haystack.data[cursor] == needle.data[needle.len - 1])
+        if(haystack.data[cursor] == needle.data[0])
         {
-            match = cursor - (needle.len - 1);
+            match = cursor;
             for(i64 needleCursor = 1; needleCursor < needle.len; needleCursor++)
             {
-                if(needle.data[needle.len - 1 - needleCursor] != haystack.data[cursor - needleCursor])
+                if(haystack.data[cursor + needleCursor] != needle.data[needleCursor])
                 {
-                    cursor = match + needle.len;
+                    cursor = match;
                     match = -1;
                     break;
                 }
             }
-            if(match != -1) break;
         }
+        if(match != -1) break;
         cursor--;
     }
-
-    return match;
+    return match;  // IMPLEMENT ME
 }
 
 Array StrSplit(MemArena* arena, String str, char delim)
 {
-    return {};  // IMPLEMENT ME
+    // Iterate once to find array size to allocate.
+    i64 splitCount = 0;
+    for(i64 i = 0; i < str.len; i++)
+    {
+        if(str.data[i] == delim) splitCount++;
+    }
+
+    Array result = ArrayInit(arena, String, splitCount + 1);
+    // Didn't find delimiter char, so just return original string.
+    if(splitCount == 0)
+    {
+        ArrayPush(result, String, str);
+        return result;
+    }
+
+    // Iterate string to find delimiter, split when found.
+    i64 lastSplit = 0;
+    for(i64 i = 0; i < str.len; i++)
+    {
+        if(str.data[i] == delim)
+        {
+            u64 splitLen = (u64)(i - lastSplit);
+            String split = { str.data + lastSplit, splitLen };
+            ArrayPush(result, String, split);
+            lastSplit = i + 1;
+        }
+    }
+    String last = { str.data + lastSplit, str.len - lastSplit };
+    ArrayPush(result, String, last);
+
+    return result;
 }
+
+
+
+
+
+
+
+
+
+
+

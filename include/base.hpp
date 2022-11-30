@@ -104,10 +104,10 @@ struct Array
 
 Array ArrayInit_(MemArena* arena, u64 capacity, u64 alignment = 0);
 Array ArrayInitZero_(MemArena* arena, u64 capacity, u64 alignment = 0);
-#define ArrayInit(arena, type, capacity) (ArrayInit_((arena), sizeof(type) * (capacity)))
-#define ArrayInitAlign(arena, type, capacity, alignment) (ArrayInit_((arena), sizeof(type) * (capacity), (alignment)))
-#define ArrayInitZero(arena, type, capacity) (ArrayInitZero_((arena), sizeof(type) * (capacity)))
-#define ArrayInitZeroAlign(arena, type, capacity, alignment) (ArrayInitZero_((arena), sizeof(type) * (capacity), (alignment)))
+#define ArrayInit(arena, type, capacity) (ArrayInit_((arena), (capacity)))
+#define ArrayInitAlign(arena, type, capacity, alignment) (ArrayInit_((arena), (capacity), (alignment)))
+#define ArrayInitZero(arena, type, capacity) (ArrayInitZero_((arena), (capacity)))
+#define ArrayInitZeroAlign(arena, type, capacity, alignment) (ArrayInitZero_((arena), (capacity), (alignment)))
 
 #define ArrayGet(array, type, index, out) STMT(\
             ASSERT((index) < (array).count);\
