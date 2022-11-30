@@ -1,0 +1,6 @@
+-std=c++14
+-I../include/
+-I../dependencies/tracy/
+-DWIN32_LEAN_AND_MEAN
+-DNOMINMAX
+-D_CRT_SECURE_NO_WARNINGS

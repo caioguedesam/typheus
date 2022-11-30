@@ -1,0 +1,6 @@
+.vim/
+dependencies/tracy/
+docs/
+build/debug/
+build/profile/
+build/release/
