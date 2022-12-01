@@ -9,23 +9,17 @@ FilePath MakePath(String str)
 
 FilePath GetAbsolutePath(FilePath relPath, u8* buffer, u64 size)
 {
-    DWORD fileAttributes = GetFileAttributes((char*)relPath.str.data);
-    ASSERT(fileAttributes != INVALID_FILE_ATTRIBUTES);
+    ASSERT(PathExists(relPath));
     DWORD ret = GetFullPathName(
             (char*)relPath.str.data,
             size, (char*)buffer, NULL);
     ASSERT(ret);
-    // Let's add a trailing slash to directory paths
-    if(fileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-    {
-        buffer[ret] = '\\';
-        ret += 1;
-    }
     return MakePath(Str(buffer, ret));
 }
 
 FilePath GetAbsolutePath(MemArena* arena, FilePath relPath)
 {
+    ASSERT(PathExists(relPath));
     u8* pathBuffer = (u8*)MemAlloc(arena, MAX_PATH);
     FilePath result = GetAbsolutePath(relPath, pathBuffer, MAX_PATH);
     i64 remainingBytes = MAX_PATH - (result.str.len + 1);   // +1 for null-terminator.
@@ -33,15 +27,21 @@ FilePath GetAbsolutePath(MemArena* arena, FilePath relPath)
     return result;
 }
 
+bool PathExists(FilePath path)
+{
+    DWORD fileAttributes = GetFileAttributes(ToCStr(path.str));
+    return fileAttributes != INVALID_FILE_ATTRIBUTES;
+}
+
 bool IsDirectory(FilePath path)
 {
-    // Simply verifies if the last char in string is a slash.
-    return path.str.data[path.str.len - 1] == '\\'
-    ||     path.str.data[path.str.len - 1] == '/';
+    DWORD fileAttributes = GetFileAttributes(ToCStr(path.str));
+    return fileAttributes & FILE_ATTRIBUTE_DIRECTORY;
 }
 
 String GetExtension(FilePath path)
 {
+    ASSERT(PathExists(path));
     ASSERT(!IsDirectory(path));
     i64 extStart = StrFindR(path.str, Str("."));
     ASSERT(extStart != STR_INVALID);
@@ -53,12 +53,16 @@ String GetExtension(FilePath path)
 
 String GetFilename(FilePath path, bool withExtension)
 {
+    ASSERT(PathExists(path));
     ASSERT(!IsDirectory(path));
     i64 dirEnd = StrFindR(path.str, Str("\\"));
     if(dirEnd == STR_INVALID)
     {
         dirEnd = StrFindR(path.str, Str("/"));
-        ASSERT(dirEnd != STR_INVALID);
+        if(dirEnd == STR_INVALID)
+        {
+            dirEnd = 0;     // No directory before file in path.
+        }
     }
 
     String result;
@@ -76,12 +80,16 @@ String GetFilename(FilePath path, bool withExtension)
 
 String GetFileDir(FilePath path)
 {
+    ASSERT(PathExists(path));
     ASSERT(!IsDirectory(path));
     i64 dirEnd = StrFindR(path.str, Str("\\"));
     if(dirEnd == STR_INVALID)
     {
         dirEnd = StrFindR(path.str, Str("/"));
-        ASSERT(dirEnd != STR_INVALID);
+        if(dirEnd == STR_INVALID)
+        {
+            return Str(".");    // The path has no directories, so it points to CWD.
+        }
     }
 
     String result;
@@ -90,8 +98,89 @@ String GetFileDir(FilePath path)
     return result;
 }
 
-//u64 ReadFile(FilePath path, u8* buffer);
-//u8* ReadFile(MemArena* arena, FilePath path);
-//u64 WriteFile(FilePath path, u8* data);
+u64 GetFileSize(FilePath path)
+{
+    ASSERT(PathExists(path));
+    ASSERT(!IsDirectory(path));
 
-//Array GetFilesAtDir(MemArena* arena, FilePath dir);
+    HANDLE hFile = CreateFile(
+            ToCStr(path.str),
+            GENERIC_READ,
+            FILE_SHARE_READ,
+            NULL,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            NULL);
+    ASSERT(hFile != INVALID_HANDLE_VALUE);
+    DWORD fSize = GetFileSize(hFile, NULL);
+    ASSERT(fSize != INVALID_FILE_SIZE);
+    CloseHandle(hFile);
+    return (u64)fSize;
+}
+
+u64 ReadFile(FilePath path, u8* buffer)
+{
+    ASSERT(PathExists(path));
+    ASSERT(!IsDirectory(path));
+
+    HANDLE hFile = CreateFile(
+            ToCStr(path.str),
+            GENERIC_READ,
+            FILE_SHARE_READ,
+            NULL,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            NULL);
+    ASSERT(hFile != INVALID_HANDLE_VALUE);
+    DWORD fSize = GetFileSize(hFile, NULL);
+    ASSERT(fSize != INVALID_FILE_SIZE);
+    DWORD bytesRead = 0;
+    BOOL ret = ReadFile(
+            hFile,
+            buffer,
+            fSize,
+            &bytesRead,
+            NULL);
+    ASSERT(ret);
+
+    CloseHandle(hFile);
+    return (u64)bytesRead;
+}
+
+Array ReadFile(MemArena* arena, FilePath path)
+{
+    u64 fSize = GetFileSize(path);
+    Array result = ArrayInit(arena, u8, fSize);
+    u64 bytesRead = ReadFile(path, result.data);
+    ASSERT(bytesRead == fSize);
+    result.count = bytesRead;
+    return result;
+}
+
+Array GetFilesAtDir(MemArena* arena, FilePath dir)
+{
+    ASSERT(PathExists(dir));
+    ASSERT(IsDirectory(dir));
+
+    // Create a temp buffer to store query string
+    u8 queryBuffer[dir.str.len + 2];
+    String queryStr = Strf(queryBuffer, "%s\\*", ToCStr(dir.str));
+
+    // Make query for files
+    HANDLE fileHandle;
+    WIN32_FIND_DATAA fileData;
+    fileHandle = FindFirstFile(ToCStr(queryStr), &fileData);
+    ASSERT(fileHandle != INVALID_HANDLE_VALUE);
+
+    Array result = ArrayInit(arena, FilePath, 256);   // TODO(caio)#FILE: Currently fixed 256 string array for results. This will fail for any amount of files > 256.
+    do
+    {
+        FilePath foundFile = MakePath(StrfAlloc(arena, "%s\\%s", ToCStr(dir.str), fileData.cFileName));
+        if(!IsDirectory(foundFile))
+        {
+            ArrayPush(result, FilePath, foundFile);
+        }
+    } while(FindNextFile(fileHandle, &fileData));
+
+    return result;
+}

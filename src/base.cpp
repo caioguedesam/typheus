@@ -137,6 +137,11 @@ String Str(const char* cstr)
     };
 }
 
+const char* ToCStr(String str)
+{
+    return (const char*)(str.data);
+}
+
 bool StrRead(String* str, u64 offset, u8* out, u64 n)
 {
     // This trusts the output buffer to have enough size for the string.

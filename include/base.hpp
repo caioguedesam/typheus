@@ -156,6 +156,7 @@ struct String
 };
 String Str(u8* data, u64 len);
 String Str(const char* cstr);
+const char* ToCStr(String str);
 
 bool StrRead(String* str, u64 offset, u8* out, u64 n);
 bool StrRead(String* str, u8* out);
