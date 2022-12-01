@@ -24,6 +24,16 @@ typedef double      f64;
 #define MAX_U32 (0xFFFFFFFFUL)
 #define MAX_U64 (0xFFFFFFFFFFFFFFFFULL)
 
+#define KB(V) (V) * 1024
+#define MB(V) KB(V) * 1024
+#define GB(V) MB(V) * 1024
+
+#define MIN(A, B) ((A) < (B) ? (A) : (B))
+#define MAX(A, B) ((A) > (B) ? (A) : (B))
+#define CLAMP(V, A, B) (MAX((A), MIN((V), (B))))
+#define CLAMP_CEIL(V, A) MIN(V, A)
+#define CLAMP_FLOOR(V, A) MAX(V, A)
+
 #define STMT(S) do { S; } while(0)
 #define STRINGIFY(S) #S     // For macro arg expansion
 #define ALIGN_TO(SIZE, BOUND) (((SIZE) + (BOUND) - 1) & ~((BOUND) - 1))   // Aligns to powers of 2 only
@@ -31,6 +41,8 @@ typedef double      f64;
 
 #define ArrayCount(arr) (sizeof(arr)/sizeof(*(arr)))
 #define ArraySize(arr) (sizeof(arr))
+
+#define StructOffset(type, member) ((u64)&((type*)0)->member)
 
 // [ASSERT]
 #if _NO_ASSERT
@@ -134,6 +146,9 @@ f32 RandomRange(f32 start, f32 end);
 // [STRING]
 // A string object is not responsible for managing it's data's lifetime.
 // This could be some memory in an arena, a buffer on the stack or a C string literal somewhere.
+// Allocated string objects are compatible with C-strings, and don't consider null-term
+// as part of their length.
+#define STR_INVALID -1
 struct String
 {
     u8* data = 0;
@@ -154,10 +169,12 @@ String StrfAlloc(MemArena* arena, const char* fmt, ...);
 
 bool StrCompare(String str1, String str2);
 bool StrCompare(String str1, String str2, u64 n);
+bool IsCStr(String str);
 
 String StrPrefix(String str, u64 n);
 String StrSuffix(String str, u64 n);
 String StrSubstr(String str, u64 start, u64 n);
+
 i64 StrFind(String haystack, String needle);
 i64 StrFindR(String haystack, String needle);
 

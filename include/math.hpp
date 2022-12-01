@@ -26,12 +26,6 @@
 // Math defines
 #define PI 3.14159265358979323846ULL
 
-#define MIN(A, B) ((A) < (B) ? (A) : (B))
-#define MAX(A, B) ((A) > (B) ? (A) : (B))
-#define CLAMP(V, A, B) (MAX((A), MIN((V), (B))))
-#define CLAMP_CEIL(V, A) MIN(V, A)
-#define CLAMP_FLOOR(V, A) MAX(V, A)
-
 #define TO_DEG(X) (X * (180.0 / PI))
 #define TO_RAD(X) (X * (PI / 180.0))
 // Vectors

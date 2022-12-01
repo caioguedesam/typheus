@@ -1,8 +1,7 @@
 // TYPHEUS ENGINE
 // Project headers
 #include "base.hpp"
-#include "time.hpp"
-#include "math.hpp"
+#include "file.hpp"
 #include <stdio.h>
 
 // Compiling just one file to dramatically speed up compile times
@@ -15,31 +14,27 @@
 #include "base.cpp"
 #include "time.cpp"
 #include "math.cpp"
-
-void PrintArray(Array& arr)
-{
-    for(i32 i = 0; i < arr.count; i++)
-    {
-        f32 v;
-        ArrayGet(arr, f32, i, &v);
-        printf("%f |", v);
-    }
-    printf("\n");
-}
+#include "file.cpp"
 
 int main()
 {
+    // Testing file handling functions
     MemArena arena;
-    MemArenaInit(&arena, 1024);
+    MemArenaInit(&arena, MB(1));
 
-    Array splitResult = StrSplit(&arena, Str("ababa ababa abab"));
+    FilePath path1 = MakePath(Str("path/to/file1.png"));
 
-    String s;
-    ArrayGet(splitResult, String, 0, &s);
-    ArrayGet(splitResult, String, 1, &s);
-    ArrayGet(splitResult, String, 2, &s);
+    FilePath path3 = GetAbsolutePath(&arena, MakePath(Str(".")));
+    FilePath path4 = GetAbsolutePath(&arena, MakePath(Str("..")));
 
-    i32 a = 10;
+    bool isDir = IsDirectory(path3);
+    isDir = IsDirectory(path1);
 
+    String ext = GetExtension(path1);
+    String fname = GetFilename(path1);
+    String fnameNoExt = GetFilename(path1, false);
+    String dirname = GetFileDir(path1);
+
+    i32 a = 0;
     return 0;
 }

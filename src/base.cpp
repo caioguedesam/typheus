@@ -171,9 +171,11 @@ String Strf(u8* buffer, const char* fmt, ...)
 
 String StrAlloc(MemArena* arena, u8* data, u64 len)
 {
+    // For compatibility reasons, StrAlloc always makes C-strings
     String result;
-    result.data = (u8*)MemAlloc(arena, len);
+    result.data = (u8*)MemAlloc(arena, len + 1);    // +1 for null terminator.
     memcpy(result.data, data, len);
+    result.data[len] = 0;
     result.len = len;
     return result;
 }
@@ -183,8 +185,8 @@ String StrAlloc(MemArena* arena, const char* cstr)
     String result;
     u64 len = 0;
     for(; cstr[len] != 0; len++);
-    result.data = (u8*)MemAlloc(arena, len + 1);    // +1 for null terminator
-    memcpy(result.data, cstr, len + 1);             // +1 for null terminator
+    result.data = (u8*)MemAlloc(arena, len + 1);    // +1 for null terminator.
+    memcpy(result.data, cstr, len + 1);             // +1 for null terminator.
     result.len = len;
     return result;
 }
@@ -211,8 +213,8 @@ String StrfAlloc(MemArena* arena, const char* fmt, ...)
     {
         MemFree(arena, allocSize);
         allocBuffer = (u8*)MemAlloc(arena, strfSize + 1);    // +1 for null terminator.
-        strfSize = vsnprintf((char*)allocBuffer, strfSize + 1, fmt, args2);
-        result = {allocBuffer, strfSize};
+        strfSize = vsnprintf((char*)allocBuffer, strfSize + 1, fmt, args2); // +1 for null terminator.
+        result = {allocBuffer, strfSize + 1};                // +1 for null terminator.
     }
 
     va_end(args);
@@ -230,6 +232,13 @@ bool StrCompare(String str1, String str2, u64 n)
 {
     if(str1.len < n || str2.len < n) return false;
     return memcmp(str1.data, str2.data, str1.len) == 0;
+}
+
+bool IsCStr(String str)
+{
+    // TODO(caio)#STRING: There are some edge cases where this won't work.
+    ASSERT(str.len);
+    return str.data[str.len] == 0;
 }
 
 String StrPrefix(String str, u64 n)
@@ -264,10 +273,10 @@ String StrSubstr(String str, u64 start, u64 n)
 
 i64 StrFind(String haystack, String needle)
 {
-    if(needle.len > haystack.len) return -1;
+    if(needle.len > haystack.len) return STR_INVALID;
     // TODO(caio)#STRING: This is naive string search. Improve only if needed.
     i64 cursor = 0;
-    i64 match = -1;
+    i64 match = STR_INVALID;
     while(cursor < haystack.len)
     {
         if(haystack.data[cursor] == needle.data[0])
@@ -278,11 +287,11 @@ i64 StrFind(String haystack, String needle)
                 if(haystack.data[cursor + needleCursor] != needle.data[needleCursor])
                 {
                     cursor = match;
-                    match = -1;
+                    match = STR_INVALID;
                     break;
                 }
             }
-            if(match != -1) break;
+            if(match != STR_INVALID) break;
         }
         cursor++;
     }
@@ -290,12 +299,11 @@ i64 StrFind(String haystack, String needle)
     return match;
 }
 
-// TODO(caio)#CONTINUE: Continue from here. Implement and test this. StrFind might need more tests aswell.
 i64 StrFindR(String haystack, String needle)
 {
-    if(needle.len > haystack.len) return -1;
+    if(needle.len > haystack.len) return STR_INVALID;
     i64 cursor = haystack.len - (needle.len - 1);
-    i64 match = -1;
+    i64 match = STR_INVALID;
     while(cursor >= 0)
     {
         if(haystack.data[cursor] == needle.data[0])
@@ -306,15 +314,15 @@ i64 StrFindR(String haystack, String needle)
                 if(haystack.data[cursor + needleCursor] != needle.data[needleCursor])
                 {
                     cursor = match;
-                    match = -1;
+                    match = STR_INVALID;
                     break;
                 }
             }
         }
-        if(match != -1) break;
+        if(match != STR_INVALID) break;
         cursor--;
     }
-    return match;  // IMPLEMENT ME
+    return match;
 }
 
 Array StrSplit(MemArena* arena, String str, char delim)
