@@ -62,7 +62,7 @@ enum InputKey : u32
 
 struct MouseState
 {
-    v2i pos;
+    v2i pos;    // Mouse position in pixels starting from TOP-LEFT of application window.
     // TODO(caio)#INPUT: This should contain stuff like cursor hidden, locked, etc.
 };
 
@@ -80,4 +80,5 @@ bool IsKeyUp(InputKey key);
 bool IsKeyJustDown(InputKey key);
 bool IsKeyJustUp(InputKey key);
 
-// TODO(caio)#INPUT: Mouse delta functions
+v2i GetMousePosition();
+v2f GetMouseDelta();

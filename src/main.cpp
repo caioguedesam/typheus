@@ -64,23 +64,12 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         // Update input
         UpdateInputState();
 
-        // Testing
-        // if(IsKeyDown(KEY_W))
-        // {
-        //     printf("W down\n");
-        // }
-        // if(IsKeyUp(KEY_W))
-        // {
-        //     printf("W up\n");
-        // }
-
-        if(IsKeyJustDown(KEY_W))
+        v2i pos = GetMousePosition();
+        v2f delta = GetMouseDelta();
+        if(delta.x < -EPSILON_F32 || delta.x > EPSILON_F32
+        || delta.y < -EPSILON_F32 || delta.y > EPSILON_F32)
         {
-            printf("W PRESSED\n");
-        }
-        if(IsKeyJustUp(KEY_W))
-        {
-            printf("W RELEASED\n");
+            printf("Cursor position: %d %d (%.2f,%.2f)\n", pos.x, pos.y, delta.x, delta.y);
         }
     }
 }

@@ -76,7 +76,9 @@ f32 Len(const v2f& v)
 
 v2f Normalize(const v2f& v)
 {
-    return v * (1.f/Len(v));
+    f32 l = Len(v);
+    if(l < EPSILON_F32) return {0.f, 0.f};
+    return v * (1.f/l);
 }
 
 f32 AngleBetween(const v2f& a, const v2f& b)
@@ -190,7 +192,9 @@ f32 Len(const v3f& v)
 
 v3f Normalize(const v3f& v)
 {
-    return v * (1.f / Len(v));
+    f32 l = Len(v);
+    if(l < EPSILON_F32) return {0.f, 0.f};
+    return v * (1.f/l);
 }
 
 bool operator==(const v4f& a, const v4f& b)
@@ -276,7 +280,9 @@ f32 Len(const v4f& v)
 
 v4f Normalize(const v4f& v)
 {
-    return v * (1.f / Len(v));
+    f32 l = Len(v);
+    if(l < EPSILON_F32) return {0.f, 0.f};
+    return v * (1.f/l);
 }
 
 bool operator==(const m4f& a, const m4f& b)

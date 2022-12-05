@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <stdint.h>
 #include <stdarg.h>
+#include <float.h>
 
 // [BASE TYPES]
 typedef int8_t      i8;
@@ -23,6 +24,9 @@ typedef double      f64;
 #define MAX_U16 (0xFFFF)
 #define MAX_U32 (0xFFFFFFFFUL)
 #define MAX_U64 (0xFFFFFFFFFFFFFFFFULL)
+
+#define EPSILON_F32 FLT_EPSILON
+#define EPSILON_F64 DBL_EPSILON
 
 #define KB(V) (V) * 1024
 #define MB(V) KB(V) * 1024
