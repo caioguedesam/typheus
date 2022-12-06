@@ -64,4 +64,38 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
 int main()
 {
     return wWinMain(GetModuleHandle(NULL), NULL, GetCommandLineW(), SW_SHOWNORMAL);
+
+    // First Core API pass layout:
+    // int main()
+    // {
+    //      // First, initialize core systems for OS
+    //      Ty::InitWin32();
+    //      
+    //      // Then, create window to render on top of
+    //      Ty::Window window = Ty::CreateWindow(w, h, "name");
+    //
+    //      // Initialize rendering with associated window (and possibly other systems)
+    //      Ty::InitRenderer(window);
+    //
+    //      // Create any kind of user defined stuffs for the application (load models, textures, shaders, place objects in scene, set configurations, etc)
+    //      // TODO(caio)#API: This will require further refinement in core API (for mem alloc, file access, etc) but I'll do this whenever I have
+    //      // more relevant user land code
+    //      
+    //      // Application loop
+    //      while(!window.closed)
+    //      {
+    //          Ty::ProcessMessages(window);    // Poll and process any messages sent from OS to window
+    //          Ty::Update();                   // Update app state
+    //          Ty::Render();                   // Render app state
+    //          Ty::SwapBuffers(window);        // Swap backbuffers to render next frame
+    //      }
+    //
+    //      // Teardown previously initialized systems
+    //      Ty::DestroyRenderer();
+    //      
+    //      // Destroy window and finish application
+    //      Ty::DestroyWindow(&window);
+    //
+    //      return 0;
+    // }
 }
