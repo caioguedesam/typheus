@@ -5,8 +5,17 @@
 
 #define WINDOW_CLASS_NAME "WindowClass"
 
+bool shouldQuit = false;    // TODO(caio)#WINDOW: This has to be somehow related to the opened window.
+
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    switch(uMsg)
+    {
+    case WM_CLOSE:
+    {
+        shouldQuit = true;
+    } break;
+    }
     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 
@@ -141,6 +150,23 @@ void WindowDestroy(Window* window)
     DestroyWindow(window->handle);
 
     *window = {};
+}
+
+void WindowShow(Window* window)
+{
+    ShowWindow(window->handle, SW_SHOWNORMAL);
+}
+
+void WindowPollMessages(Window* window)
+{
+    MSG msg = {};
+    while(true)
+    {
+        i32 ret = PeekMessage(&msg, window->handle, 0, 0, PM_REMOVE);
+        ASSERT(ret >= 0);
+        if(!ret) break;
+        DispatchMessage(&msg);
+    }
 }
 
 void WindowSwapBuffers(Window* window)

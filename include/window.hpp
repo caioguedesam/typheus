@@ -14,4 +14,8 @@ struct Window
 Window WindowCreate(u32 width, u32 height, String title);
 void WindowInitGLContext(Window* window);
 void WindowDestroy(Window* window);
+
+void WindowShow(Window* window);
+
+void WindowPollMessages(Window* window);
 void WindowSwapBuffers(Window* window);

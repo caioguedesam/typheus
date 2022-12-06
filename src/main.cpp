@@ -24,39 +24,41 @@
 #define APP_NAME "Typheus"
 #define APP_WINDOWCLASS "TypheusWindowClass"
 
+void Update()
+{
+    UpdateInputState();
+
+    v2i pos = GetMousePosition();
+    v2f delta = GetMouseDelta();
+    if(delta.x < -EPSILON_F32 || delta.x > EPSILON_F32
+    || delta.y < -EPSILON_F32 || delta.y > EPSILON_F32)
+    {
+        printf("Cursor position: %d %d (%.2f,%.2f)\n", pos.x, pos.y, delta.x, delta.y);
+    }
+}
+
+void Render()
+{
+    glClearColor(1.f, 0.5f, 0.f, 1.f);
+    glClear(GL_COLOR_BUFFER_BIT);
+}
+
 // TODO(caio)#PLATFORM: This is a Windows only main.
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nCmdShow)
 {
     Window window = WindowCreate(800, 600, Str("Test window"));
     WindowInitGLContext(&window);
+    WindowShow(&window);
 
-    ShowWindow(window.handle, nCmdShow);
-
-    while(true)
+    while(!shouldQuit)
     {
-        // Message loop
-        MSG msg = {};
-        while(PeekMessage(&msg, window.handle, 0, 0, PM_REMOVE) > 0)
-        {
-            DispatchMessage(&msg);
-        }
-
-        // Update input
-        UpdateInputState();
-
-        v2i pos = GetMousePosition();
-        v2f delta = GetMouseDelta();
-        if(delta.x < -EPSILON_F32 || delta.x > EPSILON_F32
-        || delta.y < -EPSILON_F32 || delta.y > EPSILON_F32)
-        {
-            printf("Cursor position: %d %d (%.2f,%.2f)\n", pos.x, pos.y, delta.x, delta.y);
-        }
-
-        glClearColor(1.f, 0.5f, 0.f, 1.f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
+        WindowPollMessages(&window);
+        Update();
+        Render();
         WindowSwapBuffers(&window);
     }
+
+    WindowDestroy(&window);
 }
 
 int main()
