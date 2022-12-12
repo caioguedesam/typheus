@@ -1,4 +1,3 @@
-// TYPHEUS ENGINE - MATH
 #include <math.h>
 #include "math.hpp"
 

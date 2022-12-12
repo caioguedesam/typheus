@@ -1,4 +1,3 @@
-// CORE - WINDOW HANDLING
 #include "window.hpp"
 #include "glad/glad.h"
 #include "wglext.h"

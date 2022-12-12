@@ -1,4 +1,3 @@
-// TYPHEUS ENGINE - INPUT HANDLING
 #pragma once
 #include "math.hpp"
 // This uses OS specific types, since input is OS specific.

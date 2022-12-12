@@ -1,4 +1,3 @@
-// TYPHEUS ENGINE - FILE HANDLING
 #include "file.hpp"
 // This uses OS specific file handling functions.
 FilePath MakePath(String str)
@@ -147,17 +146,17 @@ u64 ReadFile(FilePath path, u8* buffer)
     return (u64)bytesRead;
 }
 
-Array ReadFile(MemArena* arena, FilePath path)
+Array<u8> ReadFile(MemArena* arena, FilePath path)
 {
     u64 fSize = GetFileSize(path);
-    Array result = ArrayInit(arena, u8, fSize);
+    Array<u8> result = ArrayAlloc<u8>(arena, fSize);
     u64 bytesRead = ReadFile(path, result.data);
     ASSERT(bytesRead == fSize);
     result.count = bytesRead;
     return result;
 }
 
-Array GetFilesAtDir(MemArena* arena, FilePath dir)
+Array<FilePath> GetFilesAtDir(MemArena* arena, FilePath dir)
 {
     ASSERT(PathExists(dir));
     ASSERT(IsDirectory(dir));
@@ -172,13 +171,13 @@ Array GetFilesAtDir(MemArena* arena, FilePath dir)
     fileHandle = FindFirstFile(ToCStr(queryStr), &fileData);
     ASSERT(fileHandle != INVALID_HANDLE_VALUE);
 
-    Array result = ArrayInit(arena, FilePath, 256);   // TODO(caio)#FILE: Currently fixed 256 string array for results. This will fail for any amount of files > 256.
+    Array<FilePath> result = ArrayAlloc<FilePath>(arena, 256);
     do
     {
         FilePath foundFile = MakePath(StrfAlloc(arena, "%s\\%s", ToCStr(dir.str), fileData.cFileName));
         if(!IsDirectory(foundFile))
         {
-            ArrayPush(result, FilePath, foundFile);
+            result.Push(foundFile);
         }
     } while(FindNextFile(fileHandle, &fileData));
 

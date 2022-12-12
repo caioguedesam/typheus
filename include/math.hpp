@@ -1,4 +1,3 @@
-// TYPHEUS ENGINE - MATH
 #pragma once
 //TODO(caio)#MATH: Math engine should have at least these types:
 //  v2f

@@ -1,4 +1,3 @@
-// TYPHEUS ENGINE
 // Project headers
 #include "base.hpp"
 #include "input.hpp"
@@ -21,8 +20,8 @@
 #include "input.cpp"
 #include "window.cpp"
 
-#define APP_NAME "Typheus"
-#define APP_WINDOWCLASS "TypheusWindowClass"
+#define APP_NAME "Solanum"
+#define APP_WINDOWCLASS "SolanumWindowClass"
 
 void Update()
 {
@@ -69,13 +68,13 @@ int main()
     // int main()
     // {
     //      // First, initialize core systems for OS
-    //      Ty::InitWin32();
+    //      Sol::InitWin32();
     //      
     //      // Then, create window to render on top of
-    //      Ty::Window window = Ty::CreateWindow(w, h, "name");
+    //      Sol::Window window = Sol::CreateWindow(w, h, "name");
     //
     //      // Initialize rendering with associated window (and possibly other systems)
-    //      Ty::InitRenderer(window);
+    //      Sol::InitRenderer(window);
     //
     //      // Create any kind of user defined stuffs for the application (load models, textures, shaders, place objects in scene, set configurations, etc)
     //      // TODO(caio)#API: This will require further refinement in core API (for mem alloc, file access, etc) but I'll do this whenever I have
@@ -84,17 +83,17 @@ int main()
     //      // Application loop
     //      while(!window.closed)
     //      {
-    //          Ty::ProcessMessages(window);    // Poll and process any messages sent from OS to window
-    //          Ty::Update();                   // Update app state
-    //          Ty::Render();                   // Render app state
-    //          Ty::SwapBuffers(window);        // Swap backbuffers to render next frame
+    //          Sol::ProcessMessages(window);    // Poll and process any messages sent from OS to window
+    //          Sol::Update();                   // Update app state
+    //          Sol::Render();                   // Render app state
+    //          Sol::SwapBuffers(window);        // Swap backbuffers to render next frame
     //      }
     //
     //      // Teardown previously initialized systems
-    //      Ty::DestroyRenderer();
+    //      Sol::DestroyRenderer();
     //      
     //      // Destroy window and finish application
-    //      Ty::DestroyWindow(&window);
+    //      Sol::DestroyWindow(&window);
     //
     //      return 0;
     // }

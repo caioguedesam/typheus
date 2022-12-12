@@ -1,4 +1,3 @@
-// TYPHEUS ENGINE - TIME AND COUNTERS
 #include "base.hpp" 
 #include "time.hpp"
 

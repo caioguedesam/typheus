@@ -1,4 +1,3 @@
-// TYPHEUS ENGINE - BASE LAYER
 #pragma once
 #include <windows.h>
 #include <stdint.h>
@@ -28,9 +27,9 @@ typedef double      f64;
 #define EPSILON_F32 FLT_EPSILON
 #define EPSILON_F64 DBL_EPSILON
 
-#define KB(V) (V) * 1024
-#define MB(V) KB(V) * 1024
-#define GB(V) MB(V) * 1024
+#define KB(V) ((V)   * 1024)
+#define MB(V) (KB(V) * 1024)
+#define GB(V) (MB(V) * 1024)
 
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
@@ -98,47 +97,56 @@ void* MemAllocAlignZero(MemArena* arena, u64 size, u64 alignment);
 void  MemFree(MemArena* arena, u64 size);
 void  MemClear(MemArena* arena);
 
-// Arena macros
-// Helpers to allocate arrays in arenas
-#define PushArray(arena, type, count) (type*)MemAlloc((arena), sizeof(type) * (count))
-#define PushArrayZero(arena, type, count) (type*)MemAllocZero((arena), sizeof(type) * (count))
-#define PushArrayAlign(arena, type, count, alignment) (type*)MemAllocAlign((arena), sizeof(type) * (count), (alignment))
-#define PushArrayAlignZero(arena, type, count, alignment) (type*)MemAllocAlignZero((arena), sizeof(type) * (count), (alignment))
-
-// Helpers to allocate structs in arenas
-#define PushStruct(arena, type) PushArray((arena), (type), 1)
-#define PushStructZero(arena, type) PushArrayZero((arena), (type), 1)
-#define PushStructAlign(arena, type) PushArrayAlign((arena), (type), 1)
-#define PushStructZeroAlign(arena, type) PushArrayAlignZero((arena), (type), 1)
-
+// [ARRAY]
+template<typename T>
 struct Array
 {
-    u8* data = 0;
+    T* data = 0;
     u64 count = 0;
     u64 capacity = 0;
+
+    T& operator[](u64 i)
+    {
+        ASSERT(i < count);
+        return data[i];
+    }
+
+    void Push(const T& value)
+    {
+        ASSERT(count + 1 <= capacity);
+        data[count] = value;
+        count++;
+    }
+
+    u64 Size()
+    {
+        return count * sizeof(T);
+    }
 };
 
-Array ArrayInit_(MemArena* arena, u64 capacity, u64 alignment = 0);
-Array ArrayInitZero_(MemArena* arena, u64 capacity, u64 alignment = 0);
-#define ArrayInit(arena, type, capacity) (ArrayInit_((arena), (capacity)))
-#define ArrayInitAlign(arena, type, capacity, alignment) (ArrayInit_((arena), (capacity), (alignment)))
-#define ArrayInitZero(arena, type, capacity) (ArrayInitZero_((arena), (capacity)))
-#define ArrayInitZeroAlign(arena, type, capacity, alignment) (ArrayInitZero_((arena), (capacity), (alignment)))
+template<typename T>
+Array<T> ArrayAlloc(MemArena* arena, u64 capacity, u64 alignment = 0)
+{
+    Array<T> result;
+    result.capacity = capacity;
+    result.count = 0;
+    result.data = alignment ?
+        (T*)MemAllocAlign(arena, capacity * sizeof(T), alignment) :
+        (T*)MemAlloc(arena, capacity * sizeof(T));
+    return result;
+}
 
-#define ArrayGet(array, type, index, out) STMT(\
-            ASSERT((index) < (array).count);\
-            ASSERT((out));\
-            *(out) = ((type*)(array).data)[(index)];\
-        )
-#define ArraySet(array, type, index, value) STMT(\
-            ASSERT((index) < (array).count);\
-            ((type*)(array).data)[(index)] = (value);\
-        )
-#define ArrayPush(array, type, value) STMT(\
-            ASSERT((array).count + 1 <= (array).capacity);\
-            ((type*)(array).data)[(array).count] = (value);\
-            (array).count += 1;\
-        )
+template<typename T>
+Array<T> ArrayAllocZero(MemArena* arena, u64 capacity, u64 alignment = 0)
+{
+    Array<T> result;
+    result.capacity = capacity;
+    result.count = 0;
+    result.data = alignment ?
+        (T*)MemAllocAlignZero(arena, capacity * sizeof(T), alignment) :
+        (T*)MemAllocZero(arena, capacity * sizeof(T));
+    return result;
+}
 
 // [RANDOM]
 u64 RandomU64();
@@ -183,4 +191,4 @@ String StrSubstr(String str, u64 start, u64 n);
 i64 StrFind(String haystack, String needle);
 i64 StrFindR(String haystack, String needle);
 
-Array StrSplit(MemArena* arena, String str, char delim = ' ');
+Array<String> StrSplit(MemArena* arena, String str, char delim = ' ');

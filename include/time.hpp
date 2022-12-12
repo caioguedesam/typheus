@@ -1,4 +1,3 @@
-// TYPHEUS ENGINE - TIME AND COUNTERS
 #pragma once
 #include "base.hpp"
 

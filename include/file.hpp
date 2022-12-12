@@ -22,7 +22,7 @@ String GetFileDir(FilePath path);
 u64 GetFileSize(FilePath path);
 
 u64 ReadFile(FilePath path, u8* buffer);
-Array ReadFile(MemArena* arena, FilePath path);
+Array<u8> ReadFile(MemArena* arena, FilePath path);
 //u64 WriteFile(FilePath path, u8* data);   // TODO(caio)#FILE: I don't need this for now, implement whenever needed.
 
-Array GetFilesAtDir(MemArena* arena, FilePath dir);
+Array<FilePath> GetFilesAtDir(MemArena* arena, FilePath dir);

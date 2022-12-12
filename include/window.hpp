@@ -1,4 +1,3 @@
-// CORE - WINDOW HANDLING
 #pragma once
 #include "base.hpp"
 

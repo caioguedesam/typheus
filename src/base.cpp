@@ -1,4 +1,3 @@
-// TYPHEUS ENGINE - BASE LAYER
 #include "base.hpp"
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,9 +31,11 @@ void* MemAlloc(MemArena* arena, u64 size)
 
 void* MemAllocAlign(MemArena* arena, u64 size, u64 alignment)
 {
-    ASSERT(ALIGN_TO(arena->offset, alignment) + size <= arena->capacity);
-    arena->offset = ALIGN_TO(arena->offset, alignment);
-    ASSERT(IS_ALIGNED(arena->offset, alignment));
+    u64 alignedOffset = ALIGN_TO((u64)arena->start + arena->offset, alignment) - (u64)arena->start;
+    ASSERT(IS_ALIGNED((u64)arena->start + alignedOffset, alignment));
+    ASSERT(alignedOffset + size <= arena->capacity);
+    arena->offset = alignedOffset;
+
     u8* result = arena->start + arena->offset;
     arena->offset += size;
     return result;
@@ -51,8 +52,11 @@ void* MemAllocZero(MemArena* arena, u64 size)
 
 void* MemAllocAlignZero(MemArena* arena, u64 size, u64 alignment)
 {
-    ASSERT(ALIGN_TO(arena->offset, alignment) + size <= arena->capacity);
-    arena->offset = ALIGN_TO(arena->offset, alignment);
+    u64 alignedOffset = ALIGN_TO((u64)arena->start + arena->offset, alignment) - (u64)arena->start;
+    ASSERT(IS_ALIGNED((u64)arena->start + alignedOffset, alignment));
+    ASSERT(alignedOffset + size <= arena->capacity);
+    arena->offset = alignedOffset;
+
     u8* result = arena->start + arena->offset;
     arena->offset += size;
     memset(result, 0, size);
@@ -67,30 +71,6 @@ void MemFree(MemArena* arena, u64 size)
 void MemClear(MemArena* arena)
 {
     arena->offset = 0;
-}
-
-Array ArrayInit_(MemArena* arena, u64 capacity, u64 alignment)
-{
-    Array result;
-    result.capacity = capacity;
-    result.count = 0;
-    result.data = alignment ?
-        (u8*)MemAllocAlign(arena, capacity, alignment) :
-        (u8*)MemAlloc(arena, capacity);
-
-    return result;
-}
-
-Array ArrayInitZero_(MemArena* arena, u64 capacity, u64 alignment)
-{
-    Array result;
-    result.capacity = capacity;
-    result.count = 0;
-    result.data = alignment ?
-        (u8*)MemAllocAlignZero(arena, capacity, alignment) :
-        (u8*)MemAllocZero(arena, capacity);
-
-    return result;
 }
 
 u64 RandomU64()
@@ -330,7 +310,7 @@ i64 StrFindR(String haystack, String needle)
     return match;
 }
 
-Array StrSplit(MemArena* arena, String str, char delim)
+Array<String> StrSplit(MemArena* arena, String str, char delim)
 {
     // Iterate once to find array size to allocate.
     i64 splitCount = 0;
@@ -339,11 +319,11 @@ Array StrSplit(MemArena* arena, String str, char delim)
         if(str.data[i] == delim) splitCount++;
     }
 
-    Array result = ArrayInit(arena, String, splitCount + 1);
+    Array<String> result = ArrayAlloc<String>(arena, splitCount + 1);
     // Didn't find delimiter char, so just return original string.
     if(splitCount == 0)
     {
-        ArrayPush(result, String, str);
+        result.Push(str);
         return result;
     }
 
@@ -355,12 +335,12 @@ Array StrSplit(MemArena* arena, String str, char delim)
         {
             u64 splitLen = (u64)(i - lastSplit);
             String split = { str.data + lastSplit, splitLen };
-            ArrayPush(result, String, split);
+            result.Push(split);
             lastSplit = i + 1;
         }
     }
     String last = { str.data + lastSplit, str.len - lastSplit };
-    ArrayPush(result, String, last);
+    result.Push(last);
 
     return result;
 }

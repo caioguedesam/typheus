@@ -1,4 +1,3 @@
-// TYPHEUS ENGINE - INPUT HANDLING
 #include "input.hpp"
 
 InputState currentState;
