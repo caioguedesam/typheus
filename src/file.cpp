@@ -1,4 +1,8 @@
 #include "file.hpp"
+
+namespace Sol
+{
+
 // This uses OS specific file handling functions.
 FilePath MakePath(String str)
 {
@@ -111,7 +115,7 @@ u64 GetFileSize(FilePath path)
             FILE_ATTRIBUTE_NORMAL,
             NULL);
     ASSERT(hFile != INVALID_HANDLE_VALUE);
-    DWORD fSize = GetFileSize(hFile, NULL);
+    DWORD fSize = ::GetFileSize(hFile, NULL);
     ASSERT(fSize != INVALID_FILE_SIZE);
     CloseHandle(hFile);
     return (u64)fSize;
@@ -131,10 +135,10 @@ u64 ReadFile(FilePath path, u8* buffer)
             FILE_ATTRIBUTE_NORMAL,
             NULL);
     ASSERT(hFile != INVALID_HANDLE_VALUE);
-    DWORD fSize = GetFileSize(hFile, NULL);
+    DWORD fSize = ::GetFileSize(hFile, NULL);
     ASSERT(fSize != INVALID_FILE_SIZE);
     DWORD bytesRead = 0;
-    BOOL ret = ReadFile(
+    BOOL ret = ::ReadFile(
             hFile,
             buffer,
             fSize,
@@ -183,3 +187,5 @@ Array<FilePath> GetFilesAtDir(MemArena* arena, FilePath dir)
 
     return result;
 }
+
+}   // namespace Sol

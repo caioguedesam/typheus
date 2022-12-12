@@ -3,6 +3,9 @@
 #include <string.h>
 #include <intrin.h>
 
+namespace Sol
+{
+
 void Assert(u64 expr, const char* msg)
 {
     if(expr) return;
@@ -375,13 +378,4 @@ Array<String> StrSplit(MemArena* arena, String str, char delim)
     return result;
 }
 
-
-
-
-
-
-
-
-
-
-
+}   // namespace Sol

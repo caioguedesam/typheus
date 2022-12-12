@@ -2,6 +2,9 @@
 #include "glad/glad.h"
 #include "wglext.h"
 
+namespace Sol
+{
+
 #define WINDOW_CLASS_NAME "WindowClass"
 
 bool shouldQuit = false;    // TODO(caio)#WINDOW: This has to be somehow related to the opened window.
@@ -172,3 +175,5 @@ void WindowSwapBuffers(Window* window)
 {
     SwapBuffers(window->deviceContext);
 }
+
+}   // namespace Sol

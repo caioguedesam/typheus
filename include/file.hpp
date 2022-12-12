@@ -1,7 +1,8 @@
-// TYPHEUS ENGINE - FILE HANDLING
 #pragma once
 #include "base.hpp"
 
+namespace Sol
+{
 // FilePath type is currently just a wrapper to cstr.
 struct FilePath
 {
@@ -26,3 +27,5 @@ Array<u8> ReadFile(MemArena* arena, FilePath path);
 //u64 WriteFile(FilePath path, u8* data);   // TODO(caio)#FILE: I don't need this for now, implement whenever needed.
 
 Array<FilePath> GetFilesAtDir(MemArena* arena, FilePath dir);
+
+}   // namespace Sol

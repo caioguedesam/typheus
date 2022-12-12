@@ -1,5 +1,8 @@
 #include "input.hpp"
 
+namespace Sol
+{
+
 InputState currentState;
 InputState lastState;
 
@@ -59,3 +62,5 @@ v2f GetMouseDelta()
     v2f lastPos = {(f32)lastState.mouse.pos.x, (f32)lastState.mouse.pos.y};
     return Normalize(currentPos - lastPos);
 }
+
+}   // namespace Sol

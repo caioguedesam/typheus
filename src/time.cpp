@@ -1,6 +1,9 @@
 #include "base.hpp" 
 #include "time.hpp"
 
+namespace Sol
+{
+
 u64 clockFrequency = TIMER_INVALID;
 
 void InitTime()
@@ -53,3 +56,4 @@ f64 GetTime_S(const Timer& timer)
     return (f64)GetTicks(timer) / (f64)clockFrequency;
 }
 
+} // namespace Sol

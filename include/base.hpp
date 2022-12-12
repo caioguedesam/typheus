@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <float.h>
 
+namespace Sol
+{
+
 // [BASE TYPES]
 typedef int8_t      i8;
 typedef int16_t     i16;
@@ -187,3 +190,5 @@ i64 StrFind(String haystack, String needle);
 i64 StrFindR(String haystack, String needle);
 
 Array<String> StrSplit(MemArena* arena, String str, char delim = ' ');
+
+}   // namespace Sol

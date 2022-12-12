@@ -1,6 +1,9 @@
 #include <math.h>
 #include "math.hpp"
 
+namespace Sol
+{
+
 bool operator==(const v2f& a, const v2f& b)
 {
     return a.x == b.x && a.y == b.y;
@@ -579,3 +582,4 @@ v3f Lerp(const v3f& a, const v3f& b, const f32& t)
     };
 }
 
+}   // namespace Sol

@@ -23,6 +23,8 @@
 #define APP_NAME "Solanum"
 #define APP_WINDOWCLASS "SolanumWindowClass"
 
+using namespace Sol;
+
 void Update()
 {
     UpdateInputState();

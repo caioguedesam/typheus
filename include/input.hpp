@@ -1,5 +1,8 @@
 #pragma once
 #include "math.hpp"
+namespace Sol
+{
+
 // This uses OS specific types, since input is OS specific.
 
 // All virtual keys supported. These map directly to Win32 virtual key codes.
@@ -81,3 +84,5 @@ bool IsKeyJustUp(InputKey key);
 
 v2i GetMousePosition();
 v2f GetMouseDelta();
+
+}   // namespace Sol
