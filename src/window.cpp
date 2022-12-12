@@ -7,27 +7,23 @@ namespace Sol
 
 #define WINDOW_CLASS_NAME "WindowClass"
 
-bool shouldQuit = false;    // TODO(caio)#WINDOW: This has to be somehow related to the opened window.
-
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    Window* window = (Window*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
     switch(uMsg)
     {
     case WM_CLOSE:
     {
-        shouldQuit = true;
+        window->shouldClose = true;
     } break;
     }
     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 
-Window WindowCreate(u32 width, u32 height, String title)
+Window* WindowCreate(MemArena* arena, u32 width, u32 height, String title)
 {
     // Creating and registering window class
-    static bool registeredWindowClass = false;
-    if(!registeredWindowClass)
     {
-        registeredWindowClass = true;
         WNDCLASSA windowClass = {};
         windowClass.style = CS_VREDRAW | CS_HREDRAW | CS_OWNDC;
         windowClass.lpszClassName = WINDOW_CLASS_NAME;
@@ -37,8 +33,8 @@ Window WindowCreate(u32 width, u32 height, String title)
         RegisterClassA(&windowClass);
     }
 
-    Window result = {};
-    result.handle = CreateWindowEx(
+    Window* result = (Window*)MemAlloc(arena, sizeof(Window));
+    result->handle = CreateWindowEx(
             0,
             WINDOW_CLASS_NAME,
             ToCStr(title),
@@ -50,10 +46,13 @@ Window WindowCreate(u32 width, u32 height, String title)
             NULL, NULL,
             GetModuleHandle(NULL),
             NULL);
-    ASSERT(result.handle);
+    ASSERT(result->handle);
 
-    result.deviceContext = GetDC(result.handle);
-    ASSERT(result.deviceContext);
+    // Passing Window instance to WindowProc
+    SetWindowLongPtr(result->handle, GWLP_USERDATA, (LONG_PTR)result);
+
+    result->deviceContext = GetDC(result->handle);
+    ASSERT(result->deviceContext);
 
     PIXELFORMATDESCRIPTOR pfd =
 	{
@@ -74,8 +73,8 @@ Window WindowCreate(u32 width, u32 height, String title)
 	    0,
 	    0, 0, 0
 	};
-    i32 ret = SetPixelFormat(result.deviceContext,
-            ChoosePixelFormat(result.deviceContext, &pfd),
+    i32 ret = SetPixelFormat(result->deviceContext,
+            ChoosePixelFormat(result->deviceContext, &pfd),
             &pfd);
 
     return result;
@@ -102,12 +101,14 @@ void WindowInitGLContext(Window* window)
 
     // Win32 requires us to create a legacy OpenGL context before creating
     // an OpenGL context with the desired version (4.6)
-    Window tempWindow = WindowCreate(0,0,Str(""));
+    MemArena tempArena;
+    MemArenaInit(&tempArena, sizeof(Window));
+    Window* tempWindow = WindowCreate(&tempArena, 0,0,Str(""));
 
-    tempWindow.glContext = wglCreateContext(tempWindow.deviceContext);
-    ASSERT(tempWindow.glContext);
+    tempWindow->glContext = wglCreateContext(tempWindow->deviceContext);
+    ASSERT(tempWindow->glContext);
 
-    i32 ret = wglMakeCurrent(tempWindow.deviceContext, tempWindow.glContext);
+    i32 ret = wglMakeCurrent(tempWindow->deviceContext, tempWindow->glContext);
     ASSERT(ret);
 
     ret = gladLoadGLLoader((GLADloadproc)GLGetProc);
@@ -124,7 +125,8 @@ void WindowInitGLContext(Window* window)
     PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC)wglGetProcAddress("wglCreateContextAttribsARB");
     ASSERT(wglCreateContextAttribsARB);
 
-    WindowDestroy(&tempWindow);
+    WindowDestroy(tempWindow);
+    MemArenaDestroy(&tempArena);
 
     window->glContext = wglCreateContextAttribsARB(window->deviceContext, NULL, attributeList);
     ASSERT(window->glContext);

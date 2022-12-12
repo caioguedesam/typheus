@@ -11,9 +11,11 @@ struct Window
     HWND handle;
     HDC deviceContext;
     HGLRC glContext;
+
+    bool shouldClose = false;
 };
 
-Window WindowCreate(u32 width, u32 height, String title);
+Window* WindowCreate(MemArena* arena, u32 width, u32 height, String title);
 void WindowInitGLContext(Window* window);
 void WindowDestroy(Window* window);
 

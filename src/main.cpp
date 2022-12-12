@@ -29,13 +29,11 @@ void Update()
 {
     UpdateInputState();
 
-    v2i pos = GetMousePosition();
-    v2f delta = GetMouseDelta();
-    if(delta.x < -EPSILON_F32 || delta.x > EPSILON_F32
-    || delta.y < -EPSILON_F32 || delta.y > EPSILON_F32)
-    {
-        printf("Cursor position: %d %d (%.2f,%.2f)\n", pos.x, pos.y, delta.x, delta.y);
-    }
+    // Test logging
+    LOG("test log 1");
+    LOGF("test log 2 %d %f", 3, 4.2f);
+    LOGL("label", "test log 3");
+    LOGLF("label", "test log 4 %d %s", 10, "hello");
 }
 
 void Render()
@@ -47,19 +45,20 @@ void Render()
 // TODO(caio)#PLATFORM: This is a Windows only main.
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nCmdShow)
 {
-    Window window = WindowCreate(800, 600, Str("Test window"));
-    WindowInitGLContext(&window);
-    WindowShow(&window);
+    MemArena arena;
+    MemArenaInit(&arena, MB(1));
+    Window* window = WindowCreate(&arena, 800, 600, Str("Test window"));
+    WindowInitGLContext(window);
+    WindowShow(window);
 
-    while(!shouldQuit)
-    {
-        WindowPollMessages(&window);
+    while(!window->shouldClose) {
+        WindowPollMessages(window);
         Update();
         Render();
-        WindowSwapBuffers(&window);
+        WindowSwapBuffers(window);
     }
 
-    WindowDestroy(&window);
+    WindowDestroy(window);
 }
 
 int main()

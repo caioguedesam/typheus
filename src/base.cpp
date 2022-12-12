@@ -6,6 +6,8 @@
 namespace Sol
 {
 
+#define SOL_FMT_BUFFER_SIZE 2048
+
 void Assert(u64 expr, const char* msg)
 {
     if(expr) return;
@@ -23,7 +25,7 @@ void AssertFormat(u64 expr, const char* fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    char buf[1024];
+    char buf[SOL_FMT_BUFFER_SIZE];
     vsprintf(buf, fmt, args);
     if(expr) return;
     MessageBoxExA(
@@ -35,6 +37,16 @@ void AssertFormat(u64 expr, const char* fmt, ...)
     va_end(args);
     DebugBreak();
     ExitProcess(-1);
+}
+
+void LogFormat(const char* label, const char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    char buf[SOL_FMT_BUFFER_SIZE];
+    vsprintf(buf, fmt, args);
+    printf("[%s]: %s\n", label, buf);
+    va_end(args);
 }
 
 void MemArenaInit(MemArena* arena, u64 capacity)

@@ -63,6 +63,21 @@ void AssertFormat(u64 expr, const char* fmt, ...);
 #define ASSERTF(EXPR, FMT, ...) STMT(AssertFormat((i32)(EXPR), FMT, __VA_ARGS__))
 #endif
 
+// [LOGGING]
+
+#if _NO_LOG
+#define LOG(MSG)
+#define LOGL(LABEL, MSG)
+#define LOGF(MSG, ...)
+#define LOGLF(LABEL, MSG, ...)
+#else
+void LogFormat(const char* label, const char* fmt, ...);
+#define LOG(MSG) STMT(LogFormat("LOG", "%s", MSG))
+#define LOGL(LABEL, MSG) STMT(LogFormat(LABEL, "%s", MSG))
+#define LOGF(FMT, ...) STMT(LogFormat("LOG", FMT, __VA_ARGS__))
+#define LOGLF(LABEL, FMT, ...) STMT(LogFormat(LABEL, FMT, __VA_ARGS__))
+#endif
+
 // [PROFILING]
 #if _PROFILE
 #include "tracy/Tracy.hpp"
