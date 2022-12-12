@@ -10,7 +10,7 @@ FilePath GetAbsolutePath(FilePath relPath, u8* buffer, u64 size)
 {
     ASSERT(PathExists(relPath));
     DWORD ret = GetFullPathName(
-            (char*)relPath.str.data,
+            ToCStr(relPath.str),
             size, (char*)buffer, NULL);
     ASSERT(ret);
     return MakePath(Str(buffer, ret));

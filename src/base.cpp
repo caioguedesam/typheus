@@ -1,8 +1,38 @@
 #include "base.hpp"
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <intrin.h>
+
+void Assert(u64 expr, const char* msg)
+{
+    if(expr) return;
+    MessageBoxExA(
+            NULL,
+            msg,
+            "FAILED ASSERT",
+            MB_OK,
+            0);
+    DebugBreak();
+    ExitProcess(-1);
+}
+
+void AssertFormat(u64 expr, const char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    char buf[1024];
+    vsprintf(buf, fmt, args);
+    if(expr) return;
+    MessageBoxExA(
+            NULL,
+            buf,
+            "FAILED ASSERT",
+            MB_OK,
+            0);
+    va_end(args);
+    DebugBreak();
+    ExitProcess(-1);
+}
 
 void MemArenaInit(MemArena* arena, u64 capacity)
 {

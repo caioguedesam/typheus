@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <stdint.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <float.h>
 
 // [BASE TYPES]
@@ -50,19 +51,13 @@ typedef double      f64;
 // [ASSERT]
 #if _NO_ASSERT
 #define ASSERT(EXPR)
+#define ASSERTF(EXPR, ...)
 #else
-#define ASSERT(EXPR) STMT(\
-    if(!(EXPR)) {\
-        MessageBoxExA(\
-                NULL,\
-                STRINGIFY(EXPR),\
-                "FAILED ASSERT",\
-                MB_OK,\
-                0);\
-        DebugBreak();\
-        ExitProcess(-1);\
-    }\
-    )
+void Assert(u64 expr, const char* msg);
+void AssertFormat(u64 expr, const char* fmt, ...);
+
+#define ASSERT(EXPR) STMT(Assert((u64)(EXPR), STRINGIFY(EXPR)))
+#define ASSERTF(EXPR, FMT, ...) STMT(AssertFormat((i32)(EXPR), FMT, __VA_ARGS__))
 #endif
 
 // [PROFILING]

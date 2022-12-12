@@ -1,25 +1,4 @@
 #pragma once
-//TODO(caio)#MATH: Math engine should have at least these types:
-//  v2f
-//  v3f
-//  v4f
-//  v2i
-//  m4f
-//
-//  And should have at least these functions:
-//  dot
-//  cross
-//  lerp
-//  min
-//  max
-//  clamp
-//  to degrees/radians
-//
-//  For matrices:
-//  transpose
-//  inverse
-//  determinant
-
 #include "base.hpp"
 
 // Math defines
@@ -91,7 +70,6 @@ v3f operator-(const v3f& a, const v3f& b);
 v3f operator*(const v3f& a, const v3f& b);
 v3f operator*(const v3f& a, const f32& b);
 v3f operator*(const f32& a, const v3f& b);
-
 f32 Dot(const v3f& a, const v3f& b);
 v3f Cross(const v3f& a, const v3f& b);
 f32 Len2(const v3f& v);
@@ -124,6 +102,8 @@ f32 Dot(const v4f& a, const v4f& b);
 f32 Len2(const v4f& v);
 f32 Len(const v4f& v);
 v4f Normalize(const v4f& v);
+
+// TODO(caio)#MATH: Implement quaternion type
 
 // Matrix4f (f32, row-major)    // TODO(caio)#MATH: Test and profile row/column major perf
 struct m4f
@@ -166,4 +146,3 @@ m4f PerspectiveProjectionMatrix(const f32& fovY, const f32& aspectRatio, const f
 f32 Lerp(const f32& a, const f32& b, const f32& t);
 v2f Lerp(const v2f& a, const v2f& b, const f32& t);
 v3f Lerp(const v3f& a, const v3f& b, const f32& t);
-
