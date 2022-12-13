@@ -1,5 +1,5 @@
-#include "base.hpp" 
-#include "time.hpp"
+#include "core/base.hpp" 
+#include "core/time.hpp"
 
 namespace Sol
 {

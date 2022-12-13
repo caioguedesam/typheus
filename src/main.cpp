@@ -1,7 +1,7 @@
 // Project headers
-#include "base.hpp"
-#include "input.hpp"
-#include "window.hpp"
+#include "core/base.hpp"
+#include "core/input.hpp"
+#include "core/window.hpp"
 #include <stdio.h>
 
 // Compiling just one file to dramatically speed up compile times
@@ -13,12 +13,12 @@
 #endif
 
 // Project files
-#include "base.cpp"
-#include "time.cpp"
-#include "math.cpp"
-#include "file.cpp"
-#include "input.cpp"
-#include "window.cpp"
+#include "core/base.cpp"
+#include "core/time.cpp"
+#include "core/math.cpp"
+#include "core/file.cpp"
+#include "core/input.cpp"
+#include "core/window.cpp"
 
 #define APP_NAME "Solanum"
 #define APP_WINDOWCLASS "SolanumWindowClass"

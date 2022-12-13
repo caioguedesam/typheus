@@ -1,5 +1,5 @@
 #include <math.h>
-#include "math.hpp"
+#include "core/math.hpp"
 
 namespace Sol
 {
