@@ -95,7 +95,28 @@ void* GLGetProc(const char* fn)
     return proc;
 }
 
-void WindowInitGLContext(Window* window)
+void WindowDestroy(Window* window)
+{
+    // Destroy openGL context
+    if(window->glContext)
+    {
+        wglMakeCurrent(NULL, NULL);
+        wglDeleteContext(window->glContext);
+    }
+
+    // Destroying device context
+    if(window->deviceContext)
+    {
+        DeleteDC(window->deviceContext);
+    }
+
+    // Destroying window
+    DestroyWindow(window->handle);
+
+    *window = {};
+}
+
+void InitGLContext(Window* window)
 {
     ASSERT(!window->glContext);
 
@@ -135,33 +156,13 @@ void WindowInitGLContext(Window* window)
     ASSERT(ret);
 }
 
-void WindowDestroy(Window* window)
-{
-    // Destroy openGL context
-    if(window->glContext)
-    {
-        wglMakeCurrent(NULL, NULL);
-        wglDeleteContext(window->glContext);
-    }
-
-    // Destroying device context
-    if(window->deviceContext)
-    {
-        DeleteDC(window->deviceContext);
-    }
-
-    // Destroying window
-    DestroyWindow(window->handle);
-
-    *window = {};
-}
-
 void WindowShow(Window* window)
 {
+    ASSERT(window->handle && window->deviceContext && window->glContext);
     ShowWindow(window->handle, SW_SHOWNORMAL);
 }
 
-void WindowPollMessages(Window* window)
+void ProcessMessages(Window* window)
 {
     MSG msg = {};
     while(true)
@@ -173,7 +174,7 @@ void WindowPollMessages(Window* window)
     }
 }
 
-void WindowSwapBuffers(Window* window)
+void SwapBuffers(Window* window)
 {
     SwapBuffers(window->deviceContext);
 }

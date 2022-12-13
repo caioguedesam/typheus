@@ -16,12 +16,11 @@ struct Window
 };
 
 Window* WindowCreate(MemArena* arena, u32 width, u32 height, String title);
-void WindowInitGLContext(Window* window);
-void WindowDestroy(Window* window);
+void    WindowDestroy(Window* window);
+void    InitGLContext(Window* window);
 
 void WindowShow(Window* window);
-
-void WindowPollMessages(Window* window);
-void WindowSwapBuffers(Window* window);
+void ProcessMessages(Window* window);
+void SwapBuffers(Window* window);
 
 }   // namespace Sol

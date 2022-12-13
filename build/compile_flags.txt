@@ -1,5 +1,6 @@
--std=c++14
+-std=c++17
 -I../include/
+-I../src/
 -I../dependencies/tracy/
 -I../dependencies/glad/
 -I../dependencies/WGL/
