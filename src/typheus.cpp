@@ -3,20 +3,23 @@
 namespace Ty
 {
 
-void InitPlatform()
+void InitApp(u32 windowWidth, u32 windowHeight, const char* appTitle)
 {
-    // Initialize memory arenas
+    // Initializing memory arenas
     MemArenaInit(&memArena_Perm, MB(1));
     MemArenaInit(&memArena_Frame, MB(1));
 
-    // Initialize engine systems
+    // Initializing engine systems
     InitTime();
-}
 
-void InitRenderer(Window* window)
-{
-    // Start OpenGL context
-    InitGLContext(window);
+    // Creating window and rendering context
+    appWindow = WindowCreate(&memArena_Perm, windowWidth, windowHeight, Str(appTitle));
+
+    // Initialize rendering system
+    InitRenderer(appWindow);
+
+    // Display window
+    WindowShow(appWindow);
 }
 
 void Update()
@@ -28,14 +31,12 @@ void Update()
     UpdateInputState();
 }
 
-void Render()
+void DestroyApp()
 {
-    glClearColor(1.f, 0.5f, 0.f, 1.f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    // Destroy app window
+    WindowDestroy(appWindow);
+
+    // TODO(caio)#PLATFORM: Do I need to destroy more stuff? Maybe not
 }
-
-void DestroyPlatform() {}
-
-void DestroyRenderer() {}
 
 } // namespace Ty

@@ -16,19 +16,19 @@
 #include "core/input.cpp"
 #include "core/window.cpp"
 
+#include "render/renderer.cpp"
+
 namespace Ty
 {
 
 inline MemArena memArena_Perm;
 inline MemArena memArena_Frame;
+inline Window* appWindow;
 
-void InitPlatform();
-void InitRenderer(Window* window);
+void InitApp(u32 windowWidth, u32 windowHeight, const char* appTitle);
 
 void Update();
-void Render();
 
-void DestroyPlatform();
-void DestroyRenderer();
+void DestroyApp();
 
 } // namespace Ty

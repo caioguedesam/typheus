@@ -4,22 +4,17 @@
 // TODO(caio)#PLATFORM: This is a Windows only main.
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nCmdShow)
 {
-    Ty::InitPlatform();
-    Ty::Window* window = Ty::WindowCreate(&Ty::memArena_Perm, 800, 600, Ty::Str("TestApp"));
-    Ty::InitRenderer(window);
-    Ty::WindowShow(window);
+    Ty::InitApp(800, 600, "TestApp");
 
-    while(!window->shouldClose)
+    while(!Ty::appWindow->shouldClose)
     {
-        Ty::ProcessMessages(window);
+        Ty::ProcessMessages(Ty::appWindow);
         Ty::Update();
-        Ty::Render();
-        Ty::SwapBuffers(window);
+        Ty::RenderFrame();
+        Ty::SwapBuffers(Ty::appWindow);
     }
 
-    Ty::WindowDestroy(window);
-    Ty::DestroyRenderer();
-    Ty::DestroyPlatform();
+    Ty::DestroyApp();
 }
 
 int main()
