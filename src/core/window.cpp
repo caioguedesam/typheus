@@ -2,7 +2,7 @@
 #include "glad/glad.h"
 #include "wglext.h"
 
-namespace Sol
+namespace Ty
 {
 
 #define WINDOW_CLASS_NAME "WindowClass"
@@ -179,4 +179,4 @@ void SwapBuffers(Window* window)
     SwapBuffers(window->deviceContext);
 }
 
-}   // namespace Sol
+}   // namespace Ty

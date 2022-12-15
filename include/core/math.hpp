@@ -1,7 +1,7 @@
 #pragma once
 #include "core/base.hpp"
 
-namespace Sol
+namespace Ty
 {
 
 // Math defines
@@ -150,4 +150,4 @@ f32 Lerp(const f32& a, const f32& b, const f32& t);
 v2f Lerp(const v2f& a, const v2f& b, const f32& t);
 v3f Lerp(const v3f& a, const v3f& b, const f32& t);
 
-}   // namespace Sol
+}   // namespace Ty

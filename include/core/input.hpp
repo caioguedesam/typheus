@@ -1,6 +1,6 @@
 #pragma once
 #include "core/math.hpp"
-namespace Sol
+namespace Ty
 {
 
 // This uses OS specific types, since input is OS specific.
@@ -85,4 +85,4 @@ bool IsKeyJustUp(InputKey key);
 v2i GetMousePosition();
 v2f GetMouseDelta();
 
-}   // namespace Sol
+}   // namespace Ty

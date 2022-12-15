@@ -1,6 +1,6 @@
 #include "core/input.hpp"
 
-namespace Sol
+namespace Ty
 {
 
 InputState currentState;
@@ -63,4 +63,4 @@ v2f GetMouseDelta()
     return Normalize(currentPos - lastPos);
 }
 
-}   // namespace Sol
+}   // namespace Ty

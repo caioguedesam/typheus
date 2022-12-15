@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <float.h>
 
-namespace Sol
+namespace Ty
 {
 
 // [BASE TYPES]
@@ -206,4 +206,4 @@ i64 StrFindR(String haystack, String needle);
 
 Array<String> StrSplit(MemArena* arena, String str, char delim = ' ');
 
-}   // namespace Sol
+}   // namespace Ty

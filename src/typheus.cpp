@@ -1,6 +1,6 @@
-#include "solanum.hpp"
+#include "typheus.hpp"
 
-namespace Sol
+namespace Ty
 {
 
 void InitPlatform()
@@ -38,4 +38,4 @@ void DestroyPlatform() {}
 
 void DestroyRenderer() {}
 
-} // namespace Sol
+} // namespace Ty

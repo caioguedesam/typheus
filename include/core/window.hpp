@@ -1,7 +1,7 @@
 #pragma once
 #include "core/base.hpp"
 
-namespace Sol
+namespace Ty
 {
 
 // This currently supports: Win32 windows, with OpenGL context.
@@ -23,4 +23,4 @@ void WindowShow(Window* window);
 void ProcessMessages(Window* window);
 void SwapBuffers(Window* window);
 
-}   // namespace Sol
+}   // namespace Ty

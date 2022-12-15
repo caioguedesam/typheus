@@ -1,7 +1,7 @@
 #pragma once
 #include "core/base.hpp"
 
-namespace Sol
+namespace Ty
 {
 // FilePath type is currently just a wrapper to cstr.
 struct FilePath
@@ -28,4 +28,4 @@ Array<u8> ReadFile(MemArena* arena, FilePath path);
 
 Array<FilePath> GetFilesAtDir(MemArena* arena, FilePath dir);
 
-}   // namespace Sol
+}   // namespace Ty

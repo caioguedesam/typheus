@@ -1,6 +1,6 @@
 #include "core/file.hpp"
 
-namespace Sol
+namespace Ty
 {
 
 // This uses OS specific file handling functions.
@@ -188,4 +188,4 @@ Array<FilePath> GetFilesAtDir(MemArena* arena, FilePath dir)
     return result;
 }
 
-}   // namespace Sol
+}   // namespace Ty

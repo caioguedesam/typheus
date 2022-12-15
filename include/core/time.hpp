@@ -1,7 +1,7 @@
 #pragma once
 #include "base.hpp"
 
-namespace Sol
+namespace Ty
 {
 
 #define TIMER_INVALID MAX_U64
@@ -22,4 +22,4 @@ f64 GetTime_NS(const Timer& timer);
 f64 GetTime_MS(const Timer& timer);
 f64 GetTime_S(const Timer& timer);
 
-}   // namespace Sol
+}   // namespace Ty

@@ -16,7 +16,7 @@
 #include "core/input.cpp"
 #include "core/window.cpp"
 
-namespace Sol
+namespace Ty
 {
 
 inline MemArena memArena_Perm;
@@ -31,4 +31,4 @@ void Render();
 void DestroyPlatform();
 void DestroyRenderer();
 
-} // namespace Sol
+} // namespace Ty

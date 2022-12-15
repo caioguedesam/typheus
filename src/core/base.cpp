@@ -3,7 +3,7 @@
 #include <string.h>
 #include <intrin.h>
 
-namespace Sol
+namespace Ty
 {
 
 #define SOL_FMT_BUFFER_SIZE 2048
@@ -390,4 +390,4 @@ Array<String> StrSplit(MemArena* arena, String str, char delim)
     return result;
 }
 
-}   // namespace Sol
+}   // namespace Ty
