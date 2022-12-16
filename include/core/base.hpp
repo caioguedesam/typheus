@@ -178,10 +178,11 @@ struct String
 {
     u8* data = 0;
     u64 len = 0;
+
+    char* ToCStr();
 };
 String Str(u8* data, u64 len);
 String Str(const char* cstr);
-const char* ToCStr(String str);
 
 bool StrRead(String* str, u64 offset, u8* out, u64 n);
 bool StrRead(String* str, u8* out);
@@ -190,6 +191,7 @@ bool StrRead(String* str, u8* out);
 String Strf(u8* buffer, const char* fmt, ...);
 
 String StrAlloc(MemArena* arena, u8* data, u64 len);
+String StrAllocZero(MemArena* arena, u64 len);
 String StrAlloc(MemArena* arena, const char* cstr);
 String StrfAlloc(MemArena* arena, const char* fmt, ...);
 

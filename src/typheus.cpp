@@ -1,42 +1,35 @@
-#include "typheus.hpp"
+// Main typheus compilation unit
+// This contains all typheus headers and source files to compile in unity build
 
-namespace Ty
-{
+// Dependency header files
+#include "glad/glad.h"
 
-void InitApp(u32 windowWidth, u32 windowHeight, const char* appTitle)
-{
-    // Initializing memory arenas
-    MemArenaInit(&memArena_Perm, MB(1));
-    MemArenaInit(&memArena_Frame, MB(1));
+// Header files
+#include "core/base.hpp"
+#include "core/time.hpp"
+#include "core/math.hpp"
+#include "core/file.hpp"
+#include "core/input.hpp"
+#include "core/window.hpp"
 
-    // Initializing engine systems
-    InitTime();
+#include "render/renderer.hpp"
 
-    // Creating window and rendering context
-    appWindow = WindowCreate(&memArena_Perm, windowWidth, windowHeight, Str(appTitle));
+#include "app.hpp"
 
-    // Initialize rendering system
-    InitRenderer(appWindow);
+// Dependency source files
+#include "glad/glad.c"
+#if _PROFILE
+#include "tracy/TracyClient.cpp"
+#endif
 
-    // Display window
-    WindowShow(appWindow);
-}
+// Source files
+#include "core/base.cpp"
+#include "core/time.cpp"
+#include "core/math.cpp"
+#include "core/file.cpp"
+#include "core/input.cpp"
+#include "core/window.cpp"
 
-void Update()
-{
-    // Clear frame temporary memory
-    MemClear(&memArena_Frame);
+#include "render/renderer.cpp"
 
-    // Update engine systems
-    UpdateInputState();
-}
-
-void DestroyApp()
-{
-    // Destroy app window
-    WindowDestroy(appWindow);
-
-    // TODO(caio)#PLATFORM: Do I need to destroy more stuff? Maybe not
-}
-
-} // namespace Ty
+#include "app.cpp"

@@ -1,23 +1,9 @@
 #pragma once
+#include "core/base.hpp"
+#include "core/window.hpp"
 
 // Unity build (improving dramatically compile times)
 // Dependencies
-#include "glad/glad.h"
-#include "glad/glad.c"
-#if _PROFILE
-#include "tracy/TracyClient.cpp"
-#endif
-
-// Source files
-#include "core/base.cpp"
-#include "core/time.cpp"
-#include "core/math.cpp"
-#include "core/file.cpp"
-#include "core/input.cpp"
-#include "core/window.cpp"
-
-#include "render/renderer.cpp"
-
 namespace Ty
 {
 

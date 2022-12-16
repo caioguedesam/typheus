@@ -10,11 +10,16 @@ FilePath MakePath(String str)
     return {str};
 }
 
+FilePath MakePath(const char* cstr)
+{
+    return MakePath(Str(cstr));
+}
+
 FilePath GetAbsolutePath(FilePath relPath, u8* buffer, u64 size)
 {
     ASSERT(PathExists(relPath));
     DWORD ret = GetFullPathName(
-            ToCStr(relPath.str),
+            relPath.str.ToCStr(),
             size, (char*)buffer, NULL);
     ASSERT(ret);
     return MakePath(Str(buffer, ret));
@@ -32,13 +37,13 @@ FilePath GetAbsolutePath(MemArena* arena, FilePath relPath)
 
 bool PathExists(FilePath path)
 {
-    DWORD fileAttributes = GetFileAttributes(ToCStr(path.str));
+    DWORD fileAttributes = GetFileAttributes(path.str.ToCStr());
     return fileAttributes != INVALID_FILE_ATTRIBUTES;
 }
 
 bool IsDirectory(FilePath path)
 {
-    DWORD fileAttributes = GetFileAttributes(ToCStr(path.str));
+    DWORD fileAttributes = GetFileAttributes(path.str.ToCStr());
     return fileAttributes & FILE_ATTRIBUTE_DIRECTORY;
 }
 
@@ -107,7 +112,7 @@ u64 GetFileSize(FilePath path)
     ASSERT(!IsDirectory(path));
 
     HANDLE hFile = CreateFile(
-            ToCStr(path.str),
+            path.str.ToCStr(),
             GENERIC_READ,
             FILE_SHARE_READ,
             NULL,
@@ -127,7 +132,7 @@ u64 ReadFile(FilePath path, u8* buffer)
     ASSERT(!IsDirectory(path));
 
     HANDLE hFile = CreateFile(
-            ToCStr(path.str),
+            path.str.ToCStr(),
             GENERIC_READ,
             FILE_SHARE_READ,
             NULL,
@@ -150,13 +155,22 @@ u64 ReadFile(FilePath path, u8* buffer)
     return (u64)bytesRead;
 }
 
-Array<u8> ReadFile(MemArena* arena, FilePath path)
+Array<u8> ReadFileToArray(MemArena* arena, FilePath path)
 {
     u64 fSize = GetFileSize(path);
     Array<u8> result = ArrayAlloc<u8>(arena, fSize);
     u64 bytesRead = ReadFile(path, result.data);
     ASSERT(bytesRead == fSize);
     result.count = bytesRead;
+    return result;
+}
+
+String ReadFileToStr(MemArena* arena, FilePath path)
+{
+    u64 fSize = GetFileSize(path);
+    String result = StrAllocZero(arena, fSize);
+    u64 bytesRead = ReadFile(path, result.data);
+    ASSERT(bytesRead == fSize);
     return result;
 }
 
@@ -167,18 +181,18 @@ Array<FilePath> GetFilesAtDir(MemArena* arena, FilePath dir)
 
     // Create a temp buffer to store query string
     u8 queryBuffer[dir.str.len + 2];
-    String queryStr = Strf(queryBuffer, "%s\\*", ToCStr(dir.str));
+    String queryStr = Strf(queryBuffer, "%s\\*", dir.str.ToCStr());
 
     // Make query for files
     HANDLE fileHandle;
     WIN32_FIND_DATAA fileData;
-    fileHandle = FindFirstFile(ToCStr(queryStr), &fileData);
+    fileHandle = FindFirstFile(queryStr.ToCStr(), &fileData);
     ASSERT(fileHandle != INVALID_HANDLE_VALUE);
 
     Array<FilePath> result = ArrayAlloc<FilePath>(arena, 256);
     do
     {
-        FilePath foundFile = MakePath(StrfAlloc(arena, "%s\\%s", ToCStr(dir.str), fileData.cFileName));
+        FilePath foundFile = MakePath(StrfAlloc(arena, "%s\\%s", dir.str.ToCStr(), fileData.cFileName));
         if(!IsDirectory(foundFile))
         {
             result.Push(foundFile);

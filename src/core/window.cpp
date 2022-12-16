@@ -37,7 +37,7 @@ Window* WindowCreate(MemArena* arena, u32 width, u32 height, String title)
     result->handle = CreateWindowEx(
             0,
             WINDOW_CLASS_NAME,
-            ToCStr(title),
+            title.ToCStr(),
             WS_OVERLAPPEDWINDOW,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
@@ -140,6 +140,9 @@ void InitGLContext(Window* window)
         WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
         WGL_CONTEXT_MINOR_VERSION_ARB, 6,
         WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+#if _DEBUG
+        WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
+#endif
         0,
     };
 

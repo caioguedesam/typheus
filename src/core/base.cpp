@@ -162,9 +162,10 @@ String Str(const char* cstr)
     };
 }
 
-const char* ToCStr(String str)
+char* String::ToCStr()
 {
-    return (const char*)(str.data);
+    ASSERT(IsCStr(*this));
+    return (char*)data;
 }
 
 bool StrRead(String* str, u64 offset, u8* out, u64 n)
@@ -205,6 +206,17 @@ String StrAlloc(MemArena* arena, u8* data, u64 len)
     String result;
     result.data = (u8*)MemAlloc(arena, len + 1);    // +1 for null terminator.
     memcpy(result.data, data, len);
+    result.data[len] = 0;
+    result.len = len;
+    return result;
+}
+
+String StrAllocZero(MemArena* arena, u64 len)
+{
+    // For compatibility reasons, StrAlloc always makes C-strings
+    String result;
+    result.data = (u8*)MemAlloc(arena, len + 1);    // +1 for null terminator.
+    memset(result.data, 0, len);
     result.data[len] = 0;
     result.len = len;
     return result;
@@ -267,8 +279,8 @@ bool StrCompare(String str1, String str2, u64 n)
 bool IsCStr(String str)
 {
     // TODO(caio)#STRING: There are some edge cases where this won't work.
-    ASSERT(str.len);
-    return str.data[str.len] == 0;
+    // Will I get into trouble for considering 0 length strings as c strings?
+    return str.len == 0 || str.data[str.len] == 0;
 }
 
 String StrPrefix(String str, u64 n)

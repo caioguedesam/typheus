@@ -1,13 +1,90 @@
+#include "core/file.hpp"
 #include "render/renderer.hpp"
 #include "glad/glad.h"
+#include "app.hpp"
 
 namespace Ty
 {
 
+MemArena memArena_Shader;
+
+u32 vsHandle = MAX_U32;
+u32 psHandle = MAX_U32;
+u32 shaderProgramHandle = MAX_U32;
+
+#define RESOURCE_PATH "../resources/"
+#define SHADER_PATH RESOURCE_PATH"shaders/"
+#define TEXTURE_PATH RESOURCE_PATH"textures/"
+#define MODELS_PATH RESOURCE_PATH"models/"
+
+void GLAPIENTRY
+GLMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
+        const GLchar* message, const void* userParam)
+{
+    ASSERTF(type != GL_DEBUG_TYPE_ERROR, "[OPENGL ERROR]: %s", message);
+}
+
 void InitRenderer(Window* window)
 {
-    // TODO(caio)#RENDER: Init stuff like glViewport and other render state, allocate resources, etc.
     InitGLContext(window);
+
+    // OpenGL settings
+    glEnable(GL_DEPTH_TEST);            // Depth testing
+    glEnable(GL_CULL_FACE);             // Face culling
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+#if _DEBUG
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback(GLMessageCallback, 0);
+#endif
+    // TODO(caio)#RENDER: Enable MSAA
+
+    // Resource memory
+    MemArenaInit(&memArena_Shader, KB(256));
+
+    // Shader resources
+    // TODO(caio)#RENDER: Change this when starting support for multiple shaders + hot reload
+    String vsSrc = ReadFileToStr(&memArena_Shader, MakePath(SHADER_PATH"default_vertex.vs"));
+    String psSrc = ReadFileToStr(&memArena_Shader, MakePath(SHADER_PATH"default_pixel.ps"));
+    const char* vsCStr = vsSrc.ToCStr();
+    const char* psCStr = psSrc.ToCStr();
+    
+    i32 ret = 0;
+    vsHandle = glCreateShader(GL_VERTEX_SHADER);
+    ASSERT(vsHandle);
+    glShaderSource(vsHandle, 1, &vsCStr, NULL);
+    glCompileShader(vsHandle);
+    glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &ret);
+    if(!ret)
+    {
+        String infoLog = StrAllocZero(&memArena_Frame, 512);
+        glGetShaderInfoLog(vsHandle, 512, NULL, infoLog.ToCStr());
+        ASSERTF(0, "Vertex shader compilation failed: %s", infoLog.ToCStr());
+    }
+
+    psHandle = glCreateShader(GL_FRAGMENT_SHADER);
+    ASSERT(psHandle);
+    glShaderSource(psHandle, 1, &psCStr, NULL);
+    glCompileShader(psHandle);
+    glGetShaderiv(psHandle, GL_COMPILE_STATUS, &ret);
+    if(!ret)
+    {
+        String infoLog = StrAllocZero(&memArena_Frame, 512);
+        glGetShaderInfoLog(psHandle, 512, NULL, infoLog.ToCStr());
+        ASSERTF(0, "Pixel shader compilation failed: %s", infoLog.ToCStr());
+    }
+
+    shaderProgramHandle = glCreateProgram();
+    glAttachShader(shaderProgramHandle, vsHandle);
+    glAttachShader(shaderProgramHandle, psHandle);
+    glLinkProgram(shaderProgramHandle);
+    glGetProgramiv(shaderProgramHandle, GL_LINK_STATUS, &ret);
+    if(!ret)
+    {
+        String infoLog = StrAllocZero(&memArena_Frame, 512);
+        glGetProgramInfoLog(shaderProgramHandle, 512, NULL, infoLog.ToCStr());
+        ASSERTF(0, "Shader program compilation failed: %s", infoLog.ToCStr());
+    }
 }
 
 void RenderFrame()

@@ -1,4 +1,3 @@
-#include "typheus.hpp"
 #include "typheus.cpp"
 
 // TODO(caio)#PLATFORM: This is a Windows only main.
