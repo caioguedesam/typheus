@@ -12,6 +12,24 @@ u32 vsHandle = MAX_U32;
 u32 psHandle = MAX_U32;
 u32 shaderProgramHandle = MAX_U32;
 
+u32 quadVBO = MAX_U32;
+u32 quadEBO = MAX_U32;
+u32 quadVAO = MAX_U32;
+
+f32 quadVertices[] =
+{
+   -0.5f,  -0.5f,   0.f,
+    0.5f,  -0.5f,   0.f,
+    0.5f,   0.5f,   0.f,
+   -0.5f,   0.5f,   0.f,
+};
+
+u32 quadIndices[] =
+{
+    0, 1, 2,
+    0, 2, 3,
+};
+
 #define RESOURCE_PATH "../resources/"
 #define SHADER_PATH RESOURCE_PATH"shaders/"
 #define TEXTURE_PATH RESOURCE_PATH"textures/"
@@ -85,12 +103,34 @@ void InitRenderer(Window* window)
         glGetProgramInfoLog(shaderProgramHandle, 512, NULL, infoLog.ToCStr());
         ASSERTF(0, "Shader program compilation failed: %s", infoLog.ToCStr());
     }
+
+    // TODO(caio)#RENDER: This is temporary code before setting up proper object drawing.
+    glGenVertexArrays(1, &quadVAO);
+    glGenBuffers(1, &quadVBO);
+    glGenBuffers(1, &quadEBO);
+
+    glBindVertexArray(quadVAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, ArraySize(quadVertices), quadVertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, ArraySize(quadIndices), quadIndices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(f32), (GLvoid*)0);
+    glEnableVertexAttribArray(0);
 }
 
 void RenderFrame()
 {
     glClearColor(1.f, 0.5f, 0.f, 1.f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // TODO(caio)#RENDER: This is temporary code before setting up proper object drawing.
+    glUseProgram(shaderProgramHandle);
+    glBindVertexArray(quadVAO);
+
+    glDrawElements(GL_TRIANGLES, ArrayCount(quadIndices), GL_UNSIGNED_INT, 0);
 }
 
 } // namespace Ty
