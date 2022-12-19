@@ -1,6 +1,10 @@
+#include "glad/glad.h"
+//#ifndef STB_IMAGE_IMPLEMENTATION
+//#include "stb_image.h"
+//#endif
+
 #include "core/file.hpp"
 #include "render/renderer.hpp"
-#include "glad/glad.h"
 #include "app.hpp"
 
 namespace Ty

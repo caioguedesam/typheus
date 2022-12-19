@@ -4,6 +4,7 @@
 -I../dependencies/tracy/
 -I../dependencies/glad/
 -I../dependencies/WGL/
+-I../dependencies/stb/
 -DWIN32_LEAN_AND_MEAN
 -DNOMINMAX
 -D_CRT_SECURE_NO_WARNINGS
