@@ -1,7 +1,7 @@
 #include "glad/glad.h"
-//#ifndef STB_IMAGE_IMPLEMENTATION
-//#include "stb_image.h"
-//#endif
+#ifndef STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+#endif
 
 #include "core/file.hpp"
 #include "render/renderer.hpp"

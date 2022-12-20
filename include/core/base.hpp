@@ -5,6 +5,10 @@
 #include <stdio.h>
 #include <float.h>
 
+#if _PROFILE
+#include "tracy/Tracy.hpp"
+#endif
+
 namespace Ty
 {
 
@@ -23,6 +27,7 @@ typedef float       f32;
 typedef double      f64;
 
 // [GENERAL DEFINES AND MACROS]
+
 #define MAX_U8  (0xFF)
 #define MAX_U16 (0xFFFF)
 #define MAX_U32 (0xFFFFFFFFUL)
@@ -31,10 +36,15 @@ typedef double      f64;
 #define EPSILON_F32 FLT_EPSILON
 #define EPSILON_F64 DBL_EPSILON
 
+#undef KB
+#undef MB
+#undef GB
 #define KB(V) ((V)   * 1024)
 #define MB(V) (KB(V) * 1024)
 #define GB(V) (MB(V) * 1024)
 
+#undef MIN
+#undef MAX
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 #define CLAMP(V, A, B) (MAX((A), MIN((V), (B))))
@@ -80,7 +90,6 @@ void LogFormat(const char* label, const char* fmt, ...);
 
 // [PROFILING]
 #if _PROFILE
-#include "tracy/Tracy.hpp"
 #define PROFILE_FRAME FrameMark
 #define PROFILE_SCOPED ZoneScoped
 //TODO(caio)#PROFILING: Add support for named zones and colors

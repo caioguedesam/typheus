@@ -1,11 +1,25 @@
 // Main typheus compilation unit
 // This contains all typheus headers and source files to compile in unity build
 
-// Dependency header files
-#include "glad/glad.h"
-//#define STB_IMAGE_IMPLEMENTATION
-//#include "stb_image.h"
+// ===============================================================
+// [DEPENDENCIES]
+// Header files
+#if _PROFILE
+#include "tracy/Tracy.hpp"
+#endif
 
+#include "glad/glad.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+// Source files
+#if _PROFILE
+#include "TracyClient.cpp"
+#endif
+#include "glad/glad.c"
+
+// ===============================================================
+// [PROJECT]
 // Header files
 #include "core/base.hpp"
 #include "core/time.hpp"
@@ -17,12 +31,6 @@
 #include "render/renderer.hpp"
 
 #include "app.hpp"
-
-// Dependency source files
-#include "glad/glad.c"
-#if _PROFILE
-#include "tracy/TracyClient.cpp"
-#endif
 
 // Source files
 #include "core/base.cpp"
