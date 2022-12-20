@@ -43,7 +43,3 @@ void DestroyApp()
 }
 
 } // namespace Ty
-
-// Typheus app build files
-// Unity build with all source files
-

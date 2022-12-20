@@ -1,7 +1,7 @@
 #include "glad/glad.h"
-#ifndef STB_IMAGE_IMPLEMENTATION
+
+#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-#endif
 
 #include "core/file.hpp"
 #include "render/renderer.hpp"
@@ -11,10 +11,13 @@ namespace Ty
 {
 
 MemArena memArena_Shader;
+MemArena memArena_Texture;
 
 u32 vsHandle = MAX_U32;
 u32 psHandle = MAX_U32;
 u32 shaderProgramHandle = MAX_U32;
+
+u32 textureHandle = MAX_U32;
 
 u32 quadVBO = MAX_U32;
 u32 quadEBO = MAX_U32;
@@ -22,10 +25,10 @@ u32 quadVAO = MAX_U32;
 
 f32 quadVertices[] =
 {
-   -0.5f,  -0.5f,   0.f,
-    0.5f,  -0.5f,   0.f,
-    0.5f,   0.5f,   0.f,
-   -0.5f,   0.5f,   0.f,
+   -0.5f,  -0.5f,   0.f,    0.f,    0.f,
+    0.5f,  -0.5f,   0.f,    0.f,    1.f,
+    0.5f,   0.5f,   0.f,    1.f,    1.f,
+   -0.5f,   0.5f,   0.f,    1.f,    0.f,
 };
 
 u32 quadIndices[] =
@@ -63,6 +66,7 @@ void InitRenderer(Window* window)
 
     // Resource memory
     MemArenaInit(&memArena_Shader, KB(256));
+    MemArenaInit(&memArena_Texture, MB(1));
 
     // Shader resources
     // TODO(caio)#RENDER: Change this when starting support for multiple shaders + hot reload
@@ -109,6 +113,7 @@ void InitRenderer(Window* window)
     }
 
     // TODO(caio)#RENDER: This is temporary code before setting up proper object drawing.
+    // Create quad object
     glGenVertexArrays(1, &quadVAO);
     glGenBuffers(1, &quadVBO);
     glGenBuffers(1, &quadEBO);
@@ -121,8 +126,33 @@ void InitRenderer(Window* window)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, ArraySize(quadIndices), quadIndices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(f32), (GLvoid*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(f32), (void*)0);
     glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(f32), (void*)(3 * sizeof(f32)));
+    glEnableVertexAttribArray(1);
+
+    // Load quad texture
+    i32 textureWidth, textureHeight, textureChannels;
+    u8* stbiData = stbi_load(TEXTURE_PATH"test.png", &textureWidth, &textureHeight, &textureChannels, 3);
+    ASSERT(stbiData);
+    ASSERT(textureWidth);
+    ASSERT(textureHeight);
+    ASSERT(textureChannels);
+
+    // TODO(caio)#RENDER: This allocates without using arenas because of stbi. Proper support would need an arena realloc implementation.
+    u8* textureData = (u8*)MemAlloc(&memArena_Texture, textureWidth * textureHeight * textureChannels);
+    memcpy(textureData, stbiData, textureWidth * textureHeight * 3);
+    stbi_image_free(stbiData);
+
+    glGenTextures(1, &textureHandle);
+    glBindTexture(GL_TEXTURE_2D, textureHandle);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, textureWidth, textureHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, textureData);
+    glGenerateMipmap(GL_TEXTURE_2D);
 }
 
 void RenderFrame()
@@ -132,6 +162,7 @@ void RenderFrame()
 
     // TODO(caio)#RENDER: This is temporary code before setting up proper object drawing.
     glUseProgram(shaderProgramHandle);
+    glBindTexture(GL_TEXTURE_2D, textureHandle);
     glBindVertexArray(quadVAO);
 
     glDrawElements(GL_TRIANGLES, ArrayCount(quadIndices), GL_UNSIGNED_INT, 0);
