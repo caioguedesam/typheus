@@ -3,16 +3,20 @@
 
 // ===============================================================
 // [DEPENDENCIES]
+#define STB_IMAGE_IMPLEMENTATION
+#define CGLTF_IMPLEMENTATION
+
 // Header files
 #if _PROFILE
 #include "tracy/Tracy.hpp"
 #endif
 
 #include "glad/glad.h"
-//#define STB_IMAGE_IMPLEMENTATION
-#ifndef STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-#endif
+#include "cgltf.h"
+
+#undef STB_IMAGE_IMPLEMENTATION
+#undef CGLTF_IMPLEMENTATION
 
 // Source files
 #if _PROFILE

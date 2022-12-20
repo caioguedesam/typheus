@@ -1,7 +1,7 @@
 #include "glad/glad.h"
 
-#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#include "cgltf.h"
 
 #include "core/file.hpp"
 #include "render/renderer.hpp"
@@ -153,6 +153,15 @@ void InitRenderer(Window* window)
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, textureWidth, textureHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, textureData);
     glGenerateMipmap(GL_TEXTURE_2D);
+
+    // Load gltf sponza model
+    cgltf_options gltfLoadOptions = {};
+    cgltf_data* gltfLoadData = NULL;
+    cgltf_result gltfLoadResult = cgltf_parse_file(&gltfLoadOptions, MODELS_PATH"sponza/Sponza.gltf", &gltfLoadData);
+    ASSERT(gltfLoadResult == cgltf_result_success);
+    cgltf_free(gltfLoadData);
+
+    i32 a = 10;
 }
 
 void RenderFrame()
