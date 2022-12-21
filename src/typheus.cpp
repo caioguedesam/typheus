@@ -4,7 +4,8 @@
 // ===============================================================
 // [DEPENDENCIES]
 #define STB_IMAGE_IMPLEMENTATION
-#define CGLTF_IMPLEMENTATION
+#define FAST_OBJ_IMPLEMENTATION
+//#define CGLTF_IMPLEMENTATION
 
 // Header files
 #if _PROFILE
@@ -13,10 +14,12 @@
 
 #include "glad/glad.h"
 #include "stb_image.h"
-#include "cgltf.h"
+#include "fast_obj.h"
+//#include "cgltf.h"
 
 #undef STB_IMAGE_IMPLEMENTATION
-#undef CGLTF_IMPLEMENTATION
+#undef FAST_OBJ_IMPLEMENTATION
+//#undef CGLTF_IMPLEMENTATION
 
 // Source files
 #if _PROFILE

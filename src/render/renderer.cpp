@@ -1,17 +1,24 @@
 #include "glad/glad.h"
 
 #include "stb_image.h"
-#include "cgltf.h"
+#include "fast_obj.h"
+//#include "cgltf.h"
 
 #include "core/file.hpp"
 #include "render/renderer.hpp"
 #include "app.hpp"
+
+#define RESOURCE_PATH "../resources/"
+#define SHADER_PATH RESOURCE_PATH"shaders/"
+#define TEXTURE_PATH RESOURCE_PATH"textures/"
+#define MODELS_PATH RESOURCE_PATH"models/"
 
 namespace Ty
 {
 
 MemArena memArena_Shader;
 MemArena memArena_Texture;
+MemArena memArena_Mesh;
 
 u32 vsHandle = MAX_U32;
 u32 psHandle = MAX_U32;
@@ -37,10 +44,11 @@ u32 quadIndices[] =
     0, 2, 3,
 };
 
-#define RESOURCE_PATH "../resources/"
-#define SHADER_PATH RESOURCE_PATH"shaders/"
-#define TEXTURE_PATH RESOURCE_PATH"textures/"
-#define MODELS_PATH RESOURCE_PATH"models/"
+Array<MeshVertex> sponzaVertices;
+Array<u32> sponzaIndices;
+u32 sponzaVAO;
+u32 sponzaVBO;
+u32 sponzaEBO;
 
 void GLAPIENTRY
 GLMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
@@ -67,6 +75,7 @@ void InitRenderer(Window* window)
     // Resource memory
     MemArenaInit(&memArena_Shader, KB(256));
     MemArenaInit(&memArena_Texture, MB(1));
+    MemArenaInit(&memArena_Mesh, MB(20));
 
     // Shader resources
     // TODO(caio)#RENDER: Change this when starting support for multiple shaders + hot reload
@@ -154,12 +163,83 @@ void InitRenderer(Window* window)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, textureWidth, textureHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, textureData);
     glGenerateMipmap(GL_TEXTURE_2D);
 
-    // Load gltf sponza model
-    cgltf_options gltfLoadOptions = {};
-    cgltf_data* gltfLoadData = NULL;
-    cgltf_result gltfLoadResult = cgltf_parse_file(&gltfLoadOptions, MODELS_PATH"sponza/Sponza.gltf", &gltfLoadData);
-    ASSERT(gltfLoadResult == cgltf_result_success);
-    cgltf_free(gltfLoadData);
+    // Loading OBJ model
+    fastObjMesh* objData = fast_obj_read(MODELS_PATH"sponza/sponza.obj");
+
+    sponzaVertices = ArrayAlloc<MeshVertex>(
+            &memArena_Mesh,
+            objData->face_count * 3
+            );
+    sponzaIndices = ArrayAlloc<u32>(
+            &memArena_Mesh,
+            objData->face_count * 3
+            );
+
+    // For each face of the mesh
+    for(u64 f = 0; f < objData->face_count; f++)
+    {
+        // For each vertex (always triangles) of face
+        for(u64 v = 0; v < 3; v++)
+        {
+            u64 iVertex = f * 3 + v;
+            u64 iPosition = objData->indices[iVertex].p;
+            ASSERT(iPosition);
+            u64 iNormal = objData->indices[iVertex].n;
+            ASSERT(iNormal);
+            u64 iTexcoord = objData->indices[iVertex].t;
+            ASSERT(iTexcoord);
+
+            v3f vertexPos =
+            {
+                objData->positions[iPosition * 3 + 0],
+                objData->positions[iPosition * 3 + 1],
+                objData->positions[iPosition * 3 + 2],
+            };
+
+            v3f vertexNormal =
+            {
+                objData->normals[iNormal * 3 + 0],
+                objData->normals[iNormal * 3 + 1],
+                objData->normals[iNormal * 3 + 2],
+            };
+            
+            v2f vertexTexcoord =
+            {
+                objData->texcoords[iTexcoord * 2 + 0],
+                objData->texcoords[iTexcoord * 2 + 1],
+            };
+
+            sponzaVertices.Push({vertexPos, vertexNormal, vertexTexcoord});
+            sponzaIndices.Push(iVertex);
+        }
+    }
+
+    fast_obj_destroy(objData);
+
+    // Creating OpenGL structures for loaded model
+    glGenVertexArrays(1, &sponzaVAO);
+    glGenBuffers(1, &sponzaVBO);
+    glGenBuffers(1, &sponzaEBO);
+
+    glBindVertexArray(sponzaVAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, sponzaVBO);
+    glBufferData(GL_ARRAY_BUFFER, sponzaVertices.Size(), sponzaVertices.data, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sponzaEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sponzaIndices.Size(), sponzaIndices.data, GL_STATIC_DRAW);
+
+    //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(f32), (void*)0);
+    //glEnableVertexAttribArray(0);
+    //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(f32), (void*)(3 * sizeof(f32)));
+    //glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, position));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, normal));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, texcoord));
+    glEnableVertexAttribArray(2);
 
     i32 a = 10;
 }
@@ -171,10 +251,11 @@ void RenderFrame()
 
     // TODO(caio)#RENDER: This is temporary code before setting up proper object drawing.
     glUseProgram(shaderProgramHandle);
-    glBindTexture(GL_TEXTURE_2D, textureHandle);
-    glBindVertexArray(quadVAO);
+    //glBindTexture(GL_TEXTURE_2D, textureHandle);
+    //glBindVertexArray(quadVAO);
+    glBindVertexArray(sponzaVAO);
 
-    glDrawElements(GL_TRIANGLES, ArrayCount(quadIndices), GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, sponzaIndices.count, GL_UNSIGNED_INT, 0);
 }
 
 } // namespace Ty
