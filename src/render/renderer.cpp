@@ -83,6 +83,7 @@ void LoadOBJModel(FilePath assetPath, Array<MeshVertex>* outVertices, Array<u32>
             );
 
     u64 currentIndex = 0;
+    // Iterate on every group
     for(u64 g = 0; g < objData->group_count; g++)
     {
         u64 groupFaceCount = objData->groups[g].face_count;
@@ -92,13 +93,18 @@ void LoadOBJModel(FilePath assetPath, Array<MeshVertex>* outVertices, Array<u32>
         u64 currentFaceOffset = 0;  // Cursor that always points to current face (this is needed because
                                     // faces can have more than 3 sides).
 
+        // Then every face
         for(u64 f = groupFaceOffset; f < groupFaceOffset + groupFaceCount; f++)
         {
-            if(objData->face_vertices[f] == 3)
+            // Then every triangle of face (OBJ does not enforce triangulated meshes)
+            for(u64 t = 0; t < objData->face_vertices[f] - 2; t++)
             {
+                u64 t_Indices[] = {0, t + 1, t + 2};    // Fan triangulation for regular polygons
+                // Then every vertex of triangle
                 for(u64 v = 0; v < 3; v++)
                 {
-                    u64 i = (currentFaceOffset + v) + groupIndexOffset;
+                    u64 i = (currentFaceOffset + t_Indices[v]) + groupIndexOffset;
+
                     u64 i_position = objData->indices[i].p;
                     ASSERT(i_position);
                     u64 i_normal = objData->indices[i].n;
@@ -130,49 +136,7 @@ void LoadOBJModel(FilePath assetPath, Array<MeshVertex>* outVertices, Array<u32>
                     outIndices->Push(currentIndex++);
                 }
             }
-            else
-            {
-                // For non-triangle faces, triangulate then parse
-                // N sided polygon has N-2 triangles
-                for(u64 point = 1; point < objData->face_vertices[f] - 1; point++)
-                {
-                    u64 triIndices[] = {0, point, point + 1};
-                    for(u64 v = 0; v < 3; v++)
-                    {
-                        u64 i = (currentFaceOffset + triIndices[v]) + groupIndexOffset;
 
-                        u64 i_position = objData->indices[i].p;
-                        ASSERT(i_position);
-                        u64 i_normal = objData->indices[i].n;
-                        ASSERT(i_normal);
-                        u64 i_texcoord = objData->indices[i].t;
-                        ASSERT(i_texcoord);
-
-                        v3f vertexPos =
-                        {
-                            objData->positions[i_position * 3 + 0],
-                            objData->positions[i_position * 3 + 1],
-                            objData->positions[i_position * 3 + 2],
-                        };
-
-                        v3f vertexNormal =
-                        {
-                            objData->normals[i_normal * 3 + 0],
-                            objData->normals[i_normal * 3 + 1],
-                            objData->normals[i_normal * 3 + 2],
-                        };
-                        
-                        v2f vertexTexcoord =
-                        {
-                            objData->texcoords[i_texcoord * 2 + 0],
-                            objData->texcoords[i_texcoord * 2 + 1],
-                        };
-
-                        outVertices->Push({vertexPos, vertexNormal, vertexTexcoord});
-                        outIndices->Push(currentIndex++);
-                    }
-                }
-            }
             currentFaceOffset += objData->face_vertices[f];
         }
     }
