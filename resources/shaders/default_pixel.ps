@@ -1,8 +1,12 @@
 #version 460 core
 
+in vec3 vOut_Position;
+
 out vec4 pOut_Color;
 
 void main()
 {
-    pOut_Color = vec4(1.0, 0.0, 0.0, 1.0);
+    //pOut_Color = vec4(1.0, 0.0, 0.0, 1.0);
+    float zColor = vOut_Position.z / 20.0;
+    pOut_Color = vec4(zColor, zColor, zColor, 1.0);
 }

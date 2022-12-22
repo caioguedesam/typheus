@@ -7,7 +7,11 @@ uniform mat4 u_Model;
 uniform mat4 u_View;
 uniform mat4 u_Proj;
 
+out vec3 vOut_Position;
+
 void main()
 {
-    gl_Position = u_Proj * u_View * u_Model * vec4(vIn_Position.xyz, 1.0);  // Needs view and projection transform
+    gl_Position = u_Proj * u_View * u_Model * vec4(vIn_Position.xyz, 1.0);
+
+    vOut_Position = vec3(gl_Position.xyz);
 }
