@@ -5,7 +5,7 @@ namespace Ty
 {
 
 // Math defines
-#define PI 3.14159265358979323846ULL
+#define PI 3.14159265358979323846
 
 #define TO_DEG(X) (X * (180.0 / PI))
 #define TO_RAD(X) (X * (PI / 180.0))
@@ -142,7 +142,7 @@ m4f TranslationMatrix(const v3f& move);
 v3f TransformPosition(const v3f& position, const m4f& transform);
 v3f TransformDirection(const v3f& direction, const m4f& transform);
 
-m4f LookAtMatrix(const v2f& center, const v3f& target, const v3f& up);
+m4f LookAtMatrix(const v3f& center, const v3f& target, const v3f& up);
 m4f PerspectiveProjectionMatrix(const f32& fovY, const f32& aspectRatio, const f32& nearPlane, const f32& farPlane);
 
 // Math utilities

@@ -50,6 +50,10 @@ u32 sponzaVAO;
 u32 sponzaVBO;
 u32 sponzaEBO;
 
+m4f modelMatrix = {};
+m4f viewMatrix = {};
+m4f projMatrix = {};
+
 void GLAPIENTRY
 GLMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
         const GLchar* message, const void* userParam)
@@ -241,6 +245,26 @@ void InitRenderer(Window* window)
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, texcoord));
     glEnableVertexAttribArray(2);
 
+    // Temporary transformation matrices
+    modelMatrix = ScaleMatrix({0.01f, 0.01f, 0.01f});
+    modelMatrix = RotationMatrix(TO_RAD(90.f), {0.f, 1.f, 0.f}) * modelMatrix;
+
+    v3f cameraCenter = {0,2,3};
+    v3f cameraDir = {0,0,-1};
+    f32 cameraFov = 45.f;
+    f32 cameraAspectRatio = 1280.f/720.f;
+    f32 cameraNear = 0.1f;
+    f32 cameraFar = 1000.f;
+    viewMatrix = LookAtMatrix(
+            cameraCenter,
+            cameraCenter + cameraDir,
+            {0,1,0});
+    projMatrix = PerspectiveProjectionMatrix(
+            cameraFov,
+            cameraAspectRatio,
+            cameraNear,
+            cameraFar);
+
     i32 a = 10;
 }
 
@@ -254,6 +278,13 @@ void RenderFrame()
     //glBindTexture(GL_TEXTURE_2D, textureHandle);
     //glBindVertexArray(quadVAO);
     glBindVertexArray(sponzaVAO);
+
+    GLint location = glGetUniformLocation(shaderProgramHandle, "u_Model");
+    glUniformMatrix4fv(location, 1, GL_TRUE, &modelMatrix.m00);
+    location = glGetUniformLocation(shaderProgramHandle, "u_View");
+    glUniformMatrix4fv(location, 1, GL_TRUE, &viewMatrix.m00);
+    location = glGetUniformLocation(shaderProgramHandle, "u_Proj");
+    glUniformMatrix4fv(location, 1, GL_TRUE, &projMatrix.m00);
 
     glDrawElements(GL_TRIANGLES, sponzaIndices.count, GL_UNSIGNED_INT, 0);
 }

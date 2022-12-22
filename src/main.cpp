@@ -3,7 +3,7 @@
 // TODO(caio)#PLATFORM: This is a Windows only main.
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nCmdShow)
 {
-    Ty::InitApp(800, 600, "TestApp");
+    Ty::InitApp(1280, 720, "TestApp");
 
     while(!Ty::appWindow->shouldClose)
     {
