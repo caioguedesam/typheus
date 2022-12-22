@@ -69,32 +69,27 @@ GLMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsize
 
 void LoadOBJModel(FilePath assetPath, Array<MeshVertex>* outVertices, Array<u32>* outIndices)
 {
+    // TODO(caio)#RENDER: This does not support material loading yet.
+    // The time will come when trying to render textured meshes and with an actual render resource system.
     ASSERT(outVertices && outIndices);
 
     fastObjMesh* objData = fast_obj_read(assetPath.str.ToCStr());
 
-    *outVertices = ArrayAlloc<MeshVertex>(
-            &memArena_Mesh,
-            objData->index_count * 3
-            );
-    *outIndices = ArrayAlloc<u32>(
-            &memArena_Mesh,
-            objData->index_count * 3
-            );
+    *outVertices = ArrayAlloc<MeshVertex>(&memArena_Mesh, objData->index_count * 3);
+    *outIndices = ArrayAlloc<u32>(&memArena_Mesh,objData->index_count * 3);
 
     u64 currentIndex = 0;
     // Iterate on every group
     for(u64 g = 0; g < objData->group_count; g++)
     {
-        u64 groupFaceCount = objData->groups[g].face_count;
-        u64 groupFaceOffset = objData->groups[g].face_offset;
-        u64 groupIndexOffset = objData->groups[g].index_offset;
+        u64 g_FaceCount = objData->groups[g].face_count;
+        u64 g_FaceOffset = objData->groups[g].face_offset;
+        u64 g_IndexOffset = objData->groups[g].index_offset;
 
         u64 currentFaceOffset = 0;  // Cursor that always points to current face (this is needed because
                                     // faces can have more than 3 sides).
-
         // Then every face
-        for(u64 f = groupFaceOffset; f < groupFaceOffset + groupFaceCount; f++)
+        for(u64 f = g_FaceOffset; f < g_FaceOffset + g_FaceCount; f++)
         {
             // Then every triangle of face (OBJ does not enforce triangulated meshes)
             for(u64 t = 0; t < objData->face_vertices[f] - 2; t++)
@@ -103,36 +98,36 @@ void LoadOBJModel(FilePath assetPath, Array<MeshVertex>* outVertices, Array<u32>
                 // Then every vertex of triangle
                 for(u64 v = 0; v < 3; v++)
                 {
-                    u64 i = (currentFaceOffset + t_Indices[v]) + groupIndexOffset;
+                    u64 i = (currentFaceOffset + t_Indices[v]) + g_IndexOffset;
 
-                    u64 i_position = objData->indices[i].p;
-                    ASSERT(i_position);
-                    u64 i_normal = objData->indices[i].n;
-                    ASSERT(i_normal);
-                    u64 i_texcoord = objData->indices[i].t;
-                    ASSERT(i_texcoord);
+                    u64 i_Position = objData->indices[i].p;
+                    ASSERT(i_Position);
+                    u64 i_Normal = objData->indices[i].n;
+                    ASSERT(i_Normal);
+                    u64 i_Texcoord = objData->indices[i].t;
+                    ASSERT(i_Texcoord);
 
-                    v3f vertexPos =
+                    v3f v_Position =
                     {
-                        objData->positions[i_position * 3 + 0],
-                        objData->positions[i_position * 3 + 1],
-                        objData->positions[i_position * 3 + 2],
+                        objData->positions[i_Position * 3 + 0],
+                        objData->positions[i_Position * 3 + 1],
+                        objData->positions[i_Position * 3 + 2],
                     };
 
-                    v3f vertexNormal =
+                    v3f v_Normal =
                     {
-                        objData->normals[i_normal * 3 + 0],
-                        objData->normals[i_normal * 3 + 1],
-                        objData->normals[i_normal * 3 + 2],
+                        objData->normals[i_Normal * 3 + 0],
+                        objData->normals[i_Normal * 3 + 1],
+                        objData->normals[i_Normal * 3 + 2],
                     };
                     
-                    v2f vertexTexcoord =
+                    v2f v_Texcoord =
                     {
-                        objData->texcoords[i_texcoord * 2 + 0],
-                        objData->texcoords[i_texcoord * 2 + 1],
+                        objData->texcoords[i_Texcoord * 2 + 0],
+                        objData->texcoords[i_Texcoord * 2 + 1],
                     };
 
-                    outVertices->Push({vertexPos, vertexNormal, vertexTexcoord});
+                    outVertices->Push({v_Position, v_Normal, v_Texcoord});
                     outIndices->Push(currentIndex++);
                 }
             }
