@@ -2,11 +2,8 @@
 
 #include "stb_image.h"
 #include "fast_obj.h"
-//#include "cgltf.h"
 
-#include "core/file.hpp"
-#include "render/renderer.hpp"
-#include "app.hpp"
+#include "engine/renderer/renderer.hpp"
 
 #define RESOURCE_PATH "../resources/"
 #define SHADER_PATH RESOURCE_PATH"shaders/"
@@ -16,9 +13,7 @@
 namespace Ty
 {
 
-MemArena memArena_Shader;
 MemArena memArena_Texture;
-MemArena memArena_Mesh;
 
 u32 vsHandle = MAX_U32;
 u32 psHandle = MAX_U32;
@@ -44,14 +39,14 @@ u32 quadIndices[] =
     0, 2, 3,
 };
 
-Array<MeshVertex> sponzaVertices;
-Array<u32> sponzaIndices;
+std::vector<MeshVertex> sponzaVertices;
+std::vector<u32> sponzaIndices;
 u32 sponzaVAO;
 u32 sponzaVBO;
 u32 sponzaEBO;
 
-Array<MeshVertex> bunnyVertices;
-Array<u32> bunnyIndices;
+std::vector<MeshVertex> bunnyVertices;
+std::vector<u32> bunnyIndices;
 u32 bunnyVAO;
 u32 bunnyVBO;
 u32 bunnyEBO;
@@ -67,16 +62,16 @@ GLMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsize
     ASSERTF(type != GL_DEBUG_TYPE_ERROR, "[OPENGL ERROR]: %s", message);
 }
 
-void LoadOBJModel(FilePath assetPath, Array<MeshVertex>* outVertices, Array<u32>* outIndices)
+void LoadOBJModel(std::string_view assetPath, std::vector<MeshVertex>* outVertices, std::vector<u32>* outIndices)
 {
     // TODO(caio)#RENDER: This does not support material loading yet.
     // The time will come when trying to render textured meshes and with an actual render resource system.
     ASSERT(outVertices && outIndices);
 
-    fastObjMesh* objData = fast_obj_read(assetPath.str.ToCStr());
+    fastObjMesh* objData = fast_obj_read(assetPath.data());
 
-    *outVertices = ArrayAlloc<MeshVertex>(&memArena_Mesh, objData->index_count * 3);
-    *outIndices = ArrayAlloc<u32>(&memArena_Mesh,objData->index_count * 3);
+    outVertices->reserve(objData->index_count * 3);
+    outIndices->reserve(objData->index_count * 3);
 
     u64 currentIndex = 0;
     // Iterate on every group
@@ -127,8 +122,8 @@ void LoadOBJModel(FilePath assetPath, Array<MeshVertex>* outVertices, Array<u32>
                         objData->texcoords[i_Texcoord * 2 + 1],
                     };
 
-                    outVertices->Push({v_Position, v_Normal, v_Texcoord});
-                    outIndices->Push(currentIndex++);
+                    outVertices->push_back({v_Position, v_Normal, v_Texcoord});
+                    outIndices->push_back(currentIndex++);
                 }
             }
 
@@ -139,9 +134,11 @@ void LoadOBJModel(FilePath assetPath, Array<MeshVertex>* outVertices, Array<u32>
     fast_obj_destroy(objData);
 }
 
-void InitRenderer(Window* window)
+void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Window* outWindow)
 {
-    InitGLContext(window);
+    ASSERT(outWindow);
+    Window_Init(windowWidth, windowHeight, windowName, outWindow);
+    Window_InitRenderContext(*outWindow);
 
     // OpenGL settings
     glEnable(GL_DEPTH_TEST);            // Depth testing
@@ -154,17 +151,15 @@ void InitRenderer(Window* window)
 #endif
     // TODO(caio)#RENDER: Enable MSAA
 
-    // Resource memory
-    MemArenaInit(&memArena_Shader, KB(256));
-    MemArenaInit(&memArena_Texture, MB(1));
-    MemArenaInit(&memArena_Mesh, MB(256));
+    // Resource Memory
+    MemArena_Init(&memArena_Texture, MB(1));
 
     // Shader resources
     // TODO(caio)#RENDER: Change this when starting support for multiple shaders + hot reload
-    String vsSrc = ReadFileToStr(&memArena_Shader, MakePath(SHADER_PATH"default_vertex.vs"));
-    String psSrc = ReadFileToStr(&memArena_Shader, MakePath(SHADER_PATH"default_pixel.ps"));
-    const char* vsCStr = vsSrc.ToCStr();
-    const char* psCStr = psSrc.ToCStr();
+    std::string vsSrc = ReadFile_Str(SHADER_PATH"default_vertex.vs");
+    std::string psSrc = ReadFile_Str(SHADER_PATH"default_pixel.ps");
+    const char* vsCStr = vsSrc.data();
+    const char* psCStr = psSrc.data();
     
     i32 ret = 0;
     vsHandle = glCreateShader(GL_VERTEX_SHADER);
@@ -174,9 +169,9 @@ void InitRenderer(Window* window)
     glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &ret);
     if(!ret)
     {
-        String infoLog = StrAllocZero(&memArena_Frame, 512);
-        glGetShaderInfoLog(vsHandle, 512, NULL, infoLog.ToCStr());
-        ASSERTF(0, "Vertex shader compilation failed: %s", infoLog.ToCStr());
+        char logBuffer[512];
+        glGetShaderInfoLog(vsHandle, 512, NULL, logBuffer);
+        ASSERTF(0, "Vertex shader compilation failed: %s", logBuffer);
     }
 
     psHandle = glCreateShader(GL_FRAGMENT_SHADER);
@@ -186,9 +181,9 @@ void InitRenderer(Window* window)
     glGetShaderiv(psHandle, GL_COMPILE_STATUS, &ret);
     if(!ret)
     {
-        String infoLog = StrAllocZero(&memArena_Frame, 512);
-        glGetShaderInfoLog(psHandle, 512, NULL, infoLog.ToCStr());
-        ASSERTF(0, "Pixel shader compilation failed: %s", infoLog.ToCStr());
+        char logBuffer[512];
+        glGetShaderInfoLog(vsHandle, 512, NULL, logBuffer);
+        ASSERTF(0, "Pixel shader compilation failed: %s", logBuffer);
     }
 
     shaderProgramHandle = glCreateProgram();
@@ -198,9 +193,9 @@ void InitRenderer(Window* window)
     glGetProgramiv(shaderProgramHandle, GL_LINK_STATUS, &ret);
     if(!ret)
     {
-        String infoLog = StrAllocZero(&memArena_Frame, 512);
-        glGetProgramInfoLog(shaderProgramHandle, 512, NULL, infoLog.ToCStr());
-        ASSERTF(0, "Shader program compilation failed: %s", infoLog.ToCStr());
+        char logBuffer[512];
+        glGetProgramInfoLog(vsHandle, 512, NULL, logBuffer);
+        ASSERTF(0, "Shader program linking failed: %s", logBuffer);
     }
 
     // TODO(caio)#RENDER: This is temporary code before setting up proper object drawing.
@@ -231,7 +226,7 @@ void InitRenderer(Window* window)
     ASSERT(textureChannels);
 
     // TODO(caio)#RENDER: This allocates without using arenas because of stbi. Proper support would need an arena realloc implementation.
-    u8* textureData = (u8*)MemAlloc(&memArena_Texture, textureWidth * textureHeight * textureChannels);
+    u8* textureData = (u8*)MemArena_Alloc(&memArena_Texture, textureWidth * textureHeight * textureChannels);
     memcpy(textureData, stbiData, textureWidth * textureHeight * 3);
     stbi_image_free(stbiData);
 
@@ -246,8 +241,8 @@ void InitRenderer(Window* window)
     glGenerateMipmap(GL_TEXTURE_2D);
 
     // Loading OBJ model
-    LoadOBJModel(MakePath(MODELS_PATH"sponza/sponza.obj"), &sponzaVertices, &sponzaIndices);
-    LoadOBJModel(MakePath(MODELS_PATH"bunny/bunny.obj"), &bunnyVertices, &bunnyIndices);
+    LoadOBJModel(MODELS_PATH"sponza/sponza.obj", &sponzaVertices, &sponzaIndices);
+    LoadOBJModel(MODELS_PATH"bunny/bunny.obj", &bunnyVertices, &bunnyIndices);
 
     // Creating OpenGL structures for sponza model
     glGenVertexArrays(1, &sponzaVAO);
@@ -257,10 +252,10 @@ void InitRenderer(Window* window)
     glBindVertexArray(sponzaVAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, sponzaVBO);
-    glBufferData(GL_ARRAY_BUFFER, sponzaVertices.Size(), sponzaVertices.data, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sponzaVertices.size() * sizeof(MeshVertex), sponzaVertices.data(), GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sponzaEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sponzaIndices.Size(), sponzaIndices.data, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sponzaIndices.size() * sizeof(u32), sponzaIndices.data(), GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, position));
     glEnableVertexAttribArray(0);
@@ -277,10 +272,10 @@ void InitRenderer(Window* window)
     glBindVertexArray(bunnyVAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, bunnyVBO);
-    glBufferData(GL_ARRAY_BUFFER, bunnyVertices.Size(), bunnyVertices.data, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, bunnyVertices.size() * sizeof(MeshVertex), bunnyVertices.data(), GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bunnyEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, bunnyIndices.Size(), bunnyIndices.data, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, bunnyIndices.size() * sizeof(u32), bunnyIndices.data(), GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, position));
     glEnableVertexAttribArray(0);
@@ -307,9 +302,11 @@ void InitRenderer(Window* window)
             cameraFar);
 
     i32 a = 10;
+
+    Window_Show(*outWindow);
 }
 
-void RenderFrame()
+void Renderer_RenderFrame()
 {
     glClearColor(1.f, 0.5f, 0.f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -319,8 +316,6 @@ void RenderFrame()
 
     // TODO(caio)#RENDER: This is temporary code before setting up proper object drawing.
     glUseProgram(shaderProgramHandle);
-    //glBindTexture(GL_TEXTURE_2D, textureHandle);
-    //glBindVertexArray(quadVAO);
     glBindVertexArray(sponzaVAO);
 
     GLint location = glGetUniformLocation(shaderProgramHandle, "u_Model");
@@ -330,7 +325,7 @@ void RenderFrame()
     location = glGetUniformLocation(shaderProgramHandle, "u_Proj");
     glUniformMatrix4fv(location, 1, GL_TRUE, &projMatrix.m00);
 
-    glDrawElements(GL_TRIANGLES, sponzaIndices.count, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, sponzaIndices.size(), GL_UNSIGNED_INT, 0);
 
     modelMatrix = Identity();
 
@@ -343,7 +338,7 @@ void RenderFrame()
     location = glGetUniformLocation(shaderProgramHandle, "u_Proj");
     glUniformMatrix4fv(location, 1, GL_TRUE, &projMatrix.m00);
 
-    glDrawElements(GL_TRIANGLES, bunnyIndices.count, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, bunnyIndices.size(), GL_UNSIGNED_INT, 0);
 }
 
 } // namespace Ty

@@ -1,8 +1,370 @@
-#include <math.h>
-#include "core/math.hpp"
+#include "engine/common/common.hpp"
+#include <stdlib.h>
+#include <string.h>
+#include <intrin.h>
 
 namespace Ty
 {
+
+// ========================================================
+// [ASSERT]
+#define SOL_FMT_BUFFER_SIZE 2048
+
+void Assert(u64 expr, const char* msg)
+{
+    if(expr) return;
+    MessageBoxExA(
+            NULL,
+            msg,
+            "FAILED ASSERT",
+            MB_OK,
+            0);
+    DebugBreak();
+    ExitProcess(-1);
+}
+
+void AssertFormat(u64 expr, const char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    char buf[SOL_FMT_BUFFER_SIZE];
+    vsprintf(buf, fmt, args);
+    if(expr) return;
+    MessageBoxExA(
+            NULL,
+            buf,
+            "FAILED ASSERT",
+            MB_OK,
+            0);
+    va_end(args);
+    DebugBreak();
+    ExitProcess(-1);
+}
+
+// ========================================================
+// [LOGGING]
+void LogFormat(const char* label, const char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    char buf[SOL_FMT_BUFFER_SIZE];
+    vsprintf(buf, fmt, args);
+    printf("[%s]: %s\n", label, buf);
+    va_end(args);
+}
+
+// ========================================================
+// [MEMORY]
+void MemArena_Init(MemArena* arena, u64 capacity)
+{
+    //TODO(caio)#MEMORY: Using malloc for arena initializing, maybe change to win32 VirtualAlloc
+    arena->capacity = capacity;
+    arena->start = (u8*)malloc(capacity);
+    arena->offset = 0;
+}
+
+void MemArena_Destroy(MemArena* arena)
+{
+    //TODO(caio)#MEMORY: Using free for arena destruction, maybe change to win32 VirtualFree
+    arena->capacity = 0;
+    arena->offset = 0;
+    free(arena->start);
+    arena->start = 0;
+}
+
+void* MemArena_Alloc(MemArena* arena, u64 size)
+{
+    ASSERT(arena->offset + size <= arena->capacity);
+    u8* result = arena->start + arena->offset;
+    arena->offset += size;
+    return result;
+}
+
+void* MemArena_AllocAlign(MemArena* arena, u64 size, u64 alignment)
+{
+    u64 alignedOffset = ALIGN_TO((u64)arena->start + arena->offset, alignment) - (u64)arena->start;
+    ASSERT(IS_ALIGNED((u64)arena->start + alignedOffset, alignment));
+    ASSERT(alignedOffset + size <= arena->capacity);
+    arena->offset = alignedOffset;
+
+    u8* result = arena->start + arena->offset;
+    arena->offset += size;
+    return result;
+}
+
+void* MemArena_AllocZero(MemArena* arena, u64 size)
+{
+    ASSERT(arena->offset + size <= arena->capacity);
+    u8* result = arena->start + arena->offset;
+    arena->offset += size;
+    memset(result, 0, size);
+    return result;
+}
+
+void* MemArena_AllocAlignZero(MemArena* arena, u64 size, u64 alignment)
+{
+    u64 alignedOffset = ALIGN_TO((u64)arena->start + arena->offset, alignment) - (u64)arena->start;
+    ASSERT(IS_ALIGNED((u64)arena->start + alignedOffset, alignment));
+    ASSERT(alignedOffset + size <= arena->capacity);
+    arena->offset = alignedOffset;
+
+    u8* result = arena->start + arena->offset;
+    arena->offset += size;
+    memset(result, 0, size);
+    return result;
+}
+
+void MemArena_Free(MemArena* arena, u64 size)
+{
+    arena->offset = size > arena->offset ? 0 : arena->offset - size;
+}
+
+void MemArena_Clear(MemArena* arena)
+{
+    arena->offset = 0;
+}
+
+// ========================================================
+// [RANDOM]
+u64 RandomU64()
+{
+    // Xorshift*64
+    static u64 x = __rdtsc();   // TODO(caio)#THREAD: This shouldn't be static when doing multithreading!
+    x ^= x >> 12;
+    x ^= x << 25;
+    x ^= x >> 27;
+    return x * 0x2545F4914F6CDD1DULL;
+}
+
+f32 RandomUniform()
+{
+    return (f32)RandomU64()/(f32)MAX_U64;
+}
+
+i32 RandomRange(i32 start, i32 end)
+{
+    // Random int between start (inclusive) and end (inclusive)
+    return start + RandomUniform() * (end + 1 - start);
+}
+
+f32 RandomRange(f32 start, f32 end)
+{
+    return start + RandomUniform() * (end - start);
+}
+
+// ========================================================
+// [TIME]
+u64 clockFrequency = TIMER_INVALID;
+
+void Time_Init()
+{
+    LARGE_INTEGER perfFrequency;
+    BOOL ret = QueryPerformanceFrequency(&perfFrequency);
+    ASSERT(ret);
+    clockFrequency = perfFrequency.QuadPart;
+}
+
+void StartTimer(Timer* timer)
+{
+    LARGE_INTEGER perfCounter;
+    BOOL ret = QueryPerformanceCounter(&perfCounter);
+    ASSERT(ret);
+    timer->start = perfCounter.QuadPart;
+}
+
+void EndTimer(Timer* timer)
+{
+    ASSERT(timer->start != TIMER_INVALID);
+    LARGE_INTEGER perfCounter;
+    BOOL ret = QueryPerformanceCounter(&perfCounter);
+    ASSERT(ret);
+    timer->end = perfCounter.QuadPart;
+}
+
+u64 GetTicks(const Timer& timer)
+{
+    ASSERT(timer.start != TIMER_INVALID);
+    ASSERT(timer.end != TIMER_INVALID);
+    return timer.end - timer.start;
+}
+
+f64 GetTime_NS(const Timer& timer)
+{
+    ASSERT(clockFrequency != TIMER_INVALID);
+    return (f64)(GetTicks(timer) * (u64)1e9) / (f64)clockFrequency;
+}
+
+f64 GetTime_MS(const Timer& timer)
+{
+    ASSERT(clockFrequency != TIMER_INVALID);
+    return (f64)(GetTicks(timer) * (u64)1e3) / (f64)clockFrequency;
+}
+
+f64 GetTime_S(const Timer& timer)
+{
+    ASSERT(clockFrequency != TIMER_INVALID);
+    return (f64)GetTicks(timer) / (f64)clockFrequency;
+}
+
+// ========================================================
+// [FILE]
+bool PathExists(std::string_view path)
+{
+    DWORD fileAttributes = GetFileAttributes(path.data());
+    return fileAttributes != INVALID_FILE_ATTRIBUTES;
+}
+
+bool IsDirectory(std::string_view path)
+{
+    DWORD fileAttributes = GetFileAttributes(path.data());
+    return fileAttributes & FILE_ATTRIBUTE_DIRECTORY;
+}
+
+std::string GetAbsolutePath(std::string_view path)
+{
+    ASSERT(PathExists(path));
+    char resultBuffer[MAX_PATH];
+    DWORD ret = GetFullPathName(
+            path.data(),
+            MAX_PATH, resultBuffer, NULL);
+    ASSERT(ret);
+    return std::string(resultBuffer);
+}
+
+std::string_view GetExtension(std::string_view path)
+{
+    ASSERT(PathExists(path));
+    ASSERT(!IsDirectory(path));
+    u64 extStart = path.find(".");
+    ASSERT(extStart != std::string::npos);
+    return path.substr(extStart);
+}
+
+std::string_view GetFilename(std::string_view path, bool withExtension)
+{
+    ASSERT(PathExists(path));
+    ASSERT(!IsDirectory(path));
+    u64 dirEnd = path.rfind("\\");
+    if(dirEnd == std::string::npos)
+    {
+        dirEnd = path.rfind("/");
+        if(dirEnd == std::string::npos) dirEnd = 0; // No directory before file in path.
+    }
+
+    std::string_view result = path.substr(dirEnd);
+    if(!withExtension)
+    {
+        std::string_view ext = GetExtension(path);
+        result = result.substr(0, result.length() - ext.length());
+    }
+    return result;
+}
+
+std::string_view GetFileDir(std::string_view path)
+{
+    ASSERT(PathExists(path));
+    ASSERT(!IsDirectory(path));
+    u64 dirEnd = path.rfind("\\");
+    if(dirEnd == std::string::npos)
+    {
+        dirEnd = path.rfind("/");
+        if(dirEnd == std::string::npos) dirEnd = 0; // No directory before file in path.
+        
+        // TODO(caio)#FILE: Trying to get directory of filepath without directory.
+        // See if this needs to be handled in the future.
+        ASSERT(dirEnd);
+    }
+
+    return path.substr(0, dirEnd);
+}
+
+u64 GetFileSize(std::string_view path)
+{
+    ASSERT(PathExists(path));
+    ASSERT(!IsDirectory(path));
+
+    HANDLE hFile = CreateFile(
+            path.data(),
+            GENERIC_READ,
+            FILE_SHARE_READ,
+            NULL,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            NULL);
+    ASSERT(hFile != INVALID_HANDLE_VALUE);
+    DWORD fSize = ::GetFileSize(hFile, NULL);
+    ASSERT(fSize != INVALID_FILE_SIZE);
+    CloseHandle(hFile);
+    return (u64)fSize;
+}
+
+u64 ReadFile(std::string_view path, u8* buffer)
+{
+    ASSERT(PathExists(path));
+    ASSERT(!IsDirectory(path));
+
+    HANDLE hFile = CreateFile(
+            path.data(),
+            GENERIC_READ,
+            FILE_SHARE_READ,
+            NULL,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            NULL);
+    ASSERT(hFile != INVALID_HANDLE_VALUE);
+    DWORD fSize = ::GetFileSize(hFile, NULL);
+    ASSERT(fSize != INVALID_FILE_SIZE);
+    DWORD bytesRead = 0;
+    BOOL ret = ::ReadFile(
+            hFile,
+            buffer,
+            fSize,
+            &bytesRead,
+            NULL);
+    ASSERT(ret);
+
+    CloseHandle(hFile);
+    return (u64)bytesRead;
+}
+
+std::string ReadFile_Str(std::string_view path)
+{
+    u64 fSize = GetFileSize(path);
+    char fBuffer[fSize + 1];    //TODO(caio)#FILE: This might be a problem for large files and small stacks.
+    u64 bytesRead = ReadFile(path, (u8*)fBuffer);
+    ASSERT(bytesRead == fSize);
+    fBuffer[fSize] = 0;
+    return std::string(fBuffer);
+}
+
+std::vector<std::string> GetFilesAtDir(std::string_view dirPath)
+{
+    ASSERT(PathExists(dirPath));
+    ASSERT(IsDirectory(dirPath));
+
+    // Create a temp buffer to store query string
+    char queryBuffer[MAX_PATH];
+    sprintf(queryBuffer, "%s\\*", dirPath.data());
+
+    // Make query for files
+    HANDLE fileHandle;
+    WIN32_FIND_DATAA fileData;
+    fileHandle = FindFirstFile(queryBuffer, &fileData);
+    ASSERT(fileHandle != INVALID_HANDLE_VALUE);
+
+    std::vector<std::string> result;
+    do
+    {
+        char fBuffer[MAX_PATH];
+        sprintf(fBuffer, "%s\\%s", dirPath.data(), fileData.cFileName);
+        if(!IsDirectory(fBuffer))
+        {
+            result.push_back(std::string(fBuffer));
+        }
+    } while(FindNextFile(fileHandle, &fileData));
+
+    return result;
+}
 
 bool operator==(const v2f& a, const v2f& b)
 {
@@ -580,6 +942,66 @@ v3f Lerp(const v3f& a, const v3f& b, const f32& t)
         Lerp(a.y, b.y, t),
         Lerp(a.z, b.z, t),
     };
+}
+
+InputState currentState;
+InputState lastState;
+
+void Input_UpdateState()
+{
+    lastState = currentState;
+
+    BOOL ret = GetKeyboardState(currentState.buttons);
+    ASSERT(ret);
+    
+    Input_UpdateMouseState(&currentState.mouse);
+}
+
+void Input_UpdateMouseState(MouseState* mouseState)
+{
+    POINT cursorPoint;
+    BOOL ret = GetCursorPos(&cursorPoint);
+    ASSERT(ret);
+    ret = ScreenToClient(GetActiveWindow(), &cursorPoint);
+    
+    currentState.mouse.pos =
+    {
+        cursorPoint.x, cursorPoint.y
+    };
+}
+
+bool Input_IsKeyDown(InputKey key)
+{
+    return currentState.buttons[key] & 0x80;
+}
+
+bool Input_IsKeyUp(InputKey key)
+{
+    return !(currentState.buttons[key] & 0x80);
+}
+
+bool Input_IsKeyJustDown(InputKey key)
+{
+    return (currentState.buttons[key] & 0x80)
+        && !(lastState.buttons[key] & 0x80);
+}
+
+bool Input_IsKeyJustUp(InputKey key)
+{
+    return !(currentState.buttons[key] & 0x80)
+        && (lastState.buttons[key] & 0x80);
+}
+
+v2i Input_GetMousePosition()
+{
+    return currentState.mouse.pos;
+}
+
+v2f Input_GetMouseDelta()
+{
+    v2f currentPos = {(f32)currentState.mouse.pos.x, (f32)currentState.mouse.pos.y};
+    v2f lastPos = {(f32)lastState.mouse.pos.x, (f32)lastState.mouse.pos.y};
+    return Normalize(currentPos - lastPos);
 }
 
 }   // namespace Ty
