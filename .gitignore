@@ -1,5 +1,5 @@
 .vim/
-dependencies/tracy/
+src/third_party/tracy/
 docs/
 build/debug/
 build/profile/

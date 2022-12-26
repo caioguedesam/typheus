@@ -1,15 +1,15 @@
-#include "core/window.hpp"
+#include "engine/renderer/window.hpp"
 #include "glad/glad.h"
 #include "wglext.h"
 
 namespace Ty
 {
 
-#define WINDOW_CLASS_NAME "WindowClass"
+std::unordered_map<HWND, Window*> activeWindows;
 
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    Window* window = (Window*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+    Window* window = activeWindows[hWnd];
     switch(uMsg)
     {
     case WM_CLOSE:
@@ -20,39 +20,36 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 
-Window* WindowCreate(MemArena* arena, u32 width, u32 height, String title)
+void Window_Init(u32 w, u32 h, const char* name, Window* outWindow)
 {
+    *outWindow = {};
+
+    const char* windowClassName = "TypheusWindowClass";
     // Creating and registering window class
     {
         WNDCLASSA windowClass = {};
         windowClass.style = CS_VREDRAW | CS_HREDRAW | CS_OWNDC;
-        windowClass.lpszClassName = WINDOW_CLASS_NAME;
+        windowClass.lpszClassName = windowClassName;
         windowClass.lpfnWndProc = WindowProc;
         windowClass.hInstance = GetModuleHandle(NULL);
 
         RegisterClassA(&windowClass);
     }
 
-    Window* result = (Window*)MemAlloc(arena, sizeof(Window));
-    result->handle = CreateWindowEx(
+    outWindow->handle = CreateWindowEx(
             0,
-            WINDOW_CLASS_NAME,
-            title.ToCStr(),
+            windowClassName,
+            name,
             WS_OVERLAPPEDWINDOW,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            width,
-            height,
+            CW_USEDEFAULT, CW_USEDEFAULT,
+            w, h,
             NULL, NULL,
             GetModuleHandle(NULL),
             NULL);
-    ASSERT(result->handle);
+    ASSERT(outWindow->handle);
 
-    // Passing Window instance to WindowProc
-    SetWindowLongPtr(result->handle, GWLP_USERDATA, (LONG_PTR)result);
-
-    result->deviceContext = GetDC(result->handle);
-    ASSERT(result->deviceContext);
+    outWindow->deviceContext = GetDC(outWindow->handle);
+    ASSERT(outWindow->deviceContext);
 
     PIXELFORMATDESCRIPTOR pfd =
 	{
@@ -73,11 +70,12 @@ Window* WindowCreate(MemArena* arena, u32 width, u32 height, String title)
 	    0,
 	    0, 0, 0
 	};
-    i32 ret = SetPixelFormat(result->deviceContext,
-            ChoosePixelFormat(result->deviceContext, &pfd),
+    i32 ret = SetPixelFormat(outWindow->deviceContext,
+            ChoosePixelFormat(outWindow->deviceContext, &pfd),
             &pfd);
 
-    return result;
+    // Adding new window to active window list
+    activeWindows[outWindow->handle] = outWindow;
 }
 
 void* GLGetProc(const char* fn)
@@ -95,41 +93,46 @@ void* GLGetProc(const char* fn)
     return proc;
 }
 
-void WindowDestroy(Window* window)
+void Window_Destroy(Window& window)
 {
+    ASSERT(window.handle);
+    if(!activeWindows.count(window.handle)) return;
+
     // Destroy openGL context
-    if(window->glContext)
+    if(window.glContext)
     {
         wglMakeCurrent(NULL, NULL);
-        wglDeleteContext(window->glContext);
+        wglDeleteContext(window.glContext);
     }
 
     // Destroying device context
-    if(window->deviceContext)
+    if(window.deviceContext)
     {
-        DeleteDC(window->deviceContext);
+        DeleteDC(window.deviceContext);
     }
 
-    // Destroying window
-    DestroyWindow(window->handle);
+    // Destroying OS window
+    DestroyWindow(window.handle);
 
-    *window = {};
+    activeWindows.erase(window.handle);
+
+    window = {};
 }
 
-void InitGLContext(Window* window)
+void Window_InitRenderContext(Window& window)
 {
-    ASSERT(!window->glContext);
+    ASSERT(window.handle && window.deviceContext); 
+    ASSERT(!window.glContext);
 
     // Win32 requires us to create a legacy OpenGL context before creating
     // an OpenGL context with the desired version (4.6)
-    MemArena tempArena;
-    MemArenaInit(&tempArena, sizeof(Window));
-    Window* tempWindow = WindowCreate(&tempArena, 0,0,Str(""));
+    Window tempWindow;
+    Window_Init(0,0,"", &tempWindow);
 
-    tempWindow->glContext = wglCreateContext(tempWindow->deviceContext);
-    ASSERT(tempWindow->glContext);
+    tempWindow.glContext = wglCreateContext(tempWindow.deviceContext);
+    ASSERT(tempWindow.glContext);
 
-    i32 ret = wglMakeCurrent(tempWindow->deviceContext, tempWindow->glContext);
+    i32 ret = wglMakeCurrent(tempWindow.deviceContext, tempWindow.glContext);
     ASSERT(ret);
 
     ret = gladLoadGLLoader((GLADloadproc)GLGetProc);
@@ -149,37 +152,36 @@ void InitGLContext(Window* window)
     PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC)wglGetProcAddress("wglCreateContextAttribsARB");
     ASSERT(wglCreateContextAttribsARB);
 
-    WindowDestroy(tempWindow);
-    MemArenaDestroy(&tempArena);
+    Window_Destroy(tempWindow);
 
-    window->glContext = wglCreateContextAttribsARB(window->deviceContext, NULL, attributeList);
-    ASSERT(window->glContext);
+    window.glContext = wglCreateContextAttribsARB(window.deviceContext, NULL, attributeList);
+    ASSERT(window.glContext);
 
-    ret = wglMakeCurrent(window->deviceContext, window->glContext);
+    ret = wglMakeCurrent(window.deviceContext, window.glContext);
     ASSERT(ret);
 }
 
-void WindowShow(Window* window)
+void Window_Show(const Window& window)
 {
-    ASSERT(window->handle && window->deviceContext && window->glContext);
-    ShowWindow(window->handle, SW_SHOWNORMAL);
+    ASSERT(window.handle && window.deviceContext && window.glContext);
+    ShowWindow(window.handle, SW_SHOWNORMAL);
 }
 
-void ProcessMessages(Window* window)
+void Window_ProcessMessages(const Window& window)
 {
     MSG msg = {};
     while(true)
     {
-        i32 ret = PeekMessage(&msg, window->handle, 0, 0, PM_REMOVE);
+        i32 ret = PeekMessage(&msg, window.handle, 0, 0, PM_REMOVE);
         ASSERT(ret >= 0);
         if(!ret) break;
         DispatchMessage(&msg);
     }
 }
 
-void SwapBuffers(Window* window)
+void Window_SwapBuffers(const Window& window)
 {
-    SwapBuffers(window->deviceContext);
+    SwapBuffers(window.deviceContext);
 }
 
 }   // namespace Ty
