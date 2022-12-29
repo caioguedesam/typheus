@@ -438,10 +438,18 @@ void Renderer_RenderFrame()
 {
     // Preparing Render
     {
+        // Clearing backbuffer
         glClearColor(1.f, 0.5f, 0.f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        // Updating viewport (in case of window resizing)
         Renderer_SetViewport({0, 0, rendererData.window->width, rendererData.window->height});
+        glViewport(
+                rendererData.viewport.bottomLeft.x,
+                rendererData.viewport.bottomLeft.y,
+                rendererData.viewport.width,
+                rendererData.viewport.height
+                );
     }
 
     // Rendering 3D mesh renderables
