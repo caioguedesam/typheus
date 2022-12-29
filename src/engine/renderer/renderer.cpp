@@ -1,59 +1,12 @@
-#include "glad/glad.h"
-
 #include "stb_image.h"
 #include "fast_obj.h"
 
 #include "engine/renderer/renderer.hpp"
 
-#define RESOURCE_PATH "../resources/"
-#define SHADER_PATH RESOURCE_PATH"shaders/"
-#define TEXTURE_PATH RESOURCE_PATH"textures/"
-#define MODELS_PATH RESOURCE_PATH"models/"
-
 namespace Ty
 {
 
-MemArena memArena_Texture;
-
-u32 vsHandle = MAX_U32;
-u32 psHandle = MAX_U32;
-u32 shaderProgramHandle = MAX_U32;
-
-u32 textureHandle = MAX_U32;
-
-u32 quadVBO = MAX_U32;
-u32 quadEBO = MAX_U32;
-u32 quadVAO = MAX_U32;
-
-f32 quadVertices[] =
-{
-   -0.5f,  -0.5f,   0.f,    0.f,    0.f,
-    0.5f,  -0.5f,   0.f,    0.f,    1.f,
-    0.5f,   0.5f,   0.f,    1.f,    1.f,
-   -0.5f,   0.5f,   0.f,    1.f,    0.f,
-};
-
-u32 quadIndices[] =
-{
-    0, 1, 2,
-    0, 2, 3,
-};
-
-std::vector<MeshVertex> sponzaVertices;
-std::vector<u32> sponzaIndices;
-u32 sponzaVAO;
-u32 sponzaVBO;
-u32 sponzaEBO;
-
-std::vector<MeshVertex> bunnyVertices;
-std::vector<u32> bunnyIndices;
-u32 bunnyVAO;
-u32 bunnyVBO;
-u32 bunnyEBO;
-
-m4f modelMatrix = {};
-m4f viewMatrix = {};
-m4f projMatrix = {};
+RendererData rendererData = {};
 
 void GLAPIENTRY
 GLMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
@@ -62,6 +15,7 @@ GLMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsize
     ASSERTF(type != GL_DEBUG_TYPE_ERROR, "[OPENGL ERROR]: %s", message);
 }
 
+// TODO(caio)#RENDER: Move this function from here, this is not a rendering function.
 void LoadOBJModel(std::string_view assetPath, std::vector<MeshVertex>* outVertices, std::vector<u32>* outIndices)
 {
     // TODO(caio)#RENDER: This does not support material loading yet.
@@ -134,6 +88,328 @@ void LoadOBJModel(std::string_view assetPath, std::vector<MeshVertex>* outVertic
     fast_obj_destroy(objData);
 }
 
+m4f Camera::GetView()
+{
+    return LookAtMatrix(position, position + target, up);
+}
+
+m4f Camera::GetProjection(const Window& window)
+{
+    f32 aspectRatio = (f32)window.width/(f32)window.height;
+    return PerspectiveProjectionMatrix(fov, aspectRatio, nearPlane, farPlane);
+}
+
+void Camera::Move(v3f newPosition)
+{
+    position = newPosition;
+}
+
+void Camera::Rotate(f32 rotationAngle, v3f rotationAxis)
+{
+    m4f rotationMatrix = RotationMatrix(rotationAngle, rotationAxis);
+    v4f newTarget = rotationMatrix * v4f{target.x, target.y, target.z, 0};
+    target = v3f{newTarget.x, newTarget.y, newTarget.z};
+}
+
+void Renderer_SetCamera(Camera camera)
+{
+    rendererData.camera = camera;
+}
+
+void Renderer_SetViewport(RenderViewport viewport)
+{
+    rendererData.viewport = viewport;
+}
+
+ResourceHandle Renderer_CreateBuffer(u8* bufferData, u64 bufferCount, u64 bufferStride, BufferType bufferType)
+{
+    APIHandle glHandle = API_HANDLE_INVALID;
+    glGenBuffers(1, &glHandle);
+    ASSERT(glHandle != API_HANDLE_INVALID);
+
+    GLuint glBindType;
+    switch(bufferType)
+    {
+        case BUFFER_TYPE_VERTEX:
+            {
+                glBindType = GL_ARRAY_BUFFER;
+            }; break;
+        case BUFFER_TYPE_INDEX:
+            {
+                glBindType = GL_ELEMENT_ARRAY_BUFFER;
+            }; break;
+
+        default: ASSERT(0);
+    }
+
+    glBindVertexArray(0);
+    glBindBuffer(glBindType, glHandle);
+    glBufferData(glBindType, bufferCount * bufferStride, bufferData, GL_STATIC_DRAW);
+
+    Buffer buffer =
+    {
+        bufferType,
+        glHandle,
+        bufferCount,
+        bufferStride,
+        bufferData
+    };
+
+    rendererData.buffers.push_back(buffer);
+    return rendererData.buffers.size() - 1;
+}
+
+ResourceHandle Renderer_CreateTexture(u8* textureData, u32 textureWidth, u32 textureHeight, TextureFormat textureFormat, TextureParams textureParams)
+{
+    APIHandle glHandle = API_HANDLE_INVALID;
+    glGenTextures(1, &glHandle);
+    ASSERT(glHandle != API_HANDLE_INVALID);
+    GLuint glWrapS, glWrapT, glFilterMin, glFilterMag;
+    GLuint glInternalFormat, glFormat, glDataType;
+    switch(textureParams.wrapMode)
+    {
+        case TEXTURE_WRAP_REPEAT:
+            {
+                glWrapS = glWrapT = GL_REPEAT;
+            }; break;
+        case TEXTURE_WRAP_CLAMP:
+            {
+                glWrapS = glWrapT = GL_CLAMP_TO_EDGE;
+            }; break;
+        default: ASSERT(0);
+    }
+
+    switch(textureParams.filterMode_Min)
+    {
+        case TEXTURE_FILTER_LINEAR:
+            {
+                glFilterMin = textureParams.useMips ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR;
+            }; break;
+        case TEXTURE_FILTER_NEAREST:
+            {
+                glFilterMin = textureParams.useMips ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST;
+            }; break;
+        default: ASSERT(0);
+    }
+    
+    switch(textureParams.filterMode_Max)
+    {
+        case TEXTURE_FILTER_LINEAR:
+            {
+                glFilterMag = GL_LINEAR;
+            }; break;
+        case TEXTURE_FILTER_NEAREST:
+            {
+                glFilterMag = GL_NEAREST;
+            }; break;
+        default: ASSERT(0);
+    }
+    
+    switch(textureFormat)
+    {
+        case TEXTURE_FORMAT_R8G8B8:
+            {
+                glInternalFormat = GL_RGB;
+                glFormat = GL_RGB;
+                glDataType = GL_UNSIGNED_BYTE;
+            }; break;
+        case TEXTURE_FORMAT_R8G8B8A8:
+            {
+                glInternalFormat = GL_RGBA;
+                glFormat = GL_RGBA;
+                glDataType = GL_UNSIGNED_BYTE;
+            }; break;
+
+        default: ASSERT(0);
+    }
+
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, glWrapS);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, glWrapT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glFilterMin);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glFilterMag);
+
+    glBindTexture(GL_TEXTURE_2D, glHandle);
+    glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, textureWidth, textureHeight, 0, glFormat, glDataType, textureData);
+
+    if(textureParams.useMips)
+        glGenerateMipmap(GL_TEXTURE_2D);
+    
+    Texture texture =
+    {
+        textureFormat,
+        textureParams,
+        textureWidth,
+        textureHeight,
+        glHandle,
+        textureData
+    };
+    
+    rendererData.textures.push_back(texture);
+    return rendererData.textures.size() - 1;
+}
+
+ResourceHandle Renderer_CreateMesh(ResourceHandle h_VertexBuffer, ResourceHandle h_IndexBuffer)
+{
+    APIHandle glHandle = API_HANDLE_INVALID;
+    glGenVertexArrays(1, &glHandle);
+    ASSERT(glHandle != API_HANDLE_INVALID);
+
+    glBindVertexArray(glHandle);
+
+    Buffer& vertexBuffer = rendererData.buffers[h_VertexBuffer];
+    Buffer& indexBuffer = rendererData.buffers[h_IndexBuffer];
+
+    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer.apiHandle);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer.apiHandle);
+
+    // For meshes, Vertex Data is formatted as MeshVertex (v3f position - v3f normal - v2f texcoord)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, position));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, normal));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, texcoord));
+    glEnableVertexAttribArray(2);
+
+    Mesh mesh =
+    {
+        h_VertexBuffer,
+        h_IndexBuffer,
+        glHandle
+    };
+
+    rendererData.meshes.push_back(mesh);
+    return rendererData.meshes.size() - 1;
+}
+
+ResourceHandle Renderer_CreateShader(std::string_view shaderSrc, ShaderType shaderType)
+{
+    APIHandle glHandle = API_HANDLE_INVALID;
+    switch(shaderType)
+    {
+        case SHADER_TYPE_VERTEX:
+            {
+                glHandle = glCreateShader(GL_VERTEX_SHADER);
+            }; break;
+        case SHADER_TYPE_PIXEL:
+            {
+                glHandle = glCreateShader(GL_FRAGMENT_SHADER);
+            }; break;
+        default: ASSERT(0);
+    }
+    ASSERT(glHandle != API_HANDLE_INVALID);
+
+    const char* shaderSrcCstr = shaderSrc.data();
+    glShaderSource(glHandle, 1, &shaderSrcCstr, NULL);
+    glCompileShader(glHandle);
+
+    Shader shader =
+    {
+        shaderType,
+        glHandle,
+        shaderSrc
+    };
+    rendererData.shaders.push_back(shader);
+    return rendererData.shaders.size() - 1;
+}
+
+ResourceHandle Renderer_CreateShaderPipeline(ResourceHandle h_VS, ResourceHandle h_PS)
+{
+    APIHandle glHandle = API_HANDLE_INVALID;
+    glHandle = glCreateProgram();
+    ASSERT(glHandle != API_HANDLE_INVALID);
+    Shader& vertexShader = rendererData.shaders[h_VS];
+    Shader& pixelShader = rendererData.shaders[h_PS];
+
+    glAttachShader(glHandle, vertexShader.apiHandle);
+    glAttachShader(glHandle, pixelShader.apiHandle);
+    glLinkProgram(glHandle);
+
+    ShaderPipeline shaderPipeline =
+    {
+        h_VS,
+        h_PS,
+        glHandle
+    };
+    rendererData.shaderPipelines.push_back(shaderPipeline);
+    return rendererData.shaderPipelines.size() - 1;
+};
+
+ResourceHandle Renderer_CreateMaterial(const std::vector<ResourceHandle>& h_MaterialTextures)
+{
+    Material material = {};
+    for(i32 i = 0; i < h_MaterialTextures.size(); i++)
+    {
+        material.textures[i] = h_MaterialTextures[i];
+        material.count++;
+    }
+    rendererData.materials.push_back(material);
+    return rendererData.materials.size() - 1;
+}
+
+ResourceHandle Renderer_CreateRenderable(ResourceHandle h_Mesh, ResourceHandle h_Shader, ResourceHandle h_Material)
+{
+    Renderable renderable =
+    {
+        h_Mesh,
+        h_Shader,
+        h_Material
+    };
+
+    // TODO(caio)#RENDER: IMPORTANT, push these to array by insertion sorting them later.
+    rendererData.renderables.push_back(renderable);
+    return rendererData.renderables.size() - 1;
+}
+
+Renderable& Renderer_GetRenderable(ResourceHandle h_Renderable)
+{
+    ASSERT(h_Renderable != RESOURCE_INVALID);
+    return rendererData.renderables[h_Renderable];
+}
+
+void Renderer_BindMesh(ResourceHandle h_Mesh)
+{
+    Mesh& mesh = rendererData.meshes[h_Mesh];
+    glBindVertexArray(mesh.apiHandle);
+}
+
+void Renderer_BindShaderPipeline(ResourceHandle h_ShaderPipeline)
+{
+    ShaderPipeline& shader = rendererData.shaderPipelines[h_ShaderPipeline];
+    glUseProgram(shader.apiHandle);
+}
+
+void Renderer_BindMaterial(ResourceHandle h_Material)
+{
+    Material& material = rendererData.materials[h_Material];
+    for(i32 i = 0; i < material.count; i++)
+    {
+        glActiveTexture(GL_TEXTURE0 + i);
+        Texture& texture = rendererData.textures[material.textures[i]];
+        glBindTexture(GL_TEXTURE_2D, texture.apiHandle);
+    }
+}
+
+void Renderer_BindUniforms(const Renderable& renderable)
+{
+    ShaderPipeline& shader = rendererData.shaderPipelines[renderable.h_Shader];
+    GLint location = -1;
+    location = glGetUniformLocation(shader.apiHandle, "u_Model");
+    ASSERT(location != -1);
+    glUniformMatrix4fv(location, 1, GL_TRUE, &renderable.u_Model.m00);
+
+
+    // TODO(caio)#RENDER: Move these to a global uniform buffer whenever adding UBO support.
+    m4f viewMatrix = rendererData.camera.GetView();
+    m4f projMatrix = rendererData.camera.GetProjection(*rendererData.window);
+    location = glGetUniformLocation(shader.apiHandle, "u_View");
+    ASSERT(location != -1);
+    glUniformMatrix4fv(location, 1, GL_TRUE, &viewMatrix.m00);
+    location = glGetUniformLocation(shader.apiHandle, "u_Proj");
+    ASSERT(location != -1);
+    glUniformMatrix4fv(location, 1, GL_TRUE, &projMatrix.m00);
+}
+
 void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Window* outWindow)
 {
     ASSERT(outWindow);
@@ -151,194 +427,56 @@ void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Wi
 #endif
     // TODO(caio)#RENDER: Enable MSAA
 
-    // Resource Memory
-    MemArena_Init(&memArena_Texture, MB(1));
-
-    // Shader resources
-    // TODO(caio)#RENDER: Change this when starting support for multiple shaders + hot reload
-    std::string vsSrc = ReadFile_Str(SHADER_PATH"default_vertex.vs");
-    std::string psSrc = ReadFile_Str(SHADER_PATH"default_pixel.ps");
-    const char* vsCStr = vsSrc.data();
-    const char* psCStr = psSrc.data();
-    
-    i32 ret = 0;
-    vsHandle = glCreateShader(GL_VERTEX_SHADER);
-    ASSERT(vsHandle);
-    glShaderSource(vsHandle, 1, &vsCStr, NULL);
-    glCompileShader(vsHandle);
-    glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &ret);
-    if(!ret)
-    {
-        char logBuffer[512];
-        glGetShaderInfoLog(vsHandle, 512, NULL, logBuffer);
-        ASSERTF(0, "Vertex shader compilation failed: %s", logBuffer);
-    }
-
-    psHandle = glCreateShader(GL_FRAGMENT_SHADER);
-    ASSERT(psHandle);
-    glShaderSource(psHandle, 1, &psCStr, NULL);
-    glCompileShader(psHandle);
-    glGetShaderiv(psHandle, GL_COMPILE_STATUS, &ret);
-    if(!ret)
-    {
-        char logBuffer[512];
-        glGetShaderInfoLog(vsHandle, 512, NULL, logBuffer);
-        ASSERTF(0, "Pixel shader compilation failed: %s", logBuffer);
-    }
-
-    shaderProgramHandle = glCreateProgram();
-    glAttachShader(shaderProgramHandle, vsHandle);
-    glAttachShader(shaderProgramHandle, psHandle);
-    glLinkProgram(shaderProgramHandle);
-    glGetProgramiv(shaderProgramHandle, GL_LINK_STATUS, &ret);
-    if(!ret)
-    {
-        char logBuffer[512];
-        glGetProgramInfoLog(vsHandle, 512, NULL, logBuffer);
-        ASSERTF(0, "Shader program linking failed: %s", logBuffer);
-    }
-
-    // TODO(caio)#RENDER: This is temporary code before setting up proper object drawing.
-    // Create quad object
-    glGenVertexArrays(1, &quadVAO);
-    glGenBuffers(1, &quadVBO);
-    glGenBuffers(1, &quadEBO);
-
-    glBindVertexArray(quadVAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-    glBufferData(GL_ARRAY_BUFFER, ArraySize(quadVertices), quadVertices, GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, ArraySize(quadIndices), quadIndices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(f32), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(f32), (void*)(3 * sizeof(f32)));
-    glEnableVertexAttribArray(1);
-
-    // Load quad texture
-    i32 textureWidth, textureHeight, textureChannels;
-    u8* stbiData = stbi_load(TEXTURE_PATH"test.png", &textureWidth, &textureHeight, &textureChannels, 3);
-    ASSERT(stbiData);
-    ASSERT(textureWidth);
-    ASSERT(textureHeight);
-    ASSERT(textureChannels);
-
-    // TODO(caio)#RENDER: This allocates without using arenas because of stbi. Proper support would need an arena realloc implementation.
-    u8* textureData = (u8*)MemArena_Alloc(&memArena_Texture, textureWidth * textureHeight * textureChannels);
-    memcpy(textureData, stbiData, textureWidth * textureHeight * 3);
-    stbi_image_free(stbiData);
-
-    glGenTextures(1, &textureHandle);
-    glBindTexture(GL_TEXTURE_2D, textureHandle);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, textureWidth, textureHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, textureData);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    // Loading OBJ model
-    LoadOBJModel(MODELS_PATH"sponza/sponza.obj", &sponzaVertices, &sponzaIndices);
-    LoadOBJModel(MODELS_PATH"bunny/bunny.obj", &bunnyVertices, &bunnyIndices);
-
-    // Creating OpenGL structures for sponza model
-    glGenVertexArrays(1, &sponzaVAO);
-    glGenBuffers(1, &sponzaVBO);
-    glGenBuffers(1, &sponzaEBO);
-
-    glBindVertexArray(sponzaVAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, sponzaVBO);
-    glBufferData(GL_ARRAY_BUFFER, sponzaVertices.size() * sizeof(MeshVertex), sponzaVertices.data(), GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sponzaEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sponzaIndices.size() * sizeof(u32), sponzaIndices.data(), GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, position));
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, normal));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, texcoord));
-    glEnableVertexAttribArray(2);
-
-    // Creating OpenGL structures for bunny model
-    glGenVertexArrays(1, &bunnyVAO);
-    glGenBuffers(1, &bunnyVBO);
-    glGenBuffers(1, &bunnyEBO);
-
-    glBindVertexArray(bunnyVAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, bunnyVBO);
-    glBufferData(GL_ARRAY_BUFFER, bunnyVertices.size() * sizeof(MeshVertex), bunnyVertices.data(), GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bunnyEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, bunnyIndices.size() * sizeof(u32), bunnyIndices.data(), GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, position));
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, normal));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, texcoord));
-    glEnableVertexAttribArray(2);
-
-    // Temporary transformation matrices
-    v3f cameraCenter = {0,2,3};
-    v3f cameraDir = {0,0,-1};
-    f32 cameraFov = 45.f;
-    f32 cameraAspectRatio = 1280.f/720.f;
-    f32 cameraNear = 0.1f;
-    f32 cameraFar = 1000.f;
-    viewMatrix = LookAtMatrix(
-            cameraCenter,
-            cameraCenter + cameraDir,
-            {0,1,0});
-    projMatrix = PerspectiveProjectionMatrix(
-            cameraFov,
-            cameraAspectRatio,
-            cameraNear,
-            cameraFar);
-
-    i32 a = 10;
+    rendererData.window = outWindow;
+    RenderViewport viewport = {{0,0}, windowWidth, windowHeight};
+    Renderer_SetViewport(viewport);
 
     Window_Show(*outWindow);
 }
 
 void Renderer_RenderFrame()
 {
-    glClearColor(1.f, 0.5f, 0.f, 1.f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // Preparing Render
+    {
+        glClearColor(1.f, 0.5f, 0.f, 1.f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    modelMatrix = ScaleMatrix({0.01f, 0.01f, 0.01f});
-    modelMatrix = RotationMatrix(TO_RAD(90.f), {0.f, 1.f, 0.f}) * modelMatrix;
+        Renderer_SetViewport({0, 0, rendererData.window->width, rendererData.window->height});
+    }
 
-    // TODO(caio)#RENDER: This is temporary code before setting up proper object drawing.
-    glUseProgram(shaderProgramHandle);
-    glBindVertexArray(sponzaVAO);
+    // Rendering 3D mesh renderables
+    {
+        ResourceHandle activeShader         = RESOURCE_INVALID;
+        ResourceHandle activeMaterial       = RESOURCE_INVALID;
+        ResourceHandle activeMesh           = RESOURCE_INVALID;
 
-    GLint location = glGetUniformLocation(shaderProgramHandle, "u_Model");
-    glUniformMatrix4fv(location, 1, GL_TRUE, &modelMatrix.m00);
-    location = glGetUniformLocation(shaderProgramHandle, "u_View");
-    glUniformMatrix4fv(location, 1, GL_TRUE, &viewMatrix.m00);
-    location = glGetUniformLocation(shaderProgramHandle, "u_Proj");
-    glUniformMatrix4fv(location, 1, GL_TRUE, &projMatrix.m00);
+        for(i32 i = 0; i < rendererData.renderables.size(); i++)
+        {
+            Renderable& renderable = rendererData.renderables[i];
+            // Bind resources
+            if(renderable.h_Shader != activeShader)
+            {
+                activeShader = renderable.h_Shader;
+                Renderer_BindShaderPipeline(activeShader);
+            }
+            if(renderable.h_Material != activeMaterial)
+            {
+                activeMaterial = renderable.h_Material;
+                Renderer_BindMaterial(activeMaterial);
+            }
+            if(renderable.h_Mesh != activeMesh)
+            {
+                activeMesh = renderable.h_Mesh;
+                Renderer_BindMesh(activeMesh);
+            }
+            Renderer_BindUniforms(renderable);
 
-    glDrawElements(GL_TRIANGLES, sponzaIndices.size(), GL_UNSIGNED_INT, 0);
-
-    modelMatrix = Identity();
-
-    glBindVertexArray(bunnyVAO);
-
-    location = glGetUniformLocation(shaderProgramHandle, "u_Model");
-    glUniformMatrix4fv(location, 1, GL_TRUE, &modelMatrix.m00);
-    location = glGetUniformLocation(shaderProgramHandle, "u_View");
-    glUniformMatrix4fv(location, 1, GL_TRUE, &viewMatrix.m00);
-    location = glGetUniformLocation(shaderProgramHandle, "u_Proj");
-    glUniformMatrix4fv(location, 1, GL_TRUE, &projMatrix.m00);
-
-    glDrawElements(GL_TRIANGLES, bunnyIndices.size(), GL_UNSIGNED_INT, 0);
+            // Draw
+            Mesh& mesh = rendererData.meshes[renderable.h_Mesh];
+            Buffer& indexBuffer = rendererData.buffers[mesh.h_IndexBuffer];
+            glDrawElements(GL_TRIANGLES, indexBuffer.count, GL_UNSIGNED_INT, 0);
+        }
+    }
 }
 
 } // namespace Ty

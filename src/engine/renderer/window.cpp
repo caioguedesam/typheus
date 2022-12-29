@@ -12,10 +12,16 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     Window* window = activeWindows[hWnd];
     switch(uMsg)
     {
-    case WM_CLOSE:
-    {
-        window->shouldClose = true;
-    } break;
+        case WM_CLOSE:
+            {
+                window->shouldClose = true;
+            } break;
+        case WM_SIZE:
+            {
+                window->width = LOWORD(lParam);
+                window->height = HIWORD(lParam);
+            }; break;
+        default: break;
     }
     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
@@ -73,6 +79,9 @@ void Window_Init(u32 w, u32 h, const char* name, Window* outWindow)
     i32 ret = SetPixelFormat(outWindow->deviceContext,
             ChoosePixelFormat(outWindow->deviceContext, &pfd),
             &pfd);
+
+    outWindow->width = w;
+    outWindow->height = h;
 
     // Adding new window to active window list
     activeWindows[outWindow->handle] = outWindow;

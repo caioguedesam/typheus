@@ -8,6 +8,8 @@ namespace Ty
 // TODO(caio)#PLATFORM: Add support for X11 windows, and Vulkan rendering contexts when needed.
 struct Window
 {
+    u32 width           = 0;
+    u32 height          = 0;
     HWND handle         = NULL;
     HDC deviceContext   = NULL;
     HGLRC glContext     = NULL;
