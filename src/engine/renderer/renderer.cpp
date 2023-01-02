@@ -7,12 +7,201 @@ namespace Ty
 {
 
 RendererData rendererData = {};
+AssetDatabase assetDatabase = {};
 
 void GLAPIENTRY
 GLMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
         const GLchar* message, const void* userParam)
 {
     ASSERTF(type != GL_DEBUG_TYPE_ERROR, "[OPENGL ERROR]: %s", message);
+}
+
+ResourceHandle Renderer_GetAsset(std::string_view assetPath)
+{
+    // TODO(caio)#ASSET: I'm sure this can be improved a lot. For instance,
+    // This will return invalid if the paths don't match but point to the same file.
+    // Deal with this when making a more robust path/asset system integrated with engine.
+    std::string assetPath_str(assetPath);
+    if(!assetDatabase.loadedAssets.count(assetPath_str)) return RESOURCE_INVALID;
+    return assetDatabase.loadedAssets[assetPath_str];
+}
+
+ResourceHandle Renderer_LoadTextureAsset(std::string_view assetPath)
+{
+    ASSERT(PathExists(assetPath) && !IsDirectory(assetPath));
+    ResourceHandle result = Renderer_GetAsset(assetPath);
+    if(result != RESOURCE_INVALID) return result;
+
+    i32 textureWidth = 0, textureHeight = 0, textureChannels = 0;
+
+    // TODO(caio)#ASSET: No support yet for 2-channel textures. Alpha maps that
+    // are 2-channel are actually loaded as 1-channel for now.
+    i32 stbiInfoResult = stbi_info(assetPath.data(), NULL, NULL, &textureChannels);
+    ASSERT(stbiInfoResult);
+    i32 desiredChannels = textureChannels == 2 ? 1 : 0;
+    stbi_set_flip_vertically_on_load(1);
+    u8* textureData = stbi_load(assetPath.data(), &textureWidth, &textureHeight, &textureChannels, desiredChannels);
+    
+    TextureFormat textureFormat;
+    switch(textureChannels)
+    {
+        case 1:
+        case 2:
+            {
+                textureFormat = TEXTURE_FORMAT_R8;
+            }; break;
+        case 3:
+            {
+                textureFormat = TEXTURE_FORMAT_R8G8B8;
+            }; break;
+        case 4:
+            {
+                textureFormat = TEXTURE_FORMAT_R8G8B8A8;
+            }; break;
+        default: ASSERT(0);
+    }
+
+    TextureParams textureParams;
+
+    result = Renderer_CreateTexture(textureData, textureWidth, textureHeight, textureFormat, textureParams);
+    return result;
+}
+
+// Model loading with materials new API pass draft:
+//      void Renderer_CreateRenderablesFromModel(assetPath, shader)
+//          >> This function
+//              > Loads OBJ model
+//              > Creates each material and loads the relevant textures
+//              > Parses each face grouped by material
+//              > Creates a different mesh and renderable for each material
+
+std::vector<ResourceHandle> Renderer_CreateRenderablesFromModel(std::string_view assetPath, ResourceHandle h_Shader)
+{
+    // TODO(caio)#ASSET: Not really convinced this should return void.
+    // Maybe an array with handles to all created renderables.
+    ASSERT(PathExists(assetPath) && !IsDirectory(assetPath));
+
+    fastObjMesh* objData = fast_obj_read(assetPath.data());
+
+    // Loading and creating materials and material textures
+    ResourceHandle h_Materials[objData->material_count];
+    for(u64 m = 0; m < objData->material_count; m++)
+    {
+        auto objMat = objData->materials[m];
+
+        ResourceHandle h_Textures[MATERIAL_MAX_TEXTURES];
+        for(u32 i = 0; i < MATERIAL_MAX_TEXTURES; i++) h_Textures[i] = RESOURCE_INVALID;
+
+        char* objTexturePaths[] =
+        {
+            objMat.map_Ka.path,         // Ambient map
+            objMat.map_Kd.path,         // Diffuse map
+            objMat.map_Ks.path,         // Specular map
+            objMat.map_d.path,          // Alpha Mask
+            objMat.map_bump.path,       // Bump map
+        };
+
+        for(u32 i = 0; i < ArrayCount(objTexturePaths); i++)
+        {
+            char* assetPath = objTexturePaths[i];
+            if(!assetPath) continue;
+
+            h_Textures[i] = Renderer_LoadTextureAsset(assetPath);
+        }
+
+        h_Materials[m] = Renderer_CreateMaterial(h_Textures, ArrayCount(objTexturePaths));
+    }
+
+    // Loading vertex and index buffers (one submesh per model material)
+    std::vector<MeshVertex>* modelVertices = new std::vector<MeshVertex>();
+    std::vector<std::vector<u32>>* modelIndices = new std::vector<std::vector<u32>>(objData->material_count);
+
+    u64 currentIndex = 0;
+    // Iterate on every group
+    for(u64 g = 0; g < objData->group_count; g++)
+    {
+        u64 g_FaceCount = objData->groups[g].face_count;
+        u64 g_FaceOffset = objData->groups[g].face_offset;
+        u64 g_IndexOffset = objData->groups[g].index_offset;
+
+        u64 currentFaceOffset = 0;  // Cursor that always points to current face (this is needed because
+                                    // faces can have more than 3 sides).
+        // Then every face
+        for(u64 f = g_FaceOffset; f < g_FaceOffset + g_FaceCount; f++)
+        {
+            u32 faceMaterial = objData->face_materials[f];
+            // Then every triangle of face (OBJ does not enforce triangulated meshes)
+            for(u64 t = 0; t < objData->face_vertices[f] - 2; t++)
+            {
+                u64 t_Indices[] = {0, t + 1, t + 2};    // Fan triangulation for regular polygons
+                // Then every vertex of triangle
+                for(u64 v = 0; v < 3; v++)
+                {
+                    u64 i = (currentFaceOffset + t_Indices[v]) + g_IndexOffset;
+
+                    u64 i_Position = objData->indices[i].p;
+                    ASSERT(i_Position);
+                    u64 i_Normal = objData->indices[i].n;
+                    ASSERT(i_Normal);
+                    u64 i_Texcoord = objData->indices[i].t;
+                    ASSERT(i_Texcoord);
+
+                    v3f v_Position =
+                    {
+                        objData->positions[i_Position * 3 + 0],
+                        objData->positions[i_Position * 3 + 1],
+                        objData->positions[i_Position * 3 + 2],
+                    };
+
+                    v3f v_Normal =
+                    {
+                        objData->normals[i_Normal * 3 + 0],
+                        objData->normals[i_Normal * 3 + 1],
+                        objData->normals[i_Normal * 3 + 2],
+                    };
+                    
+                    v2f v_Texcoord =
+                    {
+                        objData->texcoords[i_Texcoord * 2 + 0],
+                        objData->texcoords[i_Texcoord * 2 + 1],
+                    };
+
+                    //outVertices->push_back({v_Position, v_Normal, v_Texcoord});
+                    //outIndices->push_back(currentIndex++);
+                    (*modelVertices).push_back({v_Position, v_Normal, v_Texcoord});
+                    (*modelIndices)[faceMaterial].push_back(currentIndex++);
+                }
+            }
+
+            currentFaceOffset += objData->face_vertices[f];
+        }
+    }
+
+    // Creating mesh and buffer resources, and merging resources to renderables
+    std::vector<ResourceHandle> result;
+
+    ResourceHandle h_VertexBuffer = Renderer_CreateBuffer((u8*)modelVertices->data(), modelVertices->size(), sizeof(MeshVertex), BUFFER_TYPE_VERTEX);
+    for(i32 i = 0; i < objData->material_count; i++)
+    {
+        std::vector<u32>& submeshIndices = (*modelIndices)[i];
+        ResourceHandle h_SubmeshIndexBuffer = Renderer_CreateBuffer((u8*)submeshIndices.data(), submeshIndices.size(), sizeof(u32), BUFFER_TYPE_INDEX);
+        ResourceHandle h_Submesh = Renderer_CreateMesh(h_VertexBuffer, h_SubmeshIndexBuffer);
+        ResourceHandle h_SubmeshRenderable = Renderer_CreateRenderable(h_Submesh, h_Shader, h_Materials[i]);
+
+        // Check if the material has an alpha mask
+        Material& submeshMaterial = rendererData.materials[h_Materials[i]];
+        Renderer_GetRenderable(h_SubmeshRenderable).u_UseAlphaMask = submeshMaterial.h_Textures[3] == RESOURCE_INVALID ? 0 : 1;
+
+        result.push_back(h_SubmeshRenderable);
+    }
+
+    // Freeing allocated obj parse data
+    fast_obj_destroy(objData);
+
+    // TODO(caio)#ASSET: Maybe I should treat models as loaded assets as well.
+    // So if I already loaded an OBJ I don't load it again, and just create copies of the renderables
+    // previously created... No idea how...
+    return result;
 }
 
 // TODO(caio)#RENDER: Move this function from here, this is not a rendering function.
@@ -207,15 +396,21 @@ ResourceHandle Renderer_CreateTexture(u8* textureData, u32 textureWidth, u32 tex
     
     switch(textureFormat)
     {
+        case TEXTURE_FORMAT_R8:
+            {
+                glInternalFormat = GL_R8;
+                glFormat = GL_RED;
+                glDataType = GL_UNSIGNED_BYTE;
+            }; break;
         case TEXTURE_FORMAT_R8G8B8:
             {
-                glInternalFormat = GL_RGB;
+                glInternalFormat = GL_RGB8;
                 glFormat = GL_RGB;
                 glDataType = GL_UNSIGNED_BYTE;
             }; break;
         case TEXTURE_FORMAT_R8G8B8A8:
             {
-                glInternalFormat = GL_RGBA;
+                glInternalFormat = GL_RGBA8;
                 glFormat = GL_RGBA;
                 glDataType = GL_UNSIGNED_BYTE;
             }; break;
@@ -335,13 +530,13 @@ ResourceHandle Renderer_CreateShaderPipeline(ResourceHandle h_VS, ResourceHandle
     return rendererData.shaderPipelines.size() - 1;
 };
 
-ResourceHandle Renderer_CreateMaterial(const std::vector<ResourceHandle>& h_MaterialTextures)
+ResourceHandle Renderer_CreateMaterial(ResourceHandle* h_MaterialTextureArray, u8 materialTextureCount)
 {
     Material material = {};
-    for(i32 i = 0; i < h_MaterialTextures.size(); i++)
+    material.count = materialTextureCount;
+    for(i32 i = 0; i < material.count; i++)
     {
-        material.textures[i] = h_MaterialTextures[i];
-        material.count++;
+        material.h_Textures[i] = h_MaterialTextureArray[i];
     }
     rendererData.materials.push_back(material);
     return rendererData.materials.size() - 1;
@@ -385,8 +580,16 @@ void Renderer_BindMaterial(ResourceHandle h_Material)
     for(i32 i = 0; i < material.count; i++)
     {
         glActiveTexture(GL_TEXTURE0 + i);
-        Texture& texture = rendererData.textures[material.textures[i]];
-        glBindTexture(GL_TEXTURE_2D, texture.apiHandle);
+        ResourceHandle h_Texture = material.h_Textures[i];
+        if(h_Texture == RESOURCE_INVALID)
+        {
+            glBindTexture(GL_TEXTURE_2D, 0);    // Incomplete texture, sample returns (0,0,0,1) according to spec
+        }
+        else
+        {
+            Texture& texture = rendererData.textures[h_Texture];
+            glBindTexture(GL_TEXTURE_2D, texture.apiHandle);
+        }
     }
 }
 
@@ -397,7 +600,9 @@ void Renderer_BindUniforms(const Renderable& renderable)
     location = glGetUniformLocation(shader.apiHandle, "u_Model");
     ASSERT(location != -1);
     glUniformMatrix4fv(location, 1, GL_TRUE, &renderable.u_Model.m00);
-
+    location = glGetUniformLocation(shader.apiHandle, "u_UseAlphaMask");
+    ASSERT(location != -1);
+    glUniform1f(location, renderable.u_UseAlphaMask);
 
     // TODO(caio)#RENDER: Move these to a global uniform buffer whenever adding UBO support.
     m4f viewMatrix = rendererData.camera.GetView();

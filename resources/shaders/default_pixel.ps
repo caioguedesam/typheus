@@ -1,12 +1,25 @@
 #version 460 core
 
 in vec3 vOut_Position;
+in vec2 vOut_Texcoord;
+
+layout (binding = 0) uniform sampler2D ambientMap;
+layout (binding = 1) uniform sampler2D diffuseMap;
+layout (binding = 2) uniform sampler2D specularMap;
+layout (binding = 3) uniform sampler2D alphaMask;
+layout (binding = 4) uniform sampler2D bumpMap;
+
+uniform float u_UseAlphaMask;
 
 out vec4 pOut_Color;
 
 void main()
 {
-    //pOut_Color = vec4(1.0, 0.0, 0.0, 1.0);
-    float zColor = vOut_Position.z / 20.0;
-    pOut_Color = vec4(zColor, zColor, zColor, 1.0);
+    // TODO(caio)#RENDER: Currently this discards pixels based on alpha mask.
+    // Should later add support for blending.
+    float outAlpha = 1 - (u_UseAlphaMask * (1 - texture(alphaMask, vOut_Texcoord).r)); // 0 when not using alpha mask, alpha mask red sample value when using.
+    if(outAlpha < 0.3) discard;
+
+    pOut_Color = texture(diffuseMap, vOut_Texcoord);
+    pOut_Color = vec4(pOut_Color.rgb, outAlpha);
 }

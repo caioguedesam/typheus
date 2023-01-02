@@ -33,6 +33,7 @@ struct Buffer
 enum TextureFormat : u32
 {
     TEXTURE_FORMAT_INVALID = 0,
+    TEXTURE_FORMAT_R8,
     TEXTURE_FORMAT_R8G8B8,
     TEXTURE_FORMAT_R8G8B8A8,
     // TODO(caio)#RENDER: Add more texture formats whenever needed.
@@ -111,7 +112,7 @@ struct ShaderPipeline
 struct Material
 {
     // TODO(caio)#RENDER: Material properties whenever supporting PBR and such.
-    ResourceHandle textures[MATERIAL_MAX_TEXTURES];
+    ResourceHandle h_Textures[MATERIAL_MAX_TEXTURES];
     u8 count = 0;
 };
 
@@ -146,6 +147,7 @@ struct Renderable
 
     // Renderable Uniforms
     m4f u_Model = Identity();
+    i32 u_UseAlphaMask = 0;
 };
 
 void    Renderer_SetCamera(Camera camera);
@@ -156,10 +158,13 @@ ResourceHandle    Renderer_CreateTexture(u8* textureData, u32 textureWidth, u32 
 ResourceHandle    Renderer_CreateMesh(ResourceHandle h_VertexBuffer, ResourceHandle h_IndexBuffer);
 ResourceHandle    Renderer_CreateShader(std::string_view shaderSrc, ShaderType shaderType);
 ResourceHandle    Renderer_CreateShaderPipeline(ResourceHandle h_VS, ResourceHandle h_PS);
-ResourceHandle    Renderer_CreateMaterial(const std::vector<ResourceHandle>& h_MaterialTextures);
+ResourceHandle    Renderer_CreateMaterial(ResourceHandle* h_MaterialTextureArray, u8 materialTextureCount);
 
 ResourceHandle    Renderer_CreateRenderable(ResourceHandle h_Mesh, ResourceHandle h_Shader, ResourceHandle h_Material);
 Renderable&       Renderer_GetRenderable(ResourceHandle h_Renderable);
+
+ResourceHandle    Renderer_LoadTextureAsset(std::string_view assetPath);
+std::vector<ResourceHandle> Renderer_CreateRenderablesFromModel(std::string_view assetPath, ResourceHandle h_Shader);
 
 void    Renderer_BindMesh(ResourceHandle mesh);
 void    Renderer_BindShaderPipeline(ResourceHandle shaderPipeline);
@@ -184,6 +189,13 @@ struct RendererData
 
     std::vector<Renderable> renderables;
 };
+
+struct AssetDatabase
+{
+    std::unordered_map<std::string, ResourceHandle> loadedAssets;
+};
+
+ResourceHandle Renderer_GetAsset(std::string_view assetPath);
 
 // TODO(caio)#RENDER: Remove this loading obj function from here later.
 void LoadOBJModel(std::string_view assetPath, std::vector<MeshVertex>* outVertices, std::vector<u32>* outIndices);
