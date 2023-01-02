@@ -67,18 +67,8 @@ ResourceHandle Renderer_LoadTextureAsset(std::string_view assetPath)
     return result;
 }
 
-// Model loading with materials new API pass draft:
-//      void Renderer_CreateRenderablesFromModel(assetPath, shader)
-//          >> This function
-//              > Loads OBJ model
-//              > Creates each material and loads the relevant textures
-//              > Parses each face grouped by material
-//              > Creates a different mesh and renderable for each material
-
 std::vector<ResourceHandle> Renderer_CreateRenderablesFromModel(std::string_view assetPath, ResourceHandle h_Shader)
 {
-    // TODO(caio)#ASSET: Not really convinced this should return void.
-    // Maybe an array with handles to all created renderables.
     ASSERT(PathExists(assetPath) && !IsDirectory(assetPath));
 
     fastObjMesh* objData = fast_obj_read(assetPath.data());
@@ -166,8 +156,6 @@ std::vector<ResourceHandle> Renderer_CreateRenderablesFromModel(std::string_view
                         objData->texcoords[i_Texcoord * 2 + 1],
                     };
 
-                    //outVertices->push_back({v_Position, v_Normal, v_Texcoord});
-                    //outIndices->push_back(currentIndex++);
                     (*modelVertices).push_back({v_Position, v_Normal, v_Texcoord});
                     (*modelIndices)[faceMaterial].push_back(currentIndex++);
                 }
@@ -198,83 +186,9 @@ std::vector<ResourceHandle> Renderer_CreateRenderablesFromModel(std::string_view
     // Freeing allocated obj parse data
     fast_obj_destroy(objData);
 
-    // TODO(caio)#ASSET: Maybe I should treat models as loaded assets as well.
-    // So if I already loaded an OBJ I don't load it again, and just create copies of the renderables
-    // previously created... No idea how...
+    // TODO(caio)#ASSET: Treat models as loaded assets, so you can create multiple renderables from the same
+    // model asset without reading each model again.
     return result;
-}
-
-// TODO(caio)#RENDER: Move this function from here, this is not a rendering function.
-void LoadOBJModel(std::string_view assetPath, std::vector<MeshVertex>* outVertices, std::vector<u32>* outIndices)
-{
-    // TODO(caio)#RENDER: This does not support material loading yet.
-    // The time will come when trying to render textured meshes and with an actual render resource system.
-    ASSERT(outVertices && outIndices);
-
-    fastObjMesh* objData = fast_obj_read(assetPath.data());
-
-    outVertices->reserve(objData->index_count * 3);
-    outIndices->reserve(objData->index_count * 3);
-
-    u64 currentIndex = 0;
-    // Iterate on every group
-    for(u64 g = 0; g < objData->group_count; g++)
-    {
-        u64 g_FaceCount = objData->groups[g].face_count;
-        u64 g_FaceOffset = objData->groups[g].face_offset;
-        u64 g_IndexOffset = objData->groups[g].index_offset;
-
-        u64 currentFaceOffset = 0;  // Cursor that always points to current face (this is needed because
-                                    // faces can have more than 3 sides).
-        // Then every face
-        for(u64 f = g_FaceOffset; f < g_FaceOffset + g_FaceCount; f++)
-        {
-            // Then every triangle of face (OBJ does not enforce triangulated meshes)
-            for(u64 t = 0; t < objData->face_vertices[f] - 2; t++)
-            {
-                u64 t_Indices[] = {0, t + 1, t + 2};    // Fan triangulation for regular polygons
-                // Then every vertex of triangle
-                for(u64 v = 0; v < 3; v++)
-                {
-                    u64 i = (currentFaceOffset + t_Indices[v]) + g_IndexOffset;
-
-                    u64 i_Position = objData->indices[i].p;
-                    ASSERT(i_Position);
-                    u64 i_Normal = objData->indices[i].n;
-                    ASSERT(i_Normal);
-                    u64 i_Texcoord = objData->indices[i].t;
-                    ASSERT(i_Texcoord);
-
-                    v3f v_Position =
-                    {
-                        objData->positions[i_Position * 3 + 0],
-                        objData->positions[i_Position * 3 + 1],
-                        objData->positions[i_Position * 3 + 2],
-                    };
-
-                    v3f v_Normal =
-                    {
-                        objData->normals[i_Normal * 3 + 0],
-                        objData->normals[i_Normal * 3 + 1],
-                        objData->normals[i_Normal * 3 + 2],
-                    };
-                    
-                    v2f v_Texcoord =
-                    {
-                        objData->texcoords[i_Texcoord * 2 + 0],
-                        objData->texcoords[i_Texcoord * 2 + 1],
-                    };
-
-                    outVertices->push_back({v_Position, v_Normal, v_Texcoord});
-                    outIndices->push_back(currentIndex++);
-                }
-            }
-
-            currentFaceOffset += objData->face_vertices[f];
-        }
-    }
-
-    fast_obj_destroy(objData);
 }
 
 m4f Camera::GetView()
