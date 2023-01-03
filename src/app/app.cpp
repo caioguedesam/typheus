@@ -17,11 +17,6 @@ std::vector<ResourceHandle> h_Renderables_Sponza;
 //ResourceHandle h_Renderable_Sponza = RESOURCE_INVALID;
 //ResourceHandle h_Renderable_Bunny = RESOURCE_INVALID;
 
-#define RESOURCE_PATH "../resources/"
-#define SHADER_PATH RESOURCE_PATH"shaders/"
-#define TEXTURE_PATH RESOURCE_PATH"textures/"
-#define MODELS_PATH RESOURCE_PATH"models/"
-
 void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
 {
     // Initializing common engine systems

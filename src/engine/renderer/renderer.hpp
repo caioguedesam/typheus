@@ -11,6 +11,11 @@ typedef GLuint APIHandle;
 #define API_HANDLE_INVALID      MAX_U32
 #define RESOURCE_INVALID        MAX_U32
 
+#define RESOURCE_PATH "../resources/"
+#define SHADER_PATH RESOURCE_PATH"shaders/"
+#define TEXTURE_PATH RESOURCE_PATH"textures/"
+#define MODELS_PATH RESOURCE_PATH"models/"
+
 enum BufferType : u32
 {
     BUFFER_TYPE_INVALID = 0,
@@ -150,8 +155,16 @@ struct Renderable
     i32 u_UseAlphaMask = 0;
 };
 
-void    Renderer_SetCamera(Camera camera);
-void    Renderer_SetViewport(RenderViewport viewport);
+#define RENDER_TARGET_MAX_COLOR_ATTACHMENTS 8
+struct RenderTarget
+{
+    APIHandle apiHandle             = API_HANDLE_INVALID;
+    APIHandle depthStencilAPIHandle = API_HANDLE_INVALID;
+    ResourceHandle colorAttachments[RENDER_TARGET_MAX_COLOR_ATTACHMENTS];
+    u8 colorAttachmentCount         = 0;
+    u32 width   = 0;
+    u32 height  = 0;
+};
 
 ResourceHandle    Renderer_CreateBuffer(u8* bufferData, u64 bufferCount, u64 bufferStride, BufferType bufferType);
 ResourceHandle    Renderer_CreateTexture(u8* textureData, u32 textureWidth, u32 textureHeight, TextureFormat textureFormat, TextureParams textureParams);
@@ -159,6 +172,7 @@ ResourceHandle    Renderer_CreateMesh(ResourceHandle h_VertexBuffer, ResourceHan
 ResourceHandle    Renderer_CreateShader(std::string_view shaderSrc, ShaderType shaderType);
 ResourceHandle    Renderer_CreateShaderPipeline(ResourceHandle h_VS, ResourceHandle h_PS);
 ResourceHandle    Renderer_CreateMaterial(ResourceHandle* h_MaterialTextureArray, u8 materialTextureCount);
+ResourceHandle    Renderer_CreateRenderTarget(u32 rtWidth, u32 rtHeight, ResourceHandle* h_RenderTexturesArray, u8 renderTextureCount);
 
 ResourceHandle    Renderer_CreateRenderable(ResourceHandle h_Mesh, ResourceHandle h_Shader, ResourceHandle h_Material);
 Renderable&       Renderer_GetRenderable(ResourceHandle h_Renderable);
@@ -166,9 +180,14 @@ Renderable&       Renderer_GetRenderable(ResourceHandle h_Renderable);
 ResourceHandle    Renderer_LoadTextureAsset(std::string_view assetPath);
 std::vector<ResourceHandle> Renderer_CreateRenderablesFromModel(std::string_view assetPath, ResourceHandle h_Shader);
 
-void    Renderer_BindMesh(ResourceHandle mesh);
-void    Renderer_BindShaderPipeline(ResourceHandle shaderPipeline);
-void    Renderer_BindMaterial(ResourceHandle material);
+void    Renderer_SetCamera(Camera camera);
+void    Renderer_SetViewport(RenderViewport viewport);
+void    Renderer_BindRenderTarget(ResourceHandle h_RenderTarget);
+void    Renderer_UnbindRenderTarget();
+void    Renderer_BindMesh(ResourceHandle h_Mesh);
+void    Renderer_BindShaderPipeline(ResourceHandle h_Shader);
+void    Renderer_BindMaterial(ResourceHandle h_Material);
+void    Renderer_UpdateTextureMips(ResourceHandle h_Texture);
 void    Renderer_BindUniforms(const Renderable& renderable);
 
 void    Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Window* outWindow);
@@ -186,6 +205,7 @@ struct RendererData
     std::vector<Shader> shaders;
     std::vector<ShaderPipeline> shaderPipelines;
     std::vector<Material> materials;
+    std::vector<RenderTarget> renderTargets;
 
     std::vector<Renderable> renderables;
 };

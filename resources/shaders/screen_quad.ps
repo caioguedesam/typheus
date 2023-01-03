@@ -1,0 +1,12 @@
+#version 460 core
+
+in vec2 vOut_Texcoord;
+
+layout (binding = 0) uniform sampler2D defaultAlbedo;
+
+out vec4 pOut_Color;
+
+void main()
+{
+    pOut_Color = texture(defaultAlbedo, vOut_Texcoord);
+}

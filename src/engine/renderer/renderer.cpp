@@ -9,6 +9,25 @@ namespace Ty
 RendererData rendererData = {};
 AssetDatabase assetDatabase = {};
 
+ResourceHandle h_RenderTarget_Default   = RESOURCE_INVALID;
+ResourceHandle h_Mesh_ScreenQuad        = RESOURCE_INVALID;
+ResourceHandle h_Material_ScreenQuad    = RESOURCE_INVALID;
+ResourceHandle h_Shader_ScreenQuad      = RESOURCE_INVALID;
+
+std::string srcVS_ScreenQuad;
+std::string srcPS_ScreenQuad;
+MeshVertex screenQuadVertices[] =
+{
+    {-1.f, -1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f},
+    { 1.f, -1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f},
+    { 1.f,  1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 1.f},
+    {-1.f,  1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f},
+};
+u32 screenQuadIndices[] =
+{
+    0, 1, 2, 0, 2, 3,
+};
+
 void GLAPIENTRY
 GLMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
         const GLchar* message, const void* userParam)
@@ -456,6 +475,52 @@ ResourceHandle Renderer_CreateMaterial(ResourceHandle* h_MaterialTextureArray, u
     return rendererData.materials.size() - 1;
 }
 
+ResourceHandle Renderer_CreateRenderTarget(u32 rtWidth, u32 rtHeight, ResourceHandle* h_RenderTexturesArray, u8 renderTextureCount)
+{
+    APIHandle glHandle = API_HANDLE_INVALID;
+    glGenFramebuffers(1, &glHandle);
+    ASSERT(glHandle != API_HANDLE_INVALID);
+    glBindFramebuffer(GL_FRAMEBUFFER, glHandle);
+
+    // TODO(caio)#RENDER: This doesn't support stencil buffer yet.
+    APIHandle glDepthStencilHandle = API_HANDLE_INVALID;
+    glGenRenderbuffers(1, &glDepthStencilHandle);
+    ASSERT(glDepthStencilHandle != API_HANDLE_INVALID);
+    glBindRenderbuffer(GL_RENDERBUFFER, glDepthStencilHandle);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, rtWidth, rtHeight);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, glDepthStencilHandle);
+
+    GLenum glAttachments[renderTextureCount];
+    for(i32 i = 0; i < renderTextureCount; i++)
+    {
+        Texture& renderTexture = rendererData.textures[h_RenderTexturesArray[i]];
+        ASSERT(renderTexture.width == rtWidth && renderTexture.height == rtHeight);
+        glFramebufferTexture2D(
+                GL_FRAMEBUFFER,
+                GL_COLOR_ATTACHMENT0 + i,
+                GL_TEXTURE_2D,
+                renderTexture.apiHandle,
+                0);
+        glAttachments[i] = GL_COLOR_ATTACHMENT0 + i;
+    }
+    glDrawBuffers(renderTextureCount, glAttachments);
+
+    ASSERT(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+
+    RenderTarget rt = {};
+    rt.apiHandle = glHandle;
+    rt.depthStencilAPIHandle = glDepthStencilHandle;
+    rt.width = rtWidth;
+    rt.height = rtHeight;
+    rt.colorAttachmentCount = renderTextureCount;
+    for(i32 i = 0; i < rt.colorAttachmentCount; i++)
+    {
+        rt.colorAttachments[i] = h_RenderTexturesArray[i];
+    }
+    rendererData.renderTargets.push_back(rt);
+    return rendererData.renderTargets.size() - 1;
+}
+
 ResourceHandle Renderer_CreateRenderable(ResourceHandle h_Mesh, ResourceHandle h_Shader, ResourceHandle h_Material)
 {
     Renderable renderable =
@@ -474,6 +539,16 @@ Renderable& Renderer_GetRenderable(ResourceHandle h_Renderable)
 {
     ASSERT(h_Renderable != RESOURCE_INVALID);
     return rendererData.renderables[h_Renderable];
+}
+
+void Renderer_BindRenderTarget(ResourceHandle h_RenderTarget)
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, rendererData.renderTargets[h_RenderTarget].apiHandle);
+}
+
+void Renderer_UnbindRenderTarget()
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void Renderer_BindMesh(ResourceHandle h_Mesh)
@@ -505,6 +580,16 @@ void Renderer_BindMaterial(ResourceHandle h_Material)
             glBindTexture(GL_TEXTURE_2D, texture.apiHandle);
         }
     }
+}
+
+void Renderer_UpdateTextureMips(ResourceHandle h_Texture)
+{
+    Texture& texture = rendererData.textures[h_Texture];
+    if(!texture.params.useMips) return;
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture.apiHandle);
+    glGenerateMipmap(GL_TEXTURE_2D);
 }
 
 void Renderer_BindUniforms(const Renderable& renderable)
@@ -550,19 +635,56 @@ void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Wi
     RenderViewport viewport = {{0,0}, windowWidth, windowHeight};
     Renderer_SetViewport(viewport);
 
+    // Creating default resources
+    v2i rtDefaultSize = {1920, 1080};
+    ResourceHandle h_RenderTarget_DefaultAlbedo = RESOURCE_INVALID;
+    h_RenderTarget_DefaultAlbedo = Renderer_CreateTexture(NULL,
+            rtDefaultSize.x,
+            rtDefaultSize.y,
+            TEXTURE_FORMAT_R8G8B8A8,
+            {TEXTURE_WRAP_CLAMP, TEXTURE_FILTER_NEAREST, TEXTURE_FILTER_NEAREST, true}
+            );
+    ResourceHandle h_RenderTarget_DefaultOutputs[] = {h_RenderTarget_DefaultAlbedo};
+    h_RenderTarget_Default = Renderer_CreateRenderTarget(rtDefaultSize.x, rtDefaultSize.y, h_RenderTarget_DefaultOutputs, 1);
+
+    ResourceHandle h_VertexBuffer_ScreenQuad = Renderer_CreateBuffer(
+            (u8*)screenQuadVertices,
+            ArrayCount(screenQuadVertices),
+            sizeof(MeshVertex),
+            BUFFER_TYPE_VERTEX
+            );
+    ResourceHandle h_IndexBuffer_ScreenQuad = Renderer_CreateBuffer(
+            (u8*)screenQuadIndices,
+            ArrayCount(screenQuadIndices),
+            sizeof(u32),
+            BUFFER_TYPE_INDEX
+            );
+    h_Mesh_ScreenQuad = Renderer_CreateMesh(h_VertexBuffer_ScreenQuad, h_IndexBuffer_ScreenQuad);
+
+    srcVS_ScreenQuad = ReadFile_Str(SHADER_PATH"screen_quad.vs");
+    srcPS_ScreenQuad = ReadFile_Str(SHADER_PATH"screen_quad.ps");
+    ResourceHandle h_VS_ScreenQuad = Renderer_CreateShader(srcVS_ScreenQuad, SHADER_TYPE_VERTEX);
+    ResourceHandle h_PS_ScreenQuad = Renderer_CreateShader(srcPS_ScreenQuad, SHADER_TYPE_PIXEL);
+    h_Shader_ScreenQuad = Renderer_CreateShaderPipeline(h_VS_ScreenQuad, h_PS_ScreenQuad);
+
+    ResourceHandle h_ScreenQuadInputs[] = { h_RenderTarget_DefaultAlbedo };
+    h_Material_ScreenQuad = Renderer_CreateMaterial(h_ScreenQuadInputs, ArrayCount(h_ScreenQuadInputs));
+
     Window_Show(*outWindow);
 }
 
 void Renderer_RenderFrame()
 {
     // Preparing Render
+    RenderTarget& renderTargetDefault = rendererData.renderTargets[h_RenderTarget_Default];
     {
+        Renderer_BindRenderTarget(h_RenderTarget_Default);
         // Clearing backbuffer
         glClearColor(1.f, 0.5f, 0.f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Updating viewport (in case of window resizing)
-        Renderer_SetViewport({0, 0, rendererData.window->width, rendererData.window->height});
+        Renderer_SetViewport({0, 0, renderTargetDefault.width, renderTargetDefault.height});
         glViewport(
                 rendererData.viewport.bottomLeft.x,
                 rendererData.viewport.bottomLeft.y,
@@ -603,6 +725,31 @@ void Renderer_RenderFrame()
             Buffer& indexBuffer = rendererData.buffers[mesh.h_IndexBuffer];
             glDrawElements(GL_TRIANGLES, indexBuffer.count, GL_UNSIGNED_INT, 0);
         }
+
+        Renderer_UpdateTextureMips(renderTargetDefault.colorAttachments[0]);
+    }
+
+    // Rendering to screen quad
+    {
+        Renderer_UnbindRenderTarget();
+        glClearColor(1.f, 1.f, 1.f, 1.f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        Renderer_SetViewport({0, 0, rendererData.window->width, rendererData.window->height});
+        glViewport(
+                rendererData.viewport.bottomLeft.x,
+                rendererData.viewport.bottomLeft.y,
+                rendererData.viewport.width,
+                rendererData.viewport.height
+                );
+
+        Renderer_BindShaderPipeline(h_Shader_ScreenQuad);
+        Renderer_BindMaterial(h_Material_ScreenQuad);
+        Renderer_BindMesh(h_Mesh_ScreenQuad);
+
+        // Draw final screen quad
+        Mesh& mesh = rendererData.meshes[h_Mesh_ScreenQuad];
+        Buffer& indexBuffer = rendererData.buffers[mesh.h_IndexBuffer];
+        glDrawElements(GL_TRIANGLES, indexBuffer.count, GL_UNSIGNED_INT, 0);
     }
 }
 
