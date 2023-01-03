@@ -60,6 +60,7 @@ typedef double      f64;
 #define CLAMP(V, A, B) (MAX((A), MIN((V), (B))))
 #define CLAMP_CEIL(V, A) MIN(V, A)
 #define CLAMP_FLOOR(V, A) MAX(V, A)
+#define ABS(V) ((V) < 0 ? -(V) : (V))
 
 #define STMT(S) do { S; } while(0)
 #define STRINGIFY(S) #S     // For macro arg expansion

@@ -212,7 +212,7 @@ std::vector<ResourceHandle> Renderer_CreateRenderablesFromModel(std::string_view
 
 m4f Camera::GetView()
 {
-    return LookAtMatrix(position, position + target, up);
+    return LookAtMatrix(position, position + front, up);
 }
 
 m4f Camera::GetProjection(const Window& window)
@@ -228,14 +228,35 @@ void Camera::Move(v3f newPosition)
 
 void Camera::Rotate(f32 rotationAngle, v3f rotationAxis)
 {
+    // Rotate front along axis
     m4f rotationMatrix = RotationMatrix(rotationAngle, rotationAxis);
-    v4f newTarget = rotationMatrix * v4f{target.x, target.y, target.z, 0};
-    target = v3f{newTarget.x, newTarget.y, newTarget.z};
+    v4f newFront = rotationMatrix * v4f{front.x, front.y, front.z, 0};
+    if(ABS(TO_DEG(asinf(newFront.y))) >= 85.f) return;  // Preventing too much yaw rotation
+    front = Normalize(v3f{newFront.x, newFront.y, newFront.z});
+
+    // Recalculate camera basis after rotation
+    right = Normalize(Cross(front, {0.f, 1.f, 0.f}));
+    //up = Normalize(Cross(right, front));
+}
+
+void Camera::RotateYaw(f32 angle)
+{
+    Rotate(angle, right);
+}
+
+void Camera::RotatePitch(f32 angle)
+{
+    Rotate(angle, up);
 }
 
 void Renderer_SetCamera(Camera camera)
 {
     rendererData.camera = camera;
+}
+
+Camera& Renderer_GetCamera()
+{
+    return rendererData.camera;
 }
 
 void Renderer_SetViewport(RenderViewport viewport)

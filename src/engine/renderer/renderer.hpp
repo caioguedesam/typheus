@@ -124,7 +124,8 @@ struct Material
 struct Camera
 {
     v3f position    = {0,0,0};
-    v3f target      = {0,0,-1};
+    v3f front       = {0,0,-1};
+    v3f right       = {1,0,0};
     v3f up          = {0,1,0};
     f32 fov         = 45.f;
     f32 nearPlane   = 0.001f;
@@ -135,6 +136,8 @@ struct Camera
 
     void Move(v3f newPosition);
     void Rotate(f32 rotationAngle, v3f rotationAxis);
+    void RotateYaw(f32 angle);
+    void RotatePitch(f32 angle);
 };
 
 struct RenderViewport
@@ -189,6 +192,8 @@ void    Renderer_BindShaderPipeline(ResourceHandle h_Shader);
 void    Renderer_BindMaterial(ResourceHandle h_Material);
 void    Renderer_UpdateTextureMips(ResourceHandle h_Texture);
 void    Renderer_BindUniforms(const Renderable& renderable);
+
+Camera& Renderer_GetCamera();
 
 void    Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Window* outWindow);
 void    Renderer_RenderFrame();
