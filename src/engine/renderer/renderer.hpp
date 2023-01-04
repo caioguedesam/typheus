@@ -202,6 +202,8 @@ void    Renderer_BindShaderPipeline(Handle<ShaderPipeline> h_Shader);
 void    Renderer_BindMaterial(Handle<Material> h_Material);
 void    Renderer_UpdateTextureMips(Handle<Texture> h_Texture);
 void    Renderer_BindUniforms(const MeshRenderable& renderable);
+void    Renderer_Clear(v4f clearColor);
+void    Renderer_DrawMeshRenderable(MeshRenderable& renderable);
 
 Camera& Renderer_GetCamera();
 

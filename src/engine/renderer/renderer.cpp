@@ -248,6 +248,12 @@ Camera& Renderer_GetCamera()
 void Renderer_SetViewport(RenderViewport viewport)
 {
     rendererData.viewport = viewport;
+    glViewport(
+        rendererData.viewport.bottomLeft.x,
+        rendererData.viewport.bottomLeft.y,
+        rendererData.viewport.width,
+        rendererData.viewport.height
+        );
 }
 
 Handle<Buffer> Renderer_CreateBuffer(u8* bufferData, u64 bufferCount, u64 bufferStride, BufferType bufferType)
@@ -615,6 +621,12 @@ void Renderer_BindUniforms(const MeshRenderable& renderable)
     glUniformMatrix4fv(location, 1, GL_TRUE, &projMatrix.m00);
 }
 
+void Renderer_Clear(v4f clearColor)
+{
+    glClearColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
 void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Window* outWindow)
 {
     ASSERT(outWindow);
@@ -679,18 +691,8 @@ void Renderer_RenderFrame()
     RenderTarget& renderTargetDefault = Renderer_GetRenderTarget(h_RenderTarget_Default);
     {
         Renderer_BindRenderTarget(h_RenderTarget_Default);
-        // Clearing backbuffer
-        glClearColor(1.f, 0.5f, 0.f, 1.f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // Updating viewport (in case of window resizing)
+        Renderer_Clear({1.f, 0.5f, 0.f, 1.f});
         Renderer_SetViewport({0, 0, renderTargetDefault.width, renderTargetDefault.height});
-        glViewport(
-                rendererData.viewport.bottomLeft.x,
-                rendererData.viewport.bottomLeft.y,
-                rendererData.viewport.width,
-                rendererData.viewport.height
-                );
     }
 
     // Rendering 3D mesh renderables
@@ -732,15 +734,8 @@ void Renderer_RenderFrame()
     // Rendering to screen quad
     {
         Renderer_UnbindRenderTarget();
-        glClearColor(1.f, 1.f, 1.f, 1.f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        Renderer_Clear({1.f, 1.f, 1.f, 1.f});
         Renderer_SetViewport({0, 0, rendererData.window->width, rendererData.window->height});
-        glViewport(
-                rendererData.viewport.bottomLeft.x,
-                rendererData.viewport.bottomLeft.y,
-                rendererData.viewport.width,
-                rendererData.viewport.height
-                );
 
         Renderer_BindShaderPipeline(h_Shader_ScreenQuad);
         Renderer_BindMaterial(h_Material_ScreenQuad);
