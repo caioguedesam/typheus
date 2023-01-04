@@ -240,11 +240,6 @@ void Renderer_SetCamera(Camera camera)
     rendererData.camera = camera;
 }
 
-Camera& Renderer_GetCamera()
-{
-    return rendererData.camera;
-}
-
 void Renderer_SetViewport(RenderViewport viewport)
 {
     rendererData.viewport = viewport;
@@ -543,7 +538,6 @@ Handle<MeshRenderable> Renderer_CreateMeshRenderable(Handle<Mesh> h_Mesh, Handle
         h_Material
     };
 
-    // TODO(caio)#RENDER: IMPORTANT, push these to array by insertion sorting them later.
     rendererData.meshRenderables.push_back(renderable);
     return { (u32)rendererData.meshRenderables.size() - 1 };
 }
@@ -697,33 +691,51 @@ void Renderer_RenderFrame()
 
     // Rendering 3D mesh renderables
     {
+        // Sort renderables by shader > material > mesh
+        std::vector<MeshRenderable*> queuedRenderables;
+        queuedRenderables.reserve(rendererData.meshRenderables.size());
+        for(i32 i = 0; i < rendererData.meshRenderables.size(); i++)
+        {
+            queuedRenderables.push_back(&rendererData.meshRenderables[i]);
+        }
+        std::sort(queuedRenderables.begin(), queuedRenderables.end(),
+                [](MeshRenderable* a, MeshRenderable* b)
+                {
+                    if(a->h_Shader != a->h_Shader) return a->h_Shader < b->h_Shader;
+                    if(a->h_Material != a->h_Material) return a->h_Material < b->h_Material;
+                    return a->h_Mesh < b->h_Mesh;
+                });
+
+        // Draw renderables
         Handle<ShaderPipeline> activeShader;
         Handle<Material> activeMaterial;
         Handle<Mesh> activeMesh;
 
-        for(i32 i = 0; i < rendererData.meshRenderables.size(); i++)
+        //for(i32 i = 0; i < rendererData.meshRenderables.size(); i++)
+        for(i32 i = 0; i < queuedRenderables.size(); i++)
         {
-            MeshRenderable& renderable = Renderer_GetMeshRenderable({(u32)i});
+            //MeshRenderable& renderable = Renderer_GetMeshRenderable({(u32)i});
+            MeshRenderable* pRenderable = queuedRenderables[i];
             // Bind resources
-            if(renderable.h_Shader != activeShader)
+            if(pRenderable->h_Shader != activeShader)
             {
-                activeShader = renderable.h_Shader;
+                activeShader = pRenderable->h_Shader;
                 Renderer_BindShaderPipeline(activeShader);
             }
-            if(renderable.h_Material != activeMaterial)
+            if(pRenderable->h_Material != activeMaterial)
             {
-                activeMaterial = renderable.h_Material;
+                activeMaterial = pRenderable->h_Material;
                 Renderer_BindMaterial(activeMaterial);
             }
-            if(renderable.h_Mesh != activeMesh)
+            if(pRenderable->h_Mesh != activeMesh)
             {
-                activeMesh = renderable.h_Mesh;
+                activeMesh = pRenderable->h_Mesh;
                 Renderer_BindMesh(activeMesh);
             }
-            Renderer_BindUniforms(renderable);
+            Renderer_BindUniforms(*pRenderable);
 
             // Draw
-            Mesh& mesh = Renderer_GetMesh(renderable.h_Mesh);
+            Mesh& mesh = Renderer_GetMesh(pRenderable->h_Mesh);
             Buffer& indexBuffer = Renderer_GetBuffer(mesh.h_IndexBuffer);
             glDrawElements(GL_TRIANGLES, indexBuffer.count, GL_UNSIGNED_INT, 0);
         }

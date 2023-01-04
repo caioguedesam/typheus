@@ -13,6 +13,7 @@
 #include <string_view>
 #include <vector>
 #include <unordered_map>
+#include <algorithm>
 
 #if _PROFILE
 #include "tracy/Tracy.hpp"

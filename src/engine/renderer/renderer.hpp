@@ -27,6 +27,10 @@ template<typename T>
 inline bool operator==(const Handle<T> a, const Handle<T> b) { return a.value == b.value; }
 template<typename T>
 inline bool operator!=(const Handle<T> a, const Handle<T> b) { return a.value != b.value; }
+template<typename T>
+inline bool operator<(const Handle<T> a, const Handle<T> b) { return a.value < b.value; }
+template<typename T>
+inline bool operator>(const Handle<T> a, const Handle<T> b) { return a.value > b.value; }
 
 enum BufferType : u32
 {
@@ -235,6 +239,7 @@ struct AssetDatabase
 inline RendererData rendererData    = {};
 inline AssetDatabase assetDatabase  = {};
 
+inline Camera&         Renderer_GetCamera() { return rendererData.camera; }
 inline Buffer&         Renderer_GetBuffer(Handle<Buffer> h_Buffer) { return rendererData.buffers[h_Buffer.value]; }
 inline Texture&        Renderer_GetTexture(Handle<Texture> h_Texture) { return rendererData.textures[h_Texture.value]; }
 inline Mesh&           Renderer_GetMesh(Handle<Mesh> h_Mesh) { return rendererData.meshes[h_Mesh.value]; }
