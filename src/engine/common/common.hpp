@@ -338,6 +338,7 @@ enum InputKey : u32
     KEY_SHIFT           = 0x10,
     KEY_CTRL            = 0x11,
     KEY_ALT             = 0x12,
+    KEY_ESCAPE          = 0x1B,
     KEY_SPACE           = 0x20,
     KEY_ARROW_LEFT      = 0x25,
     KEY_ARROW_UP        = 0x26,
@@ -385,7 +386,9 @@ enum InputKey : u32
 struct MouseState
 {
     v2i pos;    // Mouse position in pixels starting from TOP-LEFT of application window.
-    // TODO(caio)#INPUT: This should contain stuff like cursor hidden, locked, etc.
+    v2f delta;  // Current mouse delta direction from last position
+    bool hidden = false;
+    bool locked = false;
 };
 
 struct InputState
@@ -396,6 +399,10 @@ struct InputState
 
 void Input_UpdateState();
 void Input_UpdateMouseState(MouseState* mouseState);
+void Input_LockMouse(bool lock);
+void Input_ToggleLockMouse();
+void Input_ShowMouse(bool show);
+void Input_ToggleShowMouse();
 
 bool Input_IsKeyDown(InputKey key);
 bool Input_IsKeyUp(InputKey key);

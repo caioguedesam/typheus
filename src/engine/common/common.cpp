@@ -963,11 +963,49 @@ void Input_UpdateMouseState(MouseState* mouseState)
     BOOL ret = GetCursorPos(&cursorPoint);
     ASSERT(ret);
     ret = ScreenToClient(GetActiveWindow(), &cursorPoint);
+
+    // Update mouse delta (calculated before locking position)
+    v2f currentPos  = {(f32)cursorPoint.x, (f32)cursorPoint.y};
+    v2f lastPos     = {(f32)mouseState->pos.x, (f32)mouseState->pos.y};
+    mouseState->delta = Normalize(currentPos - lastPos);
+
+    if(mouseState->locked)
+    {
+        POINT lockPoint = {0,0};
+        ret = ClientToScreen(GetActiveWindow(), &lockPoint);
+        ret = SetCursorPos(lockPoint.x, lockPoint.y);
+        ASSERT(ret);
+
+        ret = ScreenToClient(GetActiveWindow(), &lockPoint);
+        cursorPoint = lockPoint;
+    }
     
-    currentState.mouse.pos =
+    mouseState->pos =
     {
         cursorPoint.x, cursorPoint.y
     };
+}
+
+void Input_LockMouse(bool lock)
+{
+    currentState.mouse.locked = lock;
+}
+
+void Input_ToggleLockMouse()
+{
+    Input_LockMouse(!currentState.mouse.locked);
+}
+
+void Input_ShowMouse(bool show)
+{
+    if(currentState.mouse.hidden == !show) return;
+    currentState.mouse.hidden = !show;
+    ShowCursor(!currentState.mouse.hidden);
+}
+
+void Input_ToggleShowMouse()
+{
+    Input_ShowMouse(currentState.mouse.hidden);
 }
 
 bool Input_IsKeyDown(InputKey key)
@@ -999,9 +1037,7 @@ v2i Input_GetMousePosition()
 
 v2f Input_GetMouseDelta()
 {
-    v2f currentPos = {(f32)currentState.mouse.pos.x, (f32)currentState.mouse.pos.y};
-    v2f lastPos = {(f32)lastState.mouse.pos.x, (f32)lastState.mouse.pos.y};
-    return Normalize(currentPos - lastPos);
+    return currentState.mouse.delta;
 }
 
 }   // namespace Ty

@@ -33,6 +33,10 @@ void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
     {
         Renderer_GetMeshRenderable(h_Renderables_Sponza[i]).u_Model = sponzaWorld;
     }
+
+    // App settings
+    Input_LockMouse(true);
+    Input_ShowMouse(false);
 }
 
 void App_Update()
@@ -58,6 +62,17 @@ void App_Update()
     mainCamera.Move(mainCamera.position
             + mainCamera.front * cameraMoveAmount.y
             + mainCamera.right * cameraMoveAmount.x);
+
+    // App controls
+    if(Input_IsKeyJustDown(KEY_ESCAPE))
+    {
+        appWindow.shouldClose = true;
+    }
+    if(Input_IsKeyJustDown(KEY_P))
+    {
+        Input_ToggleLockMouse();
+        Input_ToggleShowMouse();
+    }
 }
 
 void App_Render()
