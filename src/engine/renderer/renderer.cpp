@@ -6,13 +6,10 @@
 namespace Ty
 {
 
-RendererData rendererData = {};
-AssetDatabase assetDatabase = {};
-
-ResourceHandle h_RenderTarget_Default   = RESOURCE_INVALID;
-ResourceHandle h_Mesh_ScreenQuad        = RESOURCE_INVALID;
-ResourceHandle h_Material_ScreenQuad    = RESOURCE_INVALID;
-ResourceHandle h_Shader_ScreenQuad      = RESOURCE_INVALID;
+Handle<RenderTarget> h_RenderTarget_Default;
+Handle<Mesh> h_Mesh_ScreenQuad;
+Handle<Material> h_Material_ScreenQuad;
+Handle<ShaderPipeline> h_Shader_ScreenQuad;
 
 std::string srcVS_ScreenQuad;
 std::string srcPS_ScreenQuad;
@@ -35,21 +32,11 @@ GLMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsize
     ASSERTF(type != GL_DEBUG_TYPE_ERROR, "[OPENGL ERROR]: %s", message);
 }
 
-ResourceHandle Renderer_GetAsset(std::string_view assetPath)
-{
-    // TODO(caio)#ASSET: I'm sure this can be improved a lot. For instance,
-    // This will return invalid if the paths don't match but point to the same file.
-    // Deal with this when making a more robust path/asset system integrated with engine.
-    std::string assetPath_str(assetPath);
-    if(!assetDatabase.loadedAssets.count(assetPath_str)) return RESOURCE_INVALID;
-    return assetDatabase.loadedAssets[assetPath_str];
-}
-
-ResourceHandle Renderer_LoadTextureAsset(std::string_view assetPath)
+Handle<Texture> Renderer_LoadTextureAsset(std::string_view assetPath)
 {
     ASSERT(PathExists(assetPath) && !IsDirectory(assetPath));
-    ResourceHandle result = Renderer_GetAsset(assetPath);
-    if(result != RESOURCE_INVALID) return result;
+    Handle<Texture> result = Renderer_GetAsset<Texture>(assetPath);
+    if(result.IsValid()) return result;
 
     i32 textureWidth = 0, textureHeight = 0, textureChannels = 0;
 
@@ -86,20 +73,19 @@ ResourceHandle Renderer_LoadTextureAsset(std::string_view assetPath)
     return result;
 }
 
-std::vector<ResourceHandle> Renderer_CreateRenderablesFromModel(std::string_view assetPath, ResourceHandle h_Shader)
+std::vector<Handle<MeshRenderable>> Renderer_CreateRenderablesFromModel(std::string_view assetPath, Handle<ShaderPipeline> h_Shader)
 {
     ASSERT(PathExists(assetPath) && !IsDirectory(assetPath));
 
     fastObjMesh* objData = fast_obj_read(assetPath.data());
 
     // Loading and creating materials and material textures
-    ResourceHandle h_Materials[objData->material_count];
+    Handle<Material> h_Materials[objData->material_count];
     for(u64 m = 0; m < objData->material_count; m++)
     {
         auto objMat = objData->materials[m];
 
-        ResourceHandle h_Textures[MATERIAL_MAX_TEXTURES];
-        for(u32 i = 0; i < MATERIAL_MAX_TEXTURES; i++) h_Textures[i] = RESOURCE_INVALID;
+        Handle<Texture> h_Textures[MATERIAL_MAX_TEXTURES];
 
         char* objTexturePaths[] =
         {
@@ -185,19 +171,19 @@ std::vector<ResourceHandle> Renderer_CreateRenderablesFromModel(std::string_view
     }
 
     // Creating mesh and buffer resources, and merging resources to renderables
-    std::vector<ResourceHandle> result;
+    std::vector<Handle<MeshRenderable>> result;
 
-    ResourceHandle h_VertexBuffer = Renderer_CreateBuffer((u8*)modelVertices->data(), modelVertices->size(), sizeof(MeshVertex), BUFFER_TYPE_VERTEX);
+    Handle<Buffer> h_VertexBuffer = Renderer_CreateBuffer((u8*)modelVertices->data(), modelVertices->size(), sizeof(MeshVertex), BUFFER_TYPE_VERTEX);
     for(i32 i = 0; i < objData->material_count; i++)
     {
         std::vector<u32>& submeshIndices = (*modelIndices)[i];
-        ResourceHandle h_SubmeshIndexBuffer = Renderer_CreateBuffer((u8*)submeshIndices.data(), submeshIndices.size(), sizeof(u32), BUFFER_TYPE_INDEX);
-        ResourceHandle h_Submesh = Renderer_CreateMesh(h_VertexBuffer, h_SubmeshIndexBuffer);
-        ResourceHandle h_SubmeshRenderable = Renderer_CreateRenderable(h_Submesh, h_Shader, h_Materials[i]);
+        Handle<Buffer> h_SubmeshIndexBuffer = Renderer_CreateBuffer((u8*)submeshIndices.data(), submeshIndices.size(), sizeof(u32), BUFFER_TYPE_INDEX);
+        Handle<Mesh> h_Submesh = Renderer_CreateMesh(h_VertexBuffer, h_SubmeshIndexBuffer);
+        Handle<MeshRenderable> h_SubmeshRenderable = Renderer_CreateMeshRenderable(h_Submesh, h_Shader, h_Materials[i]);
 
         // Check if the material has an alpha mask
-        Material& submeshMaterial = rendererData.materials[h_Materials[i]];
-        Renderer_GetRenderable(h_SubmeshRenderable).u_UseAlphaMask = submeshMaterial.h_Textures[3] == RESOURCE_INVALID ? 0 : 1;
+        Material& submeshMaterial = Renderer_GetMaterial(h_Materials[i]);
+        Renderer_GetMeshRenderable(h_SubmeshRenderable).u_UseAlphaMask = !submeshMaterial.h_Textures[3].IsValid() ? 0 : 1;
 
         result.push_back(h_SubmeshRenderable);
     }
@@ -264,7 +250,7 @@ void Renderer_SetViewport(RenderViewport viewport)
     rendererData.viewport = viewport;
 }
 
-ResourceHandle Renderer_CreateBuffer(u8* bufferData, u64 bufferCount, u64 bufferStride, BufferType bufferType)
+Handle<Buffer> Renderer_CreateBuffer(u8* bufferData, u64 bufferCount, u64 bufferStride, BufferType bufferType)
 {
     APIHandle glHandle = API_HANDLE_INVALID;
     glGenBuffers(1, &glHandle);
@@ -299,10 +285,10 @@ ResourceHandle Renderer_CreateBuffer(u8* bufferData, u64 bufferCount, u64 buffer
     };
 
     rendererData.buffers.push_back(buffer);
-    return rendererData.buffers.size() - 1;
+    return { (u32)rendererData.buffers.size() - 1 };
 }
 
-ResourceHandle Renderer_CreateTexture(u8* textureData, u32 textureWidth, u32 textureHeight, TextureFormat textureFormat, TextureParams textureParams)
+Handle<Texture> Renderer_CreateTexture(u8* textureData, u32 textureWidth, u32 textureHeight, TextureFormat textureFormat, TextureParams textureParams)
 {
     APIHandle glHandle = API_HANDLE_INVALID;
     glGenTextures(1, &glHandle);
@@ -395,10 +381,10 @@ ResourceHandle Renderer_CreateTexture(u8* textureData, u32 textureWidth, u32 tex
     };
     
     rendererData.textures.push_back(texture);
-    return rendererData.textures.size() - 1;
+    return { (u32)rendererData.textures.size() - 1 };
 }
 
-ResourceHandle Renderer_CreateMesh(ResourceHandle h_VertexBuffer, ResourceHandle h_IndexBuffer)
+Handle<Mesh> Renderer_CreateMesh(Handle<Buffer> h_VertexBuffer, Handle<Buffer> h_IndexBuffer)
 {
     APIHandle glHandle = API_HANDLE_INVALID;
     glGenVertexArrays(1, &glHandle);
@@ -406,8 +392,8 @@ ResourceHandle Renderer_CreateMesh(ResourceHandle h_VertexBuffer, ResourceHandle
 
     glBindVertexArray(glHandle);
 
-    Buffer& vertexBuffer = rendererData.buffers[h_VertexBuffer];
-    Buffer& indexBuffer = rendererData.buffers[h_IndexBuffer];
+    Buffer& vertexBuffer = Renderer_GetBuffer(h_VertexBuffer);
+    Buffer& indexBuffer = Renderer_GetBuffer(h_IndexBuffer);
 
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer.apiHandle);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer.apiHandle);
@@ -428,10 +414,10 @@ ResourceHandle Renderer_CreateMesh(ResourceHandle h_VertexBuffer, ResourceHandle
     };
 
     rendererData.meshes.push_back(mesh);
-    return rendererData.meshes.size() - 1;
+    return { (u32)rendererData.meshes.size() - 1 };
 }
 
-ResourceHandle Renderer_CreateShader(std::string_view shaderSrc, ShaderType shaderType)
+Handle<Shader> Renderer_CreateShader(std::string_view shaderSrc, ShaderType shaderType)
 {
     APIHandle glHandle = API_HANDLE_INVALID;
     switch(shaderType)
@@ -459,16 +445,16 @@ ResourceHandle Renderer_CreateShader(std::string_view shaderSrc, ShaderType shad
         shaderSrc
     };
     rendererData.shaders.push_back(shader);
-    return rendererData.shaders.size() - 1;
+    return { (u32)rendererData.shaders.size() - 1 };
 }
 
-ResourceHandle Renderer_CreateShaderPipeline(ResourceHandle h_VS, ResourceHandle h_PS)
+Handle<ShaderPipeline> Renderer_CreateShaderPipeline(Handle<Shader> h_VS, Handle<Shader> h_PS)
 {
     APIHandle glHandle = API_HANDLE_INVALID;
     glHandle = glCreateProgram();
     ASSERT(glHandle != API_HANDLE_INVALID);
-    Shader& vertexShader = rendererData.shaders[h_VS];
-    Shader& pixelShader = rendererData.shaders[h_PS];
+    Shader& vertexShader = Renderer_GetShader(h_VS);
+    Shader& pixelShader = Renderer_GetShader(h_PS);
 
     glAttachShader(glHandle, vertexShader.apiHandle);
     glAttachShader(glHandle, pixelShader.apiHandle);
@@ -481,10 +467,10 @@ ResourceHandle Renderer_CreateShaderPipeline(ResourceHandle h_VS, ResourceHandle
         glHandle
     };
     rendererData.shaderPipelines.push_back(shaderPipeline);
-    return rendererData.shaderPipelines.size() - 1;
+    return { (u32)rendererData.shaderPipelines.size() - 1 };
 };
 
-ResourceHandle Renderer_CreateMaterial(ResourceHandle* h_MaterialTextureArray, u8 materialTextureCount)
+Handle<Material> Renderer_CreateMaterial(Handle<Texture>* h_MaterialTextureArray, u8 materialTextureCount)
 {
     Material material = {};
     material.count = materialTextureCount;
@@ -493,10 +479,10 @@ ResourceHandle Renderer_CreateMaterial(ResourceHandle* h_MaterialTextureArray, u
         material.h_Textures[i] = h_MaterialTextureArray[i];
     }
     rendererData.materials.push_back(material);
-    return rendererData.materials.size() - 1;
+    return { (u32)rendererData.materials.size() - 1 };
 }
 
-ResourceHandle Renderer_CreateRenderTarget(u32 rtWidth, u32 rtHeight, ResourceHandle* h_RenderTexturesArray, u8 renderTextureCount)
+Handle<RenderTarget> Renderer_CreateRenderTarget(u32 rtWidth, u32 rtHeight, Handle<Texture>* h_RenderTexturesArray, u8 renderTextureCount)
 {
     APIHandle glHandle = API_HANDLE_INVALID;
     glGenFramebuffers(1, &glHandle);
@@ -514,7 +500,7 @@ ResourceHandle Renderer_CreateRenderTarget(u32 rtWidth, u32 rtHeight, ResourceHa
     GLenum glAttachments[renderTextureCount];
     for(i32 i = 0; i < renderTextureCount; i++)
     {
-        Texture& renderTexture = rendererData.textures[h_RenderTexturesArray[i]];
+        Texture& renderTexture = Renderer_GetTexture(h_RenderTexturesArray[i]);
         ASSERT(renderTexture.width == rtWidth && renderTexture.height == rtHeight);
         glFramebufferTexture2D(
                 GL_FRAMEBUFFER,
@@ -539,12 +525,12 @@ ResourceHandle Renderer_CreateRenderTarget(u32 rtWidth, u32 rtHeight, ResourceHa
         rt.colorAttachments[i] = h_RenderTexturesArray[i];
     }
     rendererData.renderTargets.push_back(rt);
-    return rendererData.renderTargets.size() - 1;
+    return { (u32)rendererData.renderTargets.size() - 1 };
 }
 
-ResourceHandle Renderer_CreateRenderable(ResourceHandle h_Mesh, ResourceHandle h_Shader, ResourceHandle h_Material)
+Handle<MeshRenderable> Renderer_CreateMeshRenderable(Handle<Mesh> h_Mesh, Handle<ShaderPipeline> h_Shader, Handle<Material> h_Material)
 {
-    Renderable renderable =
+    MeshRenderable renderable =
     {
         h_Mesh,
         h_Shader,
@@ -552,19 +538,13 @@ ResourceHandle Renderer_CreateRenderable(ResourceHandle h_Mesh, ResourceHandle h
     };
 
     // TODO(caio)#RENDER: IMPORTANT, push these to array by insertion sorting them later.
-    rendererData.renderables.push_back(renderable);
-    return rendererData.renderables.size() - 1;
+    rendererData.meshRenderables.push_back(renderable);
+    return { (u32)rendererData.meshRenderables.size() - 1 };
 }
 
-Renderable& Renderer_GetRenderable(ResourceHandle h_Renderable)
+void Renderer_BindRenderTarget(Handle<RenderTarget> h_RenderTarget)
 {
-    ASSERT(h_Renderable != RESOURCE_INVALID);
-    return rendererData.renderables[h_Renderable];
-}
-
-void Renderer_BindRenderTarget(ResourceHandle h_RenderTarget)
-{
-    glBindFramebuffer(GL_FRAMEBUFFER, rendererData.renderTargets[h_RenderTarget].apiHandle);
+    glBindFramebuffer(GL_FRAMEBUFFER, Renderer_GetRenderTarget(h_RenderTarget).apiHandle);
 }
 
 void Renderer_UnbindRenderTarget()
@@ -572,40 +552,40 @@ void Renderer_UnbindRenderTarget()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void Renderer_BindMesh(ResourceHandle h_Mesh)
+void Renderer_BindMesh(Handle<Mesh> h_Mesh)
 {
-    Mesh& mesh = rendererData.meshes[h_Mesh];
+    Mesh& mesh = Renderer_GetMesh(h_Mesh);
     glBindVertexArray(mesh.apiHandle);
 }
 
-void Renderer_BindShaderPipeline(ResourceHandle h_ShaderPipeline)
+void Renderer_BindShaderPipeline(Handle<ShaderPipeline> h_ShaderPipeline)
 {
-    ShaderPipeline& shader = rendererData.shaderPipelines[h_ShaderPipeline];
+    ShaderPipeline& shader = Renderer_GetShaderPipeline(h_ShaderPipeline);
     glUseProgram(shader.apiHandle);
 }
 
-void Renderer_BindMaterial(ResourceHandle h_Material)
+void Renderer_BindMaterial(Handle<Material> h_Material)
 {
-    Material& material = rendererData.materials[h_Material];
+    Material& material = Renderer_GetMaterial(h_Material);
     for(i32 i = 0; i < material.count; i++)
     {
         glActiveTexture(GL_TEXTURE0 + i);
-        ResourceHandle h_Texture = material.h_Textures[i];
-        if(h_Texture == RESOURCE_INVALID)
+        Handle<Texture> h_Texture = material.h_Textures[i];
+        if(!h_Texture.IsValid())
         {
             glBindTexture(GL_TEXTURE_2D, 0);    // Incomplete texture, sample returns (0,0,0,1) according to spec
         }
         else
         {
-            Texture& texture = rendererData.textures[h_Texture];
+            Texture& texture = Renderer_GetTexture(h_Texture);
             glBindTexture(GL_TEXTURE_2D, texture.apiHandle);
         }
     }
 }
 
-void Renderer_UpdateTextureMips(ResourceHandle h_Texture)
+void Renderer_UpdateTextureMips(Handle<Texture> h_Texture)
 {
-    Texture& texture = rendererData.textures[h_Texture];
+    Texture& texture = Renderer_GetTexture(h_Texture);
     if(!texture.params.useMips) return;
 
     glActiveTexture(GL_TEXTURE0);
@@ -613,9 +593,9 @@ void Renderer_UpdateTextureMips(ResourceHandle h_Texture)
     glGenerateMipmap(GL_TEXTURE_2D);
 }
 
-void Renderer_BindUniforms(const Renderable& renderable)
+void Renderer_BindUniforms(const MeshRenderable& renderable)
 {
-    ShaderPipeline& shader = rendererData.shaderPipelines[renderable.h_Shader];
+    ShaderPipeline& shader = Renderer_GetShaderPipeline(renderable.h_Shader);
     GLint location = -1;
     location = glGetUniformLocation(shader.apiHandle, "u_Model");
     ASSERT(location != -1);
@@ -658,23 +638,22 @@ void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Wi
 
     // Creating default resources
     v2i rtDefaultSize = {1920, 1080};
-    ResourceHandle h_RenderTarget_DefaultAlbedo = RESOURCE_INVALID;
-    h_RenderTarget_DefaultAlbedo = Renderer_CreateTexture(NULL,
+    Handle<Texture> h_RenderTarget_DefaultAlbedo = Renderer_CreateTexture(NULL,
             rtDefaultSize.x,
             rtDefaultSize.y,
             TEXTURE_FORMAT_R8G8B8A8,
             {TEXTURE_WRAP_CLAMP, TEXTURE_FILTER_NEAREST, TEXTURE_FILTER_NEAREST, true}
             );
-    ResourceHandle h_RenderTarget_DefaultOutputs[] = {h_RenderTarget_DefaultAlbedo};
+    Handle<Texture> h_RenderTarget_DefaultOutputs[] = {h_RenderTarget_DefaultAlbedo};
     h_RenderTarget_Default = Renderer_CreateRenderTarget(rtDefaultSize.x, rtDefaultSize.y, h_RenderTarget_DefaultOutputs, 1);
 
-    ResourceHandle h_VertexBuffer_ScreenQuad = Renderer_CreateBuffer(
+    Handle<Buffer> h_VertexBuffer_ScreenQuad = Renderer_CreateBuffer(
             (u8*)screenQuadVertices,
             ArrayCount(screenQuadVertices),
             sizeof(MeshVertex),
             BUFFER_TYPE_VERTEX
             );
-    ResourceHandle h_IndexBuffer_ScreenQuad = Renderer_CreateBuffer(
+    Handle<Buffer> h_IndexBuffer_ScreenQuad = Renderer_CreateBuffer(
             (u8*)screenQuadIndices,
             ArrayCount(screenQuadIndices),
             sizeof(u32),
@@ -684,11 +663,11 @@ void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Wi
 
     srcVS_ScreenQuad = ReadFile_Str(SHADER_PATH"screen_quad.vs");
     srcPS_ScreenQuad = ReadFile_Str(SHADER_PATH"screen_quad.ps");
-    ResourceHandle h_VS_ScreenQuad = Renderer_CreateShader(srcVS_ScreenQuad, SHADER_TYPE_VERTEX);
-    ResourceHandle h_PS_ScreenQuad = Renderer_CreateShader(srcPS_ScreenQuad, SHADER_TYPE_PIXEL);
+    Handle<Shader> h_VS_ScreenQuad = Renderer_CreateShader(srcVS_ScreenQuad, SHADER_TYPE_VERTEX);
+    Handle<Shader> h_PS_ScreenQuad = Renderer_CreateShader(srcPS_ScreenQuad, SHADER_TYPE_PIXEL);
     h_Shader_ScreenQuad = Renderer_CreateShaderPipeline(h_VS_ScreenQuad, h_PS_ScreenQuad);
 
-    ResourceHandle h_ScreenQuadInputs[] = { h_RenderTarget_DefaultAlbedo };
+    Handle<Texture> h_ScreenQuadInputs[] = { h_RenderTarget_DefaultAlbedo };
     h_Material_ScreenQuad = Renderer_CreateMaterial(h_ScreenQuadInputs, ArrayCount(h_ScreenQuadInputs));
 
     Window_Show(*outWindow);
@@ -697,7 +676,7 @@ void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Wi
 void Renderer_RenderFrame()
 {
     // Preparing Render
-    RenderTarget& renderTargetDefault = rendererData.renderTargets[h_RenderTarget_Default];
+    RenderTarget& renderTargetDefault = Renderer_GetRenderTarget(h_RenderTarget_Default);
     {
         Renderer_BindRenderTarget(h_RenderTarget_Default);
         // Clearing backbuffer
@@ -716,13 +695,13 @@ void Renderer_RenderFrame()
 
     // Rendering 3D mesh renderables
     {
-        ResourceHandle activeShader         = RESOURCE_INVALID;
-        ResourceHandle activeMaterial       = RESOURCE_INVALID;
-        ResourceHandle activeMesh           = RESOURCE_INVALID;
+        Handle<ShaderPipeline> activeShader;
+        Handle<Material> activeMaterial;
+        Handle<Mesh> activeMesh;
 
-        for(i32 i = 0; i < rendererData.renderables.size(); i++)
+        for(i32 i = 0; i < rendererData.meshRenderables.size(); i++)
         {
-            Renderable& renderable = rendererData.renderables[i];
+            MeshRenderable& renderable = Renderer_GetMeshRenderable({(u32)i});
             // Bind resources
             if(renderable.h_Shader != activeShader)
             {
@@ -742,8 +721,8 @@ void Renderer_RenderFrame()
             Renderer_BindUniforms(renderable);
 
             // Draw
-            Mesh& mesh = rendererData.meshes[renderable.h_Mesh];
-            Buffer& indexBuffer = rendererData.buffers[mesh.h_IndexBuffer];
+            Mesh& mesh = Renderer_GetMesh(renderable.h_Mesh);
+            Buffer& indexBuffer = Renderer_GetBuffer(mesh.h_IndexBuffer);
             glDrawElements(GL_TRIANGLES, indexBuffer.count, GL_UNSIGNED_INT, 0);
         }
 
@@ -768,8 +747,8 @@ void Renderer_RenderFrame()
         Renderer_BindMesh(h_Mesh_ScreenQuad);
 
         // Draw final screen quad
-        Mesh& mesh = rendererData.meshes[h_Mesh_ScreenQuad];
-        Buffer& indexBuffer = rendererData.buffers[mesh.h_IndexBuffer];
+        Mesh& mesh = Renderer_GetMesh(h_Mesh_ScreenQuad);
+        Buffer& indexBuffer = Renderer_GetBuffer(mesh.h_IndexBuffer);
         glDrawElements(GL_TRIANGLES, indexBuffer.count, GL_UNSIGNED_INT, 0);
     }
 }

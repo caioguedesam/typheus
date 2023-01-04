@@ -7,7 +7,7 @@ namespace Ty
 std::string srcVS_Default;
 std::string srcPS_Default;
 
-std::vector<ResourceHandle> h_Renderables_Sponza;
+std::vector<Handle<MeshRenderable>> h_Renderables_Sponza;
 
 void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
 {
@@ -23,15 +23,15 @@ void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
     // Creating app resources and renderables
     srcVS_Default = ReadFile_Str(SHADER_PATH"default_vertex.vs");
     srcPS_Default = ReadFile_Str(SHADER_PATH"default_pixel.ps");
-    ResourceHandle h_VS_Default = Renderer_CreateShader(srcVS_Default, SHADER_TYPE_VERTEX);
-    ResourceHandle h_PS_Default = Renderer_CreateShader(srcPS_Default, SHADER_TYPE_PIXEL);
-    ResourceHandle h_Shader_Default = Renderer_CreateShaderPipeline(h_VS_Default, h_PS_Default);
+    Handle<Shader> h_VS_Default = Renderer_CreateShader(srcVS_Default, SHADER_TYPE_VERTEX);
+    Handle<Shader> h_PS_Default = Renderer_CreateShader(srcPS_Default, SHADER_TYPE_PIXEL);
+    Handle<ShaderPipeline> h_Shader_Default = Renderer_CreateShaderPipeline(h_VS_Default, h_PS_Default);
 
     h_Renderables_Sponza = Renderer_CreateRenderablesFromModel(MODELS_PATH"sponza/sponza.obj", h_Shader_Default);
     m4f sponzaWorld = RotationMatrix(TO_RAD(90.f), {0.f, 1.f, 0.f}) * ScaleMatrix({0.01f, 0.01f, 0.01f});
     for(i32 i = 0; i < h_Renderables_Sponza.size(); i++)
     {
-        Renderer_GetRenderable(h_Renderables_Sponza[i]).u_Model = sponzaWorld;
+        Renderer_GetMeshRenderable(h_Renderables_Sponza[i]).u_Model = sponzaWorld;
     }
 }
 
