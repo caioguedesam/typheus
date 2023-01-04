@@ -8,6 +8,48 @@ std::string srcVS_Default;
 std::string srcPS_Default;
 
 std::vector<Handle<MeshRenderable>> h_Renderables_Sponza;
+std::vector<Handle<MeshRenderable>> h_Renderables_Bunny0;
+std::vector<Handle<MeshRenderable>> h_Renderables_Bunny1;
+std::vector<Handle<MeshRenderable>> h_Renderables_Bunny2;
+std::vector<Handle<MeshRenderable>> h_Renderables_Bunny3;
+
+struct GameObject
+{
+    std::vector<Handle<MeshRenderable>> h_Renderables;
+
+    void SetTransform(m4f transformMatrix)
+    {
+        for(i32 i = 0; i < h_Renderables.size(); i++)
+        {
+            Renderer_GetMeshRenderable(h_Renderables[i]).u_Model = transformMatrix;
+        }
+    }
+};
+
+void SpawnRandomBunny(Handle<ShaderPipeline> h_Shader)
+{
+    GameObject bunny;
+    bunny.h_Renderables = Renderer_CreateRenderablesFromModel(MODELS_PATH"bunny/bunny.obj", h_Shader);
+    v3f pos =
+    {
+        RandomRange(-2.f, 2.f),
+        RandomRange(-2.f, 2.f),
+        RandomRange(-2.f, 2.f),
+    };
+    f32 angle = RandomRange(0.f, 360.f);
+    v3f axis =
+    {
+        RandomRange(0.f, 1.f),
+        RandomRange(0.f, 1.f),
+        RandomRange(0.f, 1.f),
+    };
+    axis = Normalize(axis);
+    f32 scale = RandomRange(0.2f, 1.5f);
+    bunny.SetTransform(TranslationMatrix(pos) * RotationMatrix(angle, axis) * ScaleMatrix({scale, scale, scale}));
+}
+
+GameObject sponza;
+std::vector<GameObject> bunnies;
 
 void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
 {
@@ -27,11 +69,13 @@ void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
     Handle<Shader> h_PS_Default = Renderer_CreateShader(srcPS_Default, SHADER_TYPE_PIXEL);
     Handle<ShaderPipeline> h_Shader_Default = Renderer_CreateShaderPipeline(h_VS_Default, h_PS_Default);
 
-    h_Renderables_Sponza = Renderer_CreateRenderablesFromModel(MODELS_PATH"sponza/sponza.obj", h_Shader_Default);
+    sponza.h_Renderables = Renderer_CreateRenderablesFromModel(MODELS_PATH"sponza/sponza.obj", h_Shader_Default);
     m4f sponzaWorld = RotationMatrix(TO_RAD(90.f), {0.f, 1.f, 0.f}) * ScaleMatrix({0.01f, 0.01f, 0.01f});
-    for(i32 i = 0; i < h_Renderables_Sponza.size(); i++)
+    sponza.SetTransform(sponzaWorld);
+
+    for(i32 i = 0; i < 20; i++)
     {
-        Renderer_GetMeshRenderable(h_Renderables_Sponza[i]).u_Model = sponzaWorld;
+        SpawnRandomBunny(h_Shader_Default);
     }
 
     // App settings

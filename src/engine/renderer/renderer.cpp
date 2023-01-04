@@ -7,6 +7,8 @@ namespace Ty
 {
 
 Handle<RenderTarget> h_RenderTarget_Default;
+Handle<Material> h_Material_Default;
+
 Handle<Mesh> h_Mesh_ScreenQuad;
 Handle<Material> h_Material_ScreenQuad;
 Handle<ShaderPipeline> h_Shader_ScreenQuad;
@@ -80,36 +82,44 @@ std::vector<Handle<MeshRenderable>> Renderer_CreateRenderablesFromModel(std::str
     fastObjMesh* objData = fast_obj_read(assetPath.data());
 
     // Loading and creating materials and material textures
-    Handle<Material> h_Materials[objData->material_count];
-    for(u64 m = 0; m < objData->material_count; m++)
+    Handle<Material> h_Materials[MAX(objData->material_count, 1)];
+    if(!objData->material_count)
     {
-        auto objMat = objData->materials[m];
-
-        Handle<Texture> h_Textures[MATERIAL_MAX_TEXTURES];
-
-        char* objTexturePaths[] =
-        {
-            objMat.map_Ka.path,         // Ambient map
-            objMat.map_Kd.path,         // Diffuse map
-            objMat.map_Ks.path,         // Specular map
-            objMat.map_d.path,          // Alpha Mask
-            objMat.map_bump.path,       // Bump map
-        };
-
-        for(u32 i = 0; i < ArrayCount(objTexturePaths); i++)
-        {
-            char* assetPath = objTexturePaths[i];
-            if(!assetPath) continue;
-
-            h_Textures[i] = Renderer_LoadTextureAsset(assetPath);
-        }
-
-        h_Materials[m] = Renderer_CreateMaterial(h_Textures, ArrayCount(objTexturePaths));
+        h_Materials[0] = h_Material_Default;
     }
+    else
+    {
+        for(u64 m = 0; m < objData->material_count; m++)
+        {
+            auto objMat = objData->materials[m];
+    
+            Handle<Texture> h_Textures[MATERIAL_MAX_TEXTURES];
+    
+            char* objTexturePaths[] =
+            {
+                objMat.map_Ka.path,         // Ambient map
+                objMat.map_Kd.path,         // Diffuse map
+                objMat.map_Ks.path,         // Specular map
+                objMat.map_d.path,          // Alpha Mask
+                objMat.map_bump.path,       // Bump map
+            };
+    
+            for(u32 i = 0; i < ArrayCount(objTexturePaths); i++)
+            {
+                char* assetPath = objTexturePaths[i];
+                if(!assetPath) continue;
+    
+                h_Textures[i] = Renderer_LoadTextureAsset(assetPath);
+            }
+    
+            h_Materials[m] = Renderer_CreateMaterial(h_Textures, ArrayCount(objTexturePaths));
+        }
+    }
+    
 
     // Loading vertex and index buffers (one submesh per model material)
     std::vector<MeshVertex>* modelVertices = new std::vector<MeshVertex>();
-    std::vector<std::vector<u32>>* modelIndices = new std::vector<std::vector<u32>>(objData->material_count);
+    std::vector<std::vector<u32>>* modelIndices = new std::vector<std::vector<u32>>(MAX(objData->material_count, 1));
 
     u64 currentIndex = 0;
     // Iterate on every group
@@ -174,7 +184,7 @@ std::vector<Handle<MeshRenderable>> Renderer_CreateRenderablesFromModel(std::str
     std::vector<Handle<MeshRenderable>> result;
 
     Handle<Buffer> h_VertexBuffer = Renderer_CreateBuffer((u8*)modelVertices->data(), modelVertices->size(), sizeof(MeshVertex), BUFFER_TYPE_VERTEX);
-    for(i32 i = 0; i < objData->material_count; i++)
+    for(i32 i = 0; i < MAX(objData->material_count, 1); i++)
     {
         std::vector<u32>& submeshIndices = (*modelIndices)[i];
         Handle<Buffer> h_SubmeshIndexBuffer = Renderer_CreateBuffer((u8*)submeshIndices.data(), submeshIndices.size(), sizeof(u32), BUFFER_TYPE_INDEX);
@@ -653,6 +663,10 @@ void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Wi
     Handle<Texture> h_RenderTarget_DefaultOutputs[] = {h_RenderTarget_DefaultAlbedo};
     h_RenderTarget_Default = Renderer_CreateRenderTarget(rtDefaultSize.x, rtDefaultSize.y, h_RenderTarget_DefaultOutputs, 1);
 
+    Handle<Texture> h_Texture_Checker = Renderer_LoadTextureAsset(TEXTURE_PATH"texel_checker.png");
+    Handle<Texture> h_Material_DefaultTextures[] = { h_Texture_Checker, h_Texture_Checker, h_Texture_Checker };
+    h_Material_Default = Renderer_CreateMaterial(h_Material_DefaultTextures, ArrayCount(h_Material_DefaultTextures));
+
     Handle<Buffer> h_VertexBuffer_ScreenQuad = Renderer_CreateBuffer(
             (u8*)screenQuadVertices,
             ArrayCount(screenQuadVertices),
@@ -711,10 +725,8 @@ void Renderer_RenderFrame()
         Handle<Material> activeMaterial;
         Handle<Mesh> activeMesh;
 
-        //for(i32 i = 0; i < rendererData.meshRenderables.size(); i++)
         for(i32 i = 0; i < queuedRenderables.size(); i++)
         {
-            //MeshRenderable& renderable = Renderer_GetMeshRenderable({(u32)i});
             MeshRenderable* pRenderable = queuedRenderables[i];
             // Bind resources
             if(pRenderable->h_Shader != activeShader)
