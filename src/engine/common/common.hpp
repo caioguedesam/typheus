@@ -17,6 +17,7 @@
 
 #if _PROFILE
 #include "tracy/Tracy.hpp"
+#include "tracy/TracyOpenGL.hpp"
 #endif
 
 namespace Ty
@@ -106,10 +107,16 @@ void LogFormat(const char* label, const char* fmt, ...);
 #if _PROFILE
 #define PROFILE_FRAME FrameMark
 #define PROFILE_SCOPED ZoneScoped
+#define PROFILE_GPU_CONTEXT TracyGpuContext
+#define PROFILE_GPU_SCOPED(name) TracyGpuZone(name)
+#define PROFILE_GPU_FRAME TracyGpuCollect
 //TODO(caio)#PROFILING: Add support for named zones and colors
 #else
 #define PROFILE_FRAME
 #define PROFILE_SCOPED
+#define PROFILE_GPU_CONTEXT
+#define PROFILE_GPU_SCOPED(name)
+#define PROFILE_GPU_FRAME
 #endif
 
 // ========================================================

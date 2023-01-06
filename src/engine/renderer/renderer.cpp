@@ -637,6 +637,8 @@ void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Wi
     Window_Init(windowWidth, windowHeight, windowName, outWindow);
     Window_InitRenderContext(*outWindow);
 
+    PROFILE_GPU_CONTEXT;
+
     // OpenGL settings
     glEnable(GL_DEPTH_TEST);            // Depth testing
     glEnable(GL_CULL_FACE);             // Face culling
@@ -698,6 +700,7 @@ void Renderer_RenderFrame()
     // Preparing Render
     RenderTarget& renderTargetDefault = Renderer_GetRenderTarget(h_RenderTarget_Default);
     {
+        PROFILE_GPU_SCOPED("Render Prepare");
         Renderer_BindRenderTarget(h_RenderTarget_Default);
         Renderer_Clear({1.f, 0.5f, 0.f, 1.f});
         Renderer_SetViewport({0, 0, renderTargetDefault.width, renderTargetDefault.height});
@@ -707,56 +710,74 @@ void Renderer_RenderFrame()
     {
         // Sort renderables by shader > material > mesh
         std::vector<MeshRenderable*> queuedRenderables;
-        queuedRenderables.reserve(rendererData.meshRenderables.size());
-        for(i32 i = 0; i < rendererData.meshRenderables.size(); i++)
         {
-            queuedRenderables.push_back(&rendererData.meshRenderables[i]);
+            queuedRenderables.reserve(rendererData.meshRenderables.size());
+            for(i32 i = 0; i < rendererData.meshRenderables.size(); i++)
+            {
+                queuedRenderables.push_back(&rendererData.meshRenderables[i]);
+            }
+            std::sort(queuedRenderables.begin(), queuedRenderables.end(),
+                    [](MeshRenderable* a, MeshRenderable* b)
+                    {
+                        if(a->h_Shader != a->h_Shader) return a->h_Shader < b->h_Shader;
+                        if(a->h_Material != a->h_Material) return a->h_Material < b->h_Material;
+                        return a->h_Mesh < b->h_Mesh;
+                    });
         }
-        std::sort(queuedRenderables.begin(), queuedRenderables.end(),
-                [](MeshRenderable* a, MeshRenderable* b)
-                {
-                    if(a->h_Shader != a->h_Shader) return a->h_Shader < b->h_Shader;
-                    if(a->h_Material != a->h_Material) return a->h_Material < b->h_Material;
-                    return a->h_Mesh < b->h_Mesh;
-                });
+        
 
         // Draw renderables
-        Handle<ShaderPipeline> activeShader;
-        Handle<Material> activeMaterial;
-        Handle<Mesh> activeMesh;
-
-        for(i32 i = 0; i < queuedRenderables.size(); i++)
         {
-            MeshRenderable* pRenderable = queuedRenderables[i];
-            // Bind resources
-            if(pRenderable->h_Shader != activeShader)
-            {
-                activeShader = pRenderable->h_Shader;
-                Renderer_BindShaderPipeline(activeShader);
-            }
-            if(pRenderable->h_Material != activeMaterial)
-            {
-                activeMaterial = pRenderable->h_Material;
-                Renderer_BindMaterial(activeMaterial);
-            }
-            if(pRenderable->h_Mesh != activeMesh)
-            {
-                activeMesh = pRenderable->h_Mesh;
-                Renderer_BindMesh(activeMesh);
-            }
-            Renderer_BindUniforms(*pRenderable);
+            PROFILE_GPU_SCOPED("Render Draw Mesh Renderables");
+            Handle<ShaderPipeline> activeShader;
+            Handle<Material> activeMaterial;
+            Handle<Mesh> activeMesh;
 
-            // Draw
-            Mesh& mesh = Renderer_GetMesh(pRenderable->h_Mesh);
-            Buffer& indexBuffer = Renderer_GetBuffer(mesh.h_IndexBuffer);
-            glDrawElements(GL_TRIANGLES, indexBuffer.count, GL_UNSIGNED_INT, 0);
+            for(i32 i = 0; i < queuedRenderables.size(); i++)
+            {
+                PROFILE_GPU_SCOPED("Render Draw Mesh Renderable");
+                MeshRenderable* pRenderable = queuedRenderables[i];
+                // Bind resources
+                if(pRenderable->h_Shader != activeShader)
+                {
+                    activeShader = pRenderable->h_Shader;
+                    PROFILE_GPU_SCOPED("Bind Shader");
+                    Renderer_BindShaderPipeline(activeShader);
+                }
+                if(pRenderable->h_Material != activeMaterial)
+                {
+                    activeMaterial = pRenderable->h_Material;
+                    PROFILE_GPU_SCOPED("Bind Material");
+                    Renderer_BindMaterial(activeMaterial);
+                }
+                if(pRenderable->h_Mesh != activeMesh)
+                {
+                    activeMesh = pRenderable->h_Mesh;
+                    PROFILE_GPU_SCOPED("Bind Mesh");
+                    Renderer_BindMesh(activeMesh);
+                }
+
+                {
+                    PROFILE_GPU_SCOPED("Bind Uniforms");
+                    Renderer_BindUniforms(*pRenderable);
+                }
+
+                // Draw
+                Mesh& mesh = Renderer_GetMesh(pRenderable->h_Mesh);
+                Buffer& indexBuffer = Renderer_GetBuffer(mesh.h_IndexBuffer);
+                {
+                    PROFILE_GPU_SCOPED("Draw");
+                    glDrawElements(GL_TRIANGLES, indexBuffer.count, GL_UNSIGNED_INT, 0);
+                }
+            }
+
+            Renderer_UpdateTextureMips(renderTargetDefault.colorAttachments[0]);
         }
-
-        Renderer_UpdateTextureMips(renderTargetDefault.colorAttachments[0]);
     }
 
     // Rendering to screen quad
     {
+        PROFILE_GPU_SCOPED("Render Copy to Backbuffer");
         Renderer_UnbindRenderTarget();
         Renderer_Clear({1.f, 1.f, 1.f, 1.f});
         Renderer_SetViewport({0, 0, rendererData.window->width, rendererData.window->height});
