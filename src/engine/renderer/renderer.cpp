@@ -188,7 +188,11 @@ std::vector<Handle<MeshRenderable>> Renderer_CreateRenderablesFromModel(std::str
     {
         std::vector<u32>& submeshIndices = (*modelIndices)[i];
         Handle<Buffer> h_SubmeshIndexBuffer = Renderer_CreateBuffer((u8*)submeshIndices.data(), submeshIndices.size(), sizeof(u32), BUFFER_TYPE_INDEX);
-        Handle<Mesh> h_Submesh = Renderer_CreateMesh(h_VertexBuffer, h_SubmeshIndexBuffer);
+        Handle<Mesh> h_Submesh = Renderer_CreateMesh(h_VertexBuffer, h_SubmeshIndexBuffer,
+                {
+                    3,
+                    { VERTEX_ATTRIBUTE_VEC3, VERTEX_ATTRIBUTE_VEC3, VERTEX_ATTRIBUTE_VEC2 },
+                });
         Handle<MeshRenderable> h_SubmeshRenderable = Renderer_CreateMeshRenderable(h_Submesh, h_Shader, h_Materials[i]);
 
         // Check if the material has an alpha mask
@@ -395,7 +399,40 @@ Handle<Texture> Renderer_CreateTexture(u8* textureData, u32 textureWidth, u32 te
     return { (u32)rendererData.textures.size() - 1 };
 }
 
-Handle<Mesh> Renderer_CreateMesh(Handle<Buffer> h_VertexBuffer, Handle<Buffer> h_IndexBuffer)
+//Handle<Mesh> Renderer_CreateMesh(Handle<Buffer> h_VertexBuffer, Handle<Buffer> h_IndexBuffer)
+//{
+    //APIHandle glHandle = API_HANDLE_INVALID;
+    //glGenVertexArrays(1, &glHandle);
+    //ASSERT(glHandle != API_HANDLE_INVALID);
+
+    //glBindVertexArray(glHandle);
+
+    //Buffer& vertexBuffer = Renderer_GetBuffer(h_VertexBuffer);
+    //Buffer& indexBuffer = Renderer_GetBuffer(h_IndexBuffer);
+
+    //glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer.apiHandle);
+    //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer.apiHandle);
+
+    //// For meshes, Vertex Data is formatted as MeshVertex (v3f position - v3f normal - v2f texcoord)
+    //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, position));
+    //glEnableVertexAttribArray(0);
+    //glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, normal));
+    //glEnableVertexAttribArray(1);
+    //glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, texcoord));
+    //glEnableVertexAttribArray(2);
+
+    //Mesh mesh =
+    //{
+        //h_VertexBuffer,
+        //h_IndexBuffer,
+        //glHandle
+    //};
+
+    //rendererData.meshes.push_back(mesh);
+    //return { (u32)rendererData.meshes.size() - 1 };
+//}
+
+Handle<Mesh> Renderer_CreateMesh(Handle<Buffer> h_VertexBuffer, Handle<Buffer> h_IndexBuffer, VertexLayout vertexLayout)
 {
     APIHandle glHandle = API_HANDLE_INVALID;
     glGenVertexArrays(1, &glHandle);
@@ -409,13 +446,45 @@ Handle<Mesh> Renderer_CreateMesh(Handle<Buffer> h_VertexBuffer, Handle<Buffer> h
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer.apiHandle);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer.apiHandle);
 
-    // For meshes, Vertex Data is formatted as MeshVertex (v3f position - v3f normal - v2f texcoord)
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, position));
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, normal));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, texcoord));
-    glEnableVertexAttribArray(2);
+    // Finding vertex layout stride first
+    u64 vertexLayoutStride = 0;
+    for(i32 i = 0; i < vertexLayout.count; i++)
+    {
+        VertexAttributeType attr = vertexLayout.attributes[i];
+        switch(attr)
+        {
+            case VERTEX_ATTRIBUTE_FLOAT: vertexLayoutStride += sizeof(f32); break;
+            case VERTEX_ATTRIBUTE_VEC2: vertexLayoutStride += sizeof(v2f); break;
+            case VERTEX_ATTRIBUTE_VEC3: vertexLayoutStride += sizeof(v3f); break;
+            default: ASSERT(0);
+        }
+    }
+    // Now properly define vertex layout
+    u64 currentLayoutOffset = 0;
+    for(i32 i = 0; i < vertexLayout.count; i++)
+    {
+        VertexAttributeType attr = vertexLayout.attributes[i];
+        switch(attr)
+        {
+            case VERTEX_ATTRIBUTE_FLOAT:
+                {
+                    glVertexAttribPointer(i, 1, GL_FLOAT, GL_FALSE, vertexLayoutStride, (void*)currentLayoutOffset);
+                    currentLayoutOffset += sizeof(f32);
+                } break;
+            case VERTEX_ATTRIBUTE_VEC2:
+                {
+                    glVertexAttribPointer(i, 2, GL_FLOAT, GL_FALSE, vertexLayoutStride, (void*)currentLayoutOffset);
+                    currentLayoutOffset += sizeof(v2f);
+                } break;
+            case VERTEX_ATTRIBUTE_VEC3:
+                {
+                    glVertexAttribPointer(i, 3, GL_FLOAT, GL_FALSE, vertexLayoutStride, (void*)currentLayoutOffset);
+                    currentLayoutOffset += sizeof(v3f);
+                } break;
+            default: ASSERT(0);
+        }
+        glEnableVertexAttribArray(i);
+    }
 
     Mesh mesh =
     {
@@ -681,7 +750,11 @@ void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Wi
             sizeof(u32),
             BUFFER_TYPE_INDEX
             );
-    h_Mesh_ScreenQuad = Renderer_CreateMesh(h_VertexBuffer_ScreenQuad, h_IndexBuffer_ScreenQuad);
+    h_Mesh_ScreenQuad = Renderer_CreateMesh(h_VertexBuffer_ScreenQuad, h_IndexBuffer_ScreenQuad,
+            {
+                3,
+                { VERTEX_ATTRIBUTE_VEC3, VERTEX_ATTRIBUTE_VEC3, VERTEX_ATTRIBUTE_VEC2 },
+            });
 
     srcVS_ScreenQuad = ReadFile_Str(SHADER_PATH"screen_quad.vs");
     srcPS_ScreenQuad = ReadFile_Str(SHADER_PATH"screen_quad.ps");

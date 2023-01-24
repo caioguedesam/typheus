@@ -93,6 +93,21 @@ struct Texture
     u64 GetSize();
 };
 
+enum VertexAttributeType : u32
+{
+    VERTEX_ATTRIBUTE_FLOAT,
+    VERTEX_ATTRIBUTE_VEC2,
+    VERTEX_ATTRIBUTE_VEC3,
+};
+
+#define MAX_VERTEX_ATTRIBUTES 8
+
+struct VertexLayout
+{
+    u32 count = 0;
+    VertexAttributeType attributes[MAX_VERTEX_ATTRIBUTES] = {};
+};
+
 struct MeshVertex
 {
     v3f position = {};
@@ -187,7 +202,8 @@ struct RenderTarget
 
 Handle<Buffer>          Renderer_CreateBuffer(u8* bufferData, u64 bufferCount, u64 bufferStride, BufferType bufferType);
 Handle<Texture>         Renderer_CreateTexture(u8* textureData, u32 textureWidth, u32 textureHeight, TextureFormat textureFormat, TextureParams textureParams);
-Handle<Mesh>            Renderer_CreateMesh(Handle<Buffer> h_VertexBuffer, Handle<Buffer> h_IndexBuffer);
+//Handle<Mesh>            Renderer_CreateMesh(Handle<Buffer> h_VertexBuffer, Handle<Buffer> h_IndexBuffer);
+Handle<Mesh>            Renderer_CreateMesh(Handle<Buffer> h_VertexBuffer, Handle<Buffer> h_IndexBuffer, VertexLayout vertexLayout);
 Handle<Shader>          Renderer_CreateShader(std::string_view shaderSrc, ShaderType shaderType);
 Handle<ShaderPipeline>  Renderer_CreateShaderPipeline(Handle<Shader> h_VS, Handle<Shader> h_PS);
 Handle<Material>        Renderer_CreateMaterial(Handle<Texture>* h_MaterialTextureArray, u8 materialTextureCount);
