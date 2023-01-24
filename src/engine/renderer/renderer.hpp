@@ -202,13 +202,19 @@ struct RenderTarget
 
 Handle<Buffer>          Renderer_CreateBuffer(u8* bufferData, u64 bufferCount, u64 bufferStride, BufferType bufferType);
 Handle<Texture>         Renderer_CreateTexture(u8* textureData, u32 textureWidth, u32 textureHeight, TextureFormat textureFormat, TextureParams textureParams);
-//Handle<Mesh>            Renderer_CreateMesh(Handle<Buffer> h_VertexBuffer, Handle<Buffer> h_IndexBuffer);
 Handle<Mesh>            Renderer_CreateMesh(Handle<Buffer> h_VertexBuffer, Handle<Buffer> h_IndexBuffer, VertexLayout vertexLayout);
 Handle<Shader>          Renderer_CreateShader(std::string_view shaderSrc, ShaderType shaderType);
 Handle<ShaderPipeline>  Renderer_CreateShaderPipeline(Handle<Shader> h_VS, Handle<Shader> h_PS);
 Handle<Material>        Renderer_CreateMaterial(Handle<Texture>* h_MaterialTextureArray, u8 materialTextureCount);
 Handle<RenderTarget>    Renderer_CreateRenderTarget(u32 rtWidth, u32 rtHeight, Handle<Texture>* h_RenderTexturesArray, u8 renderTextureCount);
 Handle<MeshRenderable>  Renderer_CreateMeshRenderable(Handle<Mesh> h_Mesh, Handle<ShaderPipeline> h_Shader, Handle<Material> h_Material);
+
+void    Renderer_BindUniform_i32(Handle<ShaderPipeline> h_Shader, std::string_view name, i32 value);
+void    Renderer_BindUniform_u32(Handle<ShaderPipeline> h_Shader, std::string_view name, u32 value);
+void    Renderer_BindUniform_f32(Handle<ShaderPipeline> h_Shader, std::string_view name, f32 value);
+void    Renderer_BindUniform_v2f(Handle<ShaderPipeline> h_Shader, std::string_view name, v2f value);
+void    Renderer_BindUniform_v3f(Handle<ShaderPipeline> h_Shader, std::string_view name, v3f value);
+void    Renderer_BindUniform_m4f(Handle<ShaderPipeline> h_Shader, std::string_view name, m4f value);
 
 Handle<Texture>    Renderer_LoadTextureAsset(std::string_view assetPath);
 std::vector<Handle<MeshRenderable>> Renderer_CreateRenderablesFromModel(std::string_view assetPath, Handle<ShaderPipeline> h_Shader);
@@ -221,7 +227,6 @@ void    Renderer_BindMesh(Handle<Mesh> h_Mesh);
 void    Renderer_BindShaderPipeline(Handle<ShaderPipeline> h_Shader);
 void    Renderer_BindMaterial(Handle<Material> h_Material);
 void    Renderer_UpdateTextureMips(Handle<Texture> h_Texture);
-void    Renderer_BindUniforms(const MeshRenderable& renderable);
 void    Renderer_Clear(v4f clearColor);
 void    Renderer_DrawMeshRenderable(MeshRenderable& renderable);
 

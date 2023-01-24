@@ -399,39 +399,6 @@ Handle<Texture> Renderer_CreateTexture(u8* textureData, u32 textureWidth, u32 te
     return { (u32)rendererData.textures.size() - 1 };
 }
 
-//Handle<Mesh> Renderer_CreateMesh(Handle<Buffer> h_VertexBuffer, Handle<Buffer> h_IndexBuffer)
-//{
-    //APIHandle glHandle = API_HANDLE_INVALID;
-    //glGenVertexArrays(1, &glHandle);
-    //ASSERT(glHandle != API_HANDLE_INVALID);
-
-    //glBindVertexArray(glHandle);
-
-    //Buffer& vertexBuffer = Renderer_GetBuffer(h_VertexBuffer);
-    //Buffer& indexBuffer = Renderer_GetBuffer(h_IndexBuffer);
-
-    //glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer.apiHandle);
-    //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer.apiHandle);
-
-    //// For meshes, Vertex Data is formatted as MeshVertex (v3f position - v3f normal - v2f texcoord)
-    //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, position));
-    //glEnableVertexAttribArray(0);
-    //glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, normal));
-    //glEnableVertexAttribArray(1);
-    //glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)StructOffset(MeshVertex, texcoord));
-    //glEnableVertexAttribArray(2);
-
-    //Mesh mesh =
-    //{
-        //h_VertexBuffer,
-        //h_IndexBuffer,
-        //glHandle
-    //};
-
-    //rendererData.meshes.push_back(mesh);
-    //return { (u32)rendererData.meshes.size() - 1 };
-//}
-
 Handle<Mesh> Renderer_CreateMesh(Handle<Buffer> h_VertexBuffer, Handle<Buffer> h_IndexBuffer, VertexLayout vertexLayout)
 {
     APIHandle glHandle = API_HANDLE_INVALID;
@@ -621,6 +588,55 @@ Handle<MeshRenderable> Renderer_CreateMeshRenderable(Handle<Mesh> h_Mesh, Handle
     return { (u32)rendererData.meshRenderables.size() - 1 };
 }
 
+void Renderer_BindUniform_i32(Handle<ShaderPipeline> h_Shader, std::string_view name, i32 value)
+{
+    GLuint shaderAPIHandle = Renderer_GetShaderPipeline(h_Shader).apiHandle;
+    GLint location = glGetUniformLocation(shaderAPIHandle, name.data());
+    ASSERT(location != -1);
+    glUniform1i(location, value);
+}
+
+void Renderer_BindUniform_u32(Handle<ShaderPipeline> h_Shader, std::string_view name, u32 value)
+{
+    GLuint shaderAPIHandle = Renderer_GetShaderPipeline(h_Shader).apiHandle;
+    GLint location = glGetUniformLocation(shaderAPIHandle, name.data());
+    ASSERT(location != -1);
+    glUniform1ui(location, value);
+}
+
+void Renderer_BindUniform_f32(Handle<ShaderPipeline> h_Shader, std::string_view name, f32 value)
+{
+    GLuint shaderAPIHandle = Renderer_GetShaderPipeline(h_Shader).apiHandle;
+    GLint location = glGetUniformLocation(shaderAPIHandle, name.data());
+    ASSERT(location != -1);
+    glUniform1f(location, value);
+}
+
+void Renderer_BindUniform_v2f(Handle<ShaderPipeline> h_Shader, std::string_view name, v2f value)
+{
+    GLuint shaderAPIHandle = Renderer_GetShaderPipeline(h_Shader).apiHandle;
+    GLint location = glGetUniformLocation(shaderAPIHandle, name.data());
+    ASSERT(location != -1);
+    glUniform2f(location, value.x, value.y);
+}
+
+void Renderer_BindUniform_v3f(Handle<ShaderPipeline> h_Shader, std::string_view name, v3f value)
+{
+    GLuint shaderAPIHandle = Renderer_GetShaderPipeline(h_Shader).apiHandle;
+    GLint location = glGetUniformLocation(shaderAPIHandle, name.data());
+    ASSERT(location != -1);
+    glUniform3f(location, value.x, value.y, value.z);
+}
+
+void Renderer_BindUniform_m4f(Handle<ShaderPipeline> h_Shader, std::string_view name, m4f value)
+{
+    GLuint shaderAPIHandle = Renderer_GetShaderPipeline(h_Shader).apiHandle;
+    GLint location = glGetUniformLocation(shaderAPIHandle, name.data());
+    ASSERT(location != -1);
+    glUniformMatrix4fv(location, 1, GL_TRUE, &value.m00);
+}
+
+
 void Renderer_BindRenderTarget(Handle<RenderTarget> h_RenderTarget)
 {
     glBindFramebuffer(GL_FRAMEBUFFER, Renderer_GetRenderTarget(h_RenderTarget).apiHandle);
@@ -670,28 +686,6 @@ void Renderer_UpdateTextureMips(Handle<Texture> h_Texture)
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture.apiHandle);
     glGenerateMipmap(GL_TEXTURE_2D);
-}
-
-void Renderer_BindUniforms(const MeshRenderable& renderable)
-{
-    ShaderPipeline& shader = Renderer_GetShaderPipeline(renderable.h_Shader);
-    GLint location = -1;
-    location = glGetUniformLocation(shader.apiHandle, "u_Model");
-    ASSERT(location != -1);
-    glUniformMatrix4fv(location, 1, GL_TRUE, &renderable.u_Model.m00);
-    location = glGetUniformLocation(shader.apiHandle, "u_UseAlphaMask");
-    ASSERT(location != -1);
-    glUniform1f(location, renderable.u_UseAlphaMask);
-
-    // TODO(caio)#RENDER: Move these to a global uniform buffer whenever adding UBO support.
-    m4f viewMatrix = rendererData.camera.GetView();
-    m4f projMatrix = rendererData.camera.GetProjection(*rendererData.window);
-    location = glGetUniformLocation(shader.apiHandle, "u_View");
-    ASSERT(location != -1);
-    glUniformMatrix4fv(location, 1, GL_TRUE, &viewMatrix.m00);
-    location = glGetUniformLocation(shader.apiHandle, "u_Proj");
-    ASSERT(location != -1);
-    glUniformMatrix4fv(location, 1, GL_TRUE, &projMatrix.m00);
 }
 
 void Renderer_Clear(v4f clearColor)
@@ -816,6 +810,10 @@ void Renderer_RenderFrame()
                     activeShader = pRenderable->h_Shader;
                     PROFILE_GPU_SCOPED("Bind Shader");
                     Renderer_BindShaderPipeline(activeShader);
+
+                    // Binding per shader resources
+                    Renderer_BindUniform_m4f(activeShader, "u_View", rendererData.camera.GetView());
+                    Renderer_BindUniform_m4f(activeShader, "u_Proj", rendererData.camera.GetProjection(*rendererData.window));
                 }
                 if(pRenderable->h_Material != activeMaterial)
                 {
@@ -831,8 +829,9 @@ void Renderer_RenderFrame()
                 }
 
                 {
-                    PROFILE_GPU_SCOPED("Bind Uniforms");
-                    Renderer_BindUniforms(*pRenderable);
+                    PROFILE_GPU_SCOPED("Bind Renderable Uniforms");
+                    Renderer_BindUniform_m4f(activeShader, "u_Model", pRenderable->u_Model);
+                    Renderer_BindUniform_f32(activeShader, "u_UseAlphaMask", pRenderable->u_UseAlphaMask);
                 }
 
                 // Draw
