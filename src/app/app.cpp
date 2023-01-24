@@ -122,6 +122,65 @@ void App_Update()
 void App_Render()
 {
     Renderer_RenderFrame();
+
+    // Typheus render API draft (v0.2)
+    // Goal: make the render API more user focused and low level, so that the app has more control on its render pipeline
+    //
+    //  [GENERAL IDEAS]
+    //  > Remove Renderable structures from renderer API.
+    //  MeshRenderable and other future renderables can be created and managed by the app.
+    //  > Renderer API does not manage rendering loop anymore, this is moved to user land code.
+    // 
+    //  [RENDERER RENDER INIT]
+    //  Renderer_InitWindow(windowWidth, windowHeight, windowName, &window);
+    //  Renderer_SetWindow(window);
+    //  Renderer_SetViewport(window.width, window.height);
+    //  Window_Show(*outWindow);
+    //
+    //  Renderer_InitDefaultSettings();
+    //  Renderer_InitDefaultResources();
+    //  h_rtDefault = Renderer_CreateRenderTarget(1920, 1080, 1, {h_rtDefault_Albedo});
+    //
+    //  [APP RENDER INIT]
+    //
+    //  Renderer_Init(windowWidth, windowHeight, appTitle, &window);
+    //  Camera camera;
+    //  camera.Move(...);
+    //  Renderer_SetCamera(camera);
+    //
+    //  This part is actually similar to how it is right now
+    //
+    //  [APP RENDER LOOP]
+    //
+    //  Renderer_BeginFrame();
+    //      > Clears default render target
+    //      > Clears currently bound resources
+    //
+    //  Renderer_SetRenderTarget(h_rtDefault);
+    //      > Sets new render target and corresponding viewport
+    //  Renderer_Clear(color); 
+    //      > Clears bound render target to given color
+    //
+    //  for i in renderables.size():
+    //      MeshRenderable& renderable = renderables[i];
+    //           > Perform renderable sorting and binding on app
+    //      
+    //      Renderer_BindShader(renderable.h_Shader);
+    //      Renderer_BindMaterial(renderable.h_Material);
+    //      Renderer_BindMesh(renderable.h_Mesh);
+    //          > Renderer_Bind...() functions will cache currently bound resources and
+    //          only bind if necessary
+    //
+    //      Renderer_BindUniform(name, value);
+    //          > Uniform binding can be done in any order at any point
+    //          will use the currently bound shader
+    //      
+    //      Renderer_DrawMesh();
+    //          > This will use currently bound mesh
+    //
+    //  Renderer_UpdateRenderTargetMips();
+    //  Renderer_EndFrame();
+    //      > Copies default render target to default opengl screen framebuffer
 }
 
 void App_Destroy()
