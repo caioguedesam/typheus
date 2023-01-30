@@ -58,9 +58,9 @@ Handle<Texture> GetTextureFromAsset(Handle<AssetTexture> h_asset)
     switch(assetTexture->channels)
     {
         case 1: format = TEXTURE_FORMAT_R8; break;
-        case 2: format = TEXTURE_FORMAT_R8G8; break;
-        case 3: format = TEXTURE_FORMAT_R8G8B8; break;
-        case 4: format = TEXTURE_FORMAT_R8G8B8A8; break;
+        case 2: format = TEXTURE_FORMAT_RG8; break;
+        case 3: format = TEXTURE_FORMAT_RGB8; break;
+        case 4: format = TEXTURE_FORMAT_RGBA8; break;
         default: ASSERT(0);
     }
     params.useMips = true;
@@ -122,6 +122,7 @@ Handle<RenderObject> CreateRenderObjectFromAsset(Handle<AssetModel> h_asset)
     return h_model;
 }
 
+Handle<RenderTarget> h_gbufferRenderTarget;
 Handle<Shader> h_modelShader;
 
 Handle<RenderObject> h_sponzaObject;
@@ -138,8 +139,16 @@ void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
     mainCamera.Move({0, 2, 3});
     Renderer_SetCamera(mainCamera);
 
-    Handle<AssetShader> h_assetDefaultVS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"default_vertex.vs");
-    Handle<AssetShader> h_assetDefaultPS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"default_pixel.ps");
+    RenderTargetOutputDesc gbufferOutputDesc[] =
+    {
+        { TEXTURE_FORMAT_RGBA8, TEXTURE_WRAP_REPEAT, TEXTURE_FILTER_LINEAR, TEXTURE_FILTER_LINEAR },      // Diffuse + specular color output
+        { TEXTURE_FORMAT_RGBA16F, TEXTURE_WRAP_REPEAT, TEXTURE_FILTER_LINEAR, TEXTURE_FILTER_LINEAR },    // Position output // TODO(caio)#RENDER: This can be removed and reconstructed via depth.
+        { TEXTURE_FORMAT_RGBA16F, TEXTURE_WRAP_REPEAT, TEXTURE_FILTER_LINEAR, TEXTURE_FILTER_LINEAR },    // Normals output
+    };
+    h_gbufferRenderTarget = Renderer_CreateRenderTarget(1920, 1080, 3, gbufferOutputDesc);
+
+    Handle<AssetShader> h_assetDefaultVS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"model_geometry_pass.vs");
+    Handle<AssetShader> h_assetDefaultPS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"model_geometry_pass.ps");
     h_modelShader = Renderer_CreateShader(
                 GetShaderFromAsset(h_assetDefaultVS, SHADERSTAGE_TYPE_VERTEX),
                 GetShaderFromAsset(h_assetDefaultPS, SHADERSTAGE_TYPE_PIXEL)
@@ -227,8 +236,10 @@ void App_Render()
 
     // Prepare
     {
-        Renderer_BindRenderTarget(h_defaultRenderTarget);
-        Renderer_Clear({1.f, 0.5f, 0.f, 1.f});
+        //Renderer_BindRenderTarget(h_defaultRenderTarget);
+        //Renderer_Clear({1.f, 0.5f, 0.f, 1.f});
+        Renderer_BindRenderTarget(h_gbufferRenderTarget);
+        Renderer_Clear({0.f, 0.f, 0.f, 0.f});
     }
 
     // Render models
@@ -253,8 +264,10 @@ void App_Render()
 
     // Copy to backbuffer
     {
-        Renderer_GenerateMipsForRenderTarget(h_defaultRenderTarget);
-        Renderer_CopyRenderTargetOutputToBackbuffer(h_defaultRenderTarget, 0);
+        //Renderer_GenerateMipsForRenderTarget(h_defaultRenderTarget);
+        //Renderer_CopyRenderTargetOutputToBackbuffer(h_defaultRenderTarget, 0);
+        Renderer_GenerateMipsForRenderTarget(h_gbufferRenderTarget);
+        Renderer_CopyRenderTargetOutputToBackbuffer(h_gbufferRenderTarget, 2);
     }
     
     Renderer_EndFrame();

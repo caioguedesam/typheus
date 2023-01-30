@@ -166,24 +166,30 @@ Handle<Texture> Renderer_CreateTexture(TextureFormat format, TextureParams param
                 glFormat = GL_RED;
                 glDataType = GL_UNSIGNED_BYTE;
             }; break;
-        case TEXTURE_FORMAT_R8G8:
+        case TEXTURE_FORMAT_RG8:
             {
                 glInternalFormat = GL_RG8;
                 glFormat = GL_RG;
                 glDataType = GL_UNSIGNED_BYTE;
             }; break;
-        case TEXTURE_FORMAT_R8G8B8:
+        case TEXTURE_FORMAT_RGB8:
             {
                 glInternalFormat = GL_RGB8;
                 glFormat = GL_RGB;
                 glDataType = GL_UNSIGNED_BYTE;
             }; break;
-        case TEXTURE_FORMAT_R8G8B8A8:
+        case TEXTURE_FORMAT_RGBA8:
             {
                 glInternalFormat = GL_RGBA8;
                 glFormat = GL_RGBA;
                 glDataType = GL_UNSIGNED_BYTE;
             }; break;
+        case TEXTURE_FORMAT_RGBA16F:
+            {
+                glInternalFormat = GL_RGBA16F;
+                glFormat = GL_RGBA;
+                glDataType = GL_FLOAT;
+            } break;
 
         default: ASSERT(0);
     }
@@ -596,7 +602,7 @@ void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Wi
     // Creating default resources
     RenderTargetOutputDesc renderTargetDefaultOutputsDesc[] =
     {
-        { TEXTURE_FORMAT_R8G8B8A8, TEXTURE_WRAP_CLAMP, TEXTURE_FILTER_NEAREST, TEXTURE_FILTER_NEAREST },
+        { TEXTURE_FORMAT_RGBA8, TEXTURE_WRAP_CLAMP, TEXTURE_FILTER_NEAREST, TEXTURE_FILTER_NEAREST },
     };
     h_defaultRenderTarget = Renderer_CreateRenderTarget(1920, 1080, 1, renderTargetDefaultOutputsDesc);
 
@@ -611,7 +617,7 @@ void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Wi
     h_screenQuadMesh = Renderer_CreateMesh(h_VB_screenQuad, h_IB_screenQuad,
             {2, { VERTEX_ATTRIBUTE_VEC2, VERTEX_ATTRIBUTE_VEC2 }});
 
-    h_defaultWhiteTexture = Renderer_CreateTexture(TEXTURE_FORMAT_R8G8B8A8, {}, 1, 1, (u8*)&defaultWhiteTextureData);
+    h_defaultWhiteTexture = Renderer_CreateTexture(TEXTURE_FORMAT_RGBA8, {}, 1, 1, (u8*)&defaultWhiteTextureData);
 }
 
 void Renderer_BeginFrame()

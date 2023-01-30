@@ -8,12 +8,17 @@ uniform mat4 u_view;
 uniform mat4 u_proj;
 
 out vec3 vOut_position;
+out vec3 vOut_normal;
 out vec2 vOut_texcoord;
 
 void main()
 {
-    gl_Position = u_proj * u_view * u_world * vec4(vIn_position.xyz, 1.0);
+    // Vertex outputs from gbuffer are stored in view space
+    mat4 VW = u_view * u_world;
+    vec4 viewPosition = VW * vec4(vIn_position.xyz, 1.0);
+    gl_Position = u_proj * viewPosition;
 
-    vOut_position = vec3(gl_Position.xyz);
+    vOut_position = vec3(viewPosition.xyz);
+    vOut_normal = transpose(inverse(mat3(VW))) * vIn_normal;
     vOut_texcoord = vIn_texcoord;
 }
