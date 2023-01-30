@@ -41,7 +41,7 @@ Handle<AssetTexture> Asset_LoadTexture(const std::string& assetPath)
     return { assetTable.loadedAssets[assetPath] };
 }
 
-Handle<AssetModel> Asset_LoadModel_OBJ(const std::string& assetPath)
+Handle<AssetModel> Asset_LoadModel_OBJ(const std::string& assetPath, bool flipVerticalTexcoord)
 {
     if(Asset_IsLoaded(assetPath)) return { assetTable.loadedAssets[assetPath] };
 
@@ -133,6 +133,10 @@ Handle<AssetModel> Asset_LoadModel_OBJ(const std::string& assetPath)
                         fastObjData->texcoords[iTexcoord * 2 + 0],
                         fastObjData->texcoords[iTexcoord * 2 + 1],
                     };
+                    if(flipVerticalTexcoord)
+                    {
+                        triangleVertices[v].texcoord.v = 1.f - triangleVertices[v].texcoord.v;
+                    }
 
                     //model->vertices.push_back(vertexPosition.x);
                     //model->vertices.push_back(vertexPosition.y);
@@ -152,8 +156,8 @@ Handle<AssetModel> Asset_LoadModel_OBJ(const std::string& assetPath)
                 v2f deltaUV0 = triangleVertices[1].texcoord - triangleVertices[0].texcoord;
                 v2f deltaUV1 = triangleVertices[2].texcoord - triangleVertices[0].texcoord;
                 f32 r = 1.f / (deltaUV0.x * deltaUV1.y - deltaUV0.y * deltaUV1.x);
-                v3f tangent = (deltaPos0 * deltaUV1.y - deltaPos1 * deltaUV0.y) * r;
-                v3f bitangent = (deltaPos1 * deltaUV0.x - deltaPos0 * deltaUV1.x) * r;
+                v3f tangent = Normalize((deltaPos0 * deltaUV1.y - deltaPos1 * deltaUV0.y) * r);
+                v3f bitangent = Normalize((deltaPos1 * deltaUV0.x - deltaPos0 * deltaUV1.x) * r);
 
                 // Send vertex data
                 for(i32 v = 0; v < 3; v++)

@@ -146,6 +146,7 @@ Handle<Shader> h_modelGeometryPassShader;
 Handle<Shader> h_modelLightingPassShader;
 
 Handle<RenderObject> h_sponzaObject;
+Handle<RenderObject> h_backpackObject;
 std::vector<Handle<RenderObject>> h_bunnyObjects;
 
 void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
@@ -184,8 +185,12 @@ void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
     // In-game models
     Handle<AssetModel> h_assetSponzaModel = Asset_LoadModel_OBJ(APP_RESOURCE_MODELS_PATH"sponza/sponza.obj");
     h_sponzaObject = CreateRenderObjectFromAsset(h_assetSponzaModel);
+    Handle<AssetModel> h_assetBackpackModel = Asset_LoadModel_OBJ(APP_RESOURCE_MODELS_PATH"backpack/backpack.obj", true);
+    h_backpackObject = CreateRenderObjectFromAsset(h_assetBackpackModel);
+
     renderObjects[h_sponzaObject.value]->properties.u_world =
         RotationMatrix(TO_RAD(90.f), {0.f, 1.f, 0.f}) * ScaleMatrix(v3f{1.f, 1.f, 1.f} * 0.01f);
+    renderObjects[h_backpackObject.value]->properties.u_world = ScaleMatrix(v3f{1.f, 1.f, 1.f} * 0.5f);
     Handle<AssetModel> h_assetBunnyModel = Asset_LoadModel_OBJ(APP_RESOURCE_MODELS_PATH"bunny/bunny.obj");
     for(i32 i = 0; i < 10; i++)
     {
