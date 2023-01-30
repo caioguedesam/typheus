@@ -8,29 +8,6 @@ namespace Ty
 
 typedef GLuint APIHandle;
 #define API_HANDLE_INVALID      MAX_U32
-#define HANDLE_INVALID          MAX_U32
-
-#define RESOURCE_PATH "../resources/"
-#define SHADER_PATH RESOURCE_PATH"shaders/"
-#define TEXTURE_PATH RESOURCE_PATH"textures/"
-#define MODELS_PATH RESOURCE_PATH"models/"
-
-template <typename T>
-struct Handle
-{
-    u32 value = HANDLE_INVALID;
-
-    inline bool IsValid() { return value != HANDLE_INVALID; }
-};
-
-template<typename T>
-inline bool operator==(const Handle<T> a, const Handle<T> b) { return a.value == b.value; }
-template<typename T>
-inline bool operator!=(const Handle<T> a, const Handle<T> b) { return a.value != b.value; }
-template<typename T>
-inline bool operator<(const Handle<T> a, const Handle<T> b) { return a.value < b.value; }
-template<typename T>
-inline bool operator>(const Handle<T> a, const Handle<T> b) { return a.value > b.value; }
 
 enum BufferType : u32
 {
@@ -42,8 +19,8 @@ enum BufferType : u32
 
 struct Buffer
 {
-    BufferType type     = BUFFER_TYPE_INVALID;
     APIHandle apiHandle = API_HANDLE_INVALID;
+    BufferType type     = BUFFER_TYPE_INVALID;
     u64 count           = 0;
     u64 stride          = 0;
     u8* data            = nullptr;
@@ -55,6 +32,7 @@ enum TextureFormat : u32
 {
     TEXTURE_FORMAT_INVALID = 0,
     TEXTURE_FORMAT_R8,
+    TEXTURE_FORMAT_R8G8,
     TEXTURE_FORMAT_R8G8B8,
     TEXTURE_FORMAT_R8G8B8A8,
     // TODO(caio)#RENDER: Add more texture formats whenever needed.
@@ -74,7 +52,7 @@ enum TextureParam_Filter : u32
 
 struct TextureParams
 {
-    TextureParam_Wrap wrapMode              = TEXTURE_WRAP_REPEAT;
+    TextureParam_Wrap   wrapMode            = TEXTURE_WRAP_REPEAT;
     TextureParam_Filter filterMode_Min      = TEXTURE_FILTER_LINEAR;
     TextureParam_Filter filterMode_Max      = TEXTURE_FILTER_LINEAR;
     bool useMips                            = true;
@@ -82,11 +60,11 @@ struct TextureParams
 
 struct Texture
 {
+    APIHandle apiHandle     = API_HANDLE_INVALID;
     TextureFormat format    = TEXTURE_FORMAT_INVALID;
     TextureParams params    = {};
     u32 width               = 0;
     u32 height              = 0;
-    APIHandle apiHandle     = API_HANDLE_INVALID;
     u8* data                = nullptr;
 
     u64 GetChannelCount();
@@ -101,53 +79,43 @@ enum VertexAttributeType : u32
 };
 
 #define MAX_VERTEX_ATTRIBUTES 8
-
 struct VertexLayout
 {
     u32 count = 0;
     VertexAttributeType attributes[MAX_VERTEX_ATTRIBUTES] = {};
 };
 
-struct MeshVertex
-{
-    v3f position = {};
-    v3f normal = {};
-    v2f texcoord = {};
-};
-
 struct Mesh
 {
+    APIHandle apiHandle = API_HANDLE_INVALID;
     Handle<Buffer> h_VertexBuffer;
     Handle<Buffer> h_IndexBuffer;
-    APIHandle apiHandle             = API_HANDLE_INVALID;
 };
 
-enum ShaderType : u32
+enum ShaderStageType : u32
 {
-    SHADER_TYPE_INVALID = 0,
-    SHADER_TYPE_VERTEX,
-    SHADER_TYPE_PIXEL,
+    SHADERSTAGE_TYPE_INVALID = 0,
+    SHADERSTAGE_TYPE_VERTEX,
+    SHADERSTAGE_TYPE_PIXEL,
     // TODO(caio)#RENDER: Add more shader types whenever needed.
+};
+
+struct ShaderStage
+{
+    APIHandle apiHandle     = API_HANDLE_INVALID;
+    ShaderStageType type         = SHADERSTAGE_TYPE_INVALID;
 };
 
 struct Shader
 {
-    ShaderType type         = SHADER_TYPE_INVALID;
-    APIHandle apiHandle     = API_HANDLE_INVALID;
-    std::string_view src    = {};
-};
-
-struct ShaderPipeline
-{
-    Handle<Shader> h_VS;
-    Handle<Shader> h_PS;
     APIHandle apiHandle = API_HANDLE_INVALID;
+    Handle<ShaderStage> h_VS;
+    Handle<ShaderStage> h_PS;
 };
 
 #define MATERIAL_MAX_TEXTURES   16
 struct Material
 {
-    // TODO(caio)#RENDER: Material properties whenever supporting PBR and such.
     Handle<Texture> h_Textures[MATERIAL_MAX_TEXTURES];
     u8 count = 0;
 };
@@ -178,108 +146,96 @@ struct RenderViewport
     u32 height          = 0;
 };
 
-struct MeshRenderable
+struct RenderTargetOutputDesc
 {
-    Handle<Mesh> h_Mesh;
-    Handle<ShaderPipeline> h_Shader;
-    Handle<Material> h_Material;
-
-    // Renderable Uniforms
-    m4f u_Model = Identity();
-    i32 u_UseAlphaMask = 0;
+    TextureFormat format;
+    TextureParams params;
 };
 
-#define RENDER_TARGET_MAX_COLOR_ATTACHMENTS 8
+#define RENDER_TARGET_MAX_OUTPUTS 8
 struct RenderTarget
 {
     APIHandle apiHandle             = API_HANDLE_INVALID;
     APIHandle depthStencilAPIHandle = API_HANDLE_INVALID;
-    Handle<Texture> colorAttachments[RENDER_TARGET_MAX_COLOR_ATTACHMENTS];
-    u8 colorAttachmentCount         = 0;
-    u32 width   = 0;
-    u32 height  = 0;
+    Handle<Texture> outputs[RENDER_TARGET_MAX_OUTPUTS];
+    u8 outputsCount                 = 0;
+    u32 width                       = 0;
+    u32 height                      = 0;
 };
 
-Handle<Buffer>          Renderer_CreateBuffer(u8* bufferData, u64 bufferCount, u64 bufferStride, BufferType bufferType);
-Handle<Texture>         Renderer_CreateTexture(u8* textureData, u32 textureWidth, u32 textureHeight, TextureFormat textureFormat, TextureParams textureParams);
-Handle<Mesh>            Renderer_CreateMesh(Handle<Buffer> h_VertexBuffer, Handle<Buffer> h_IndexBuffer, VertexLayout vertexLayout);
-Handle<Shader>          Renderer_CreateShader(std::string_view shaderSrc, ShaderType shaderType);
-Handle<ShaderPipeline>  Renderer_CreateShaderPipeline(Handle<Shader> h_VS, Handle<Shader> h_PS);
-Handle<Material>        Renderer_CreateMaterial(Handle<Texture>* h_MaterialTextureArray, u8 materialTextureCount);
-Handle<RenderTarget>    Renderer_CreateRenderTarget(u32 rtWidth, u32 rtHeight, Handle<Texture>* h_RenderTexturesArray, u8 renderTextureCount);
-Handle<MeshRenderable>  Renderer_CreateMeshRenderable(Handle<Mesh> h_Mesh, Handle<ShaderPipeline> h_Shader, Handle<Material> h_Material);
 
-void    Renderer_BindUniform_i32(Handle<ShaderPipeline> h_Shader, std::string_view name, i32 value);
-void    Renderer_BindUniform_u32(Handle<ShaderPipeline> h_Shader, std::string_view name, u32 value);
-void    Renderer_BindUniform_f32(Handle<ShaderPipeline> h_Shader, std::string_view name, f32 value);
-void    Renderer_BindUniform_v2f(Handle<ShaderPipeline> h_Shader, std::string_view name, v2f value);
-void    Renderer_BindUniform_v3f(Handle<ShaderPipeline> h_Shader, std::string_view name, v3f value);
-void    Renderer_BindUniform_m4f(Handle<ShaderPipeline> h_Shader, std::string_view name, m4f value);
+Handle<Buffer>              Renderer_CreateBuffer(BufferType type, u64 count, u64 stride, u8* data);
+Handle<Texture>             Renderer_CreateTexture(TextureFormat format, TextureParams parameters, u32 width, u32 height, u8* data);
+Handle<Mesh>                Renderer_CreateMesh(Handle<Buffer> h_vertexBuffer, Handle<Buffer> h_indexBuffer, VertexLayout vertexLayout);
+Handle<ShaderStage>         Renderer_CreateShaderStage(ShaderStageType type, std::string_view src);
+Handle<Shader>              Renderer_CreateShader(Handle<ShaderStage> h_vertexShader, Handle<ShaderStage> h_pixelShader);
+Handle<Material>            Renderer_CreateMaterial(u8 texturesCount, Handle<Texture>* h_textures);
+Handle<RenderTarget>        Renderer_CreateRenderTarget(u32 width, u32 height, u8 outputsCount, RenderTargetOutputDesc* outputsDesc);
+Handle<RenderTarget>        Renderer_GetDefaultRenderTarget();
 
-Handle<Texture>    Renderer_LoadTextureAsset(std::string_view assetPath);
-std::vector<Handle<MeshRenderable>> Renderer_CreateRenderablesFromModel(std::string_view assetPath, Handle<ShaderPipeline> h_Shader);
+void    Renderer_BindUniform_i32(std::string_view name, i32 value);
+void    Renderer_BindUniform_u32(std::string_view name, u32 value);
+void    Renderer_BindUniform_f32(std::string_view name, f32 value);
+void    Renderer_BindUniform_v2f(std::string_view name, v2f value);
+void    Renderer_BindUniform_v3f(std::string_view name, v3f value);
+void    Renderer_BindUniform_m4f(std::string_view name, m4f value);
+
+void    Renderer_BindRenderTarget(Handle<RenderTarget> h_renderTarget);
+void    Renderer_BindMesh(Handle<Mesh> h_mesh);
+void    Renderer_BindShader(Handle<Shader> h_shader);
+void    Renderer_BindMaterial(Handle<Material> h_material);
+void    Renderer_UnbindRenderTarget();
+// TODO(caio)#RENDER: Add more unbinds if needed
 
 void    Renderer_SetCamera(Camera camera);
 void    Renderer_SetViewport(RenderViewport viewport);
-void    Renderer_BindRenderTarget(Handle<RenderTarget> h_RenderTarget);
-void    Renderer_UnbindRenderTarget();
-void    Renderer_BindMesh(Handle<Mesh> h_Mesh);
-void    Renderer_BindShaderPipeline(Handle<ShaderPipeline> h_Shader);
-void    Renderer_BindMaterial(Handle<Material> h_Material);
-void    Renderer_UpdateTextureMips(Handle<Texture> h_Texture);
-void    Renderer_Clear(v4f clearColor);
-void    Renderer_DrawMeshRenderable(MeshRenderable& renderable);
-
-Camera& Renderer_GetCamera();
+void    Renderer_Clear(v4f color);
+void    Renderer_GenerateMips(Handle<Texture> h_texture);
+void    Renderer_GenerateMipsForRenderTarget(Handle<RenderTarget> h_renderTarget);
+void    Renderer_DrawMesh();
+void    Renderer_CopyTextureToBackbuffer(Handle<Texture> h_texture);
+void    Renderer_CopyRenderTargetOutputToBackbuffer(Handle<RenderTarget> h_renderTarget, u8 outputIndex);
 
 void    Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Window* outWindow);
-void    Renderer_RenderFrame();
+void    Renderer_BeginFrame();
+void    Renderer_EndFrame();
 
-struct RendererData
+struct RenderResourceTable
 {
-    Window* window              = nullptr;
-    Camera camera               = {};
-    RenderViewport viewport     = {};
-
-    std::vector<Buffer> buffers;
-    std::vector<Texture> textures;
-    std::vector<Mesh> meshes;
-    std::vector<Shader> shaders;
-    std::vector<ShaderPipeline> shaderPipelines;
-    std::vector<Material> materials;
-    std::vector<RenderTarget> renderTargets;
-
-    std::vector<MeshRenderable> meshRenderables;
+    std::vector<Buffer*>        bufferResources;
+    std::vector<Texture*>       textureResources;
+    std::vector<Mesh*>          meshResources;
+    std::vector<ShaderStage*>   shaderStageResources;
+    std::vector<Shader*>        shaderResources;
+    std::vector<Material*>      materialResources;
+    std::vector<RenderTarget*>  renderTargetResources;
 };
 
-struct AssetDatabase
+struct RenderState
 {
-    std::unordered_map<std::string, u32> loadedAssets;
+    Window* window          = nullptr;
+    Camera camera           = {};
+    RenderViewport viewport = {};
+
+    Handle<RenderTarget>    h_activeRenderTarget;
+    Handle<Shader>          h_activeShader;
+    Handle<Material>        h_activeMaterial;
+    Handle<Mesh>            h_activeMesh;
 };
 
-inline RendererData rendererData    = {};
-inline AssetDatabase assetDatabase  = {};
+inline RenderResourceTable  renderResourceTable;
+inline RenderState          renderState;
 
-inline Camera&         Renderer_GetCamera() { return rendererData.camera; }
-inline Buffer&         Renderer_GetBuffer(Handle<Buffer> h_Buffer) { return rendererData.buffers[h_Buffer.value]; }
-inline Texture&        Renderer_GetTexture(Handle<Texture> h_Texture) { return rendererData.textures[h_Texture.value]; }
-inline Mesh&           Renderer_GetMesh(Handle<Mesh> h_Mesh) { return rendererData.meshes[h_Mesh.value]; }
-inline Shader&         Renderer_GetShader(Handle<Shader> h_Shader) { return rendererData.shaders[h_Shader.value]; }
-inline ShaderPipeline& Renderer_GetShaderPipeline(Handle<ShaderPipeline> h_ShaderPipeline) { return rendererData.shaderPipelines[h_ShaderPipeline.value]; }
-inline Material&       Renderer_GetMaterial(Handle<Material> h_Material) { return rendererData.materials[h_Material.value]; }
-inline RenderTarget&   Renderer_GetRenderTarget(Handle<RenderTarget> h_RenderTarget) { return rendererData.renderTargets[h_RenderTarget.value]; }
-inline MeshRenderable& Renderer_GetMeshRenderable(Handle<MeshRenderable> h_MeshRenderable) { return rendererData.meshRenderables[h_MeshRenderable.value]; }
+inline Camera&          Renderer_GetCamera() { return renderState.camera; }
+inline RenderViewport&  Renderer_GetViewport() { return renderState.viewport; }
+inline Window*          Renderer_GetWindow() { return renderState.window; }
 
-template <typename T>
-Handle<T> Renderer_GetAsset(std::string_view assetPath)
-{
-    std::string assetPath_str(assetPath);
-    if(!assetDatabase.loadedAssets.count(assetPath_str))
-    {
-        return { HANDLE_INVALID };
-    }
-    Handle<T> result { assetDatabase.loadedAssets[assetPath_str] };
-    return result;
-}
+inline Buffer*          Renderer_GetBuffer(Handle<Buffer> h_resource) { return renderResourceTable.bufferResources[h_resource.value]; }
+inline Texture*         Renderer_GetTexture(Handle<Texture> h_resource) { return renderResourceTable.textureResources[h_resource.value]; }
+inline Mesh*            Renderer_GetMesh(Handle<Mesh> h_resource) { return renderResourceTable.meshResources[h_resource.value]; }
+inline ShaderStage*     Renderer_GetShaderStage(Handle<ShaderStage> h_resource) { return renderResourceTable.shaderStageResources[h_resource.value]; }
+inline Shader*          Renderer_GetShader(Handle<Shader> h_resource) { return renderResourceTable.shaderResources[h_resource.value]; }
+inline Material*        Renderer_GetMaterial(Handle<Material> h_resource) { return renderResourceTable.materialResources[h_resource.value]; }
+inline RenderTarget*    Renderer_GetRenderTarget(Handle<RenderTarget> h_resource) { return renderResourceTable.renderTargetResources[h_resource.value]; }
 
 } // namespace Ty

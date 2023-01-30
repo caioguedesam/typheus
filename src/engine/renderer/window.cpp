@@ -191,7 +191,6 @@ void Window_ProcessMessages(const Window& window)
 void Window_SwapBuffers(const Window& window)
 {
     SwapBuffers(window.deviceContext);
-    PROFILE_GPU_FRAME;
 }
 
 }   // namespace Ty

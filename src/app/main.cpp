@@ -25,6 +25,7 @@
 // [PROJECT]
 // Header files
 #include "engine/common/common.hpp"
+#include "engine/common/asset.hpp"
 #include "engine/renderer/window.hpp"
 #include "engine/renderer/renderer.hpp"
 
@@ -33,6 +34,7 @@
 // Source files
 
 #include "engine/common/common.cpp"
+#include "engine/common/asset.cpp"
 #include "engine/renderer/window.cpp"
 #include "engine/renderer/renderer.cpp"
 
@@ -49,7 +51,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         Ty::Window_ProcessMessages(Ty::appWindow);
         Ty::App_Update();
         Ty::App_Render();
-        Ty::Window_SwapBuffers(Ty::appWindow);
     }
 
     Ty::App_Destroy();

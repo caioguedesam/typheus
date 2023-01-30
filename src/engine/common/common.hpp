@@ -420,4 +420,31 @@ bool Input_IsKeyJustUp(InputKey key);
 v2i Input_GetMousePosition();
 v2f Input_GetMouseDelta();
 
+// ========================================================
+// [HANDLES]
+// These are useful for any system that needs type-specific simple handles.
+#define HANDLE_INVALID          MAX_U32
+
+template <typename T>
+struct Handle
+{
+    u32 value = HANDLE_INVALID;
+
+    inline bool IsValid() { return value != HANDLE_INVALID; }
+};
+
+template<typename T>
+inline bool operator==(const Handle<T> a, const Handle<T> b) { return a.value == b.value; }
+template<typename T>
+inline bool operator!=(const Handle<T> a, const Handle<T> b) { return a.value != b.value; }
+template<typename T>
+inline bool operator<(const Handle<T> a, const Handle<T> b) { return a.value < b.value; }
+template<typename T>
+inline bool operator>(const Handle<T> a, const Handle<T> b) { return a.value > b.value; }
+template<typename T>
+struct HandleHash
+{
+    size_t operator()(Handle<T> handle) const { return (handle.value * 0xdeece66d + 0xb); }
+};
+
 }   // namespace Ty
