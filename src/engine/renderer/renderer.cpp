@@ -48,13 +48,6 @@ const char* screenQuadPSSrc =
 "    pOut_color = texture(u_inputTexture, vOut_texcoord);\n"
 "}\n\0";
 
-// Default renderer resources
-Handle<Texture>         h_defaultWhiteTexture;
-Handle<Shader>          h_screenQuadShader;
-Handle<Material>        h_screenQuadMaterial;
-Handle<Mesh>            h_screenQuadMesh;
-Handle<RenderTarget>    h_defaultRenderTarget;
-
 void GLAPIENTRY
 GLMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
         const GLchar* message, const void* userParam)
@@ -477,18 +470,22 @@ void Renderer_BindShader(Handle<Shader> h_shader)
     renderState.h_activeShader = h_shader;
 }
 
+void Renderer_BindTexture(Handle<Texture> h_texture, u32 slot)
+{
+    u32 bindTarget = h_texture.IsValid() 
+        ? Renderer_GetTexture(h_texture)->apiHandle
+        : Renderer_GetTexture(h_defaultWhiteTexture)->apiHandle;
+    glActiveTexture(GL_TEXTURE0 + slot);
+    glBindTexture(GL_TEXTURE_2D, bindTarget);
+}
+
 void Renderer_BindMaterial(Handle<Material> h_material)
 {
     ASSERT(h_material.IsValid());
     Material* material = Renderer_GetMaterial(h_material);
     for(i32 i = 0; i < material->count; i++)
     {
-        glActiveTexture(GL_TEXTURE0 + i);
-        Handle<Texture> h_texture = material->h_Textures[i];
-        u32 textureBindTarget = h_texture.IsValid() 
-            ? Renderer_GetTexture(h_texture)->apiHandle 
-            : Renderer_GetTexture(h_defaultWhiteTexture)->apiHandle;    // If texture is invalid, bind a 1x1 white texture as default.
-        glBindTexture(GL_TEXTURE_2D, textureBindTarget);
+        Renderer_BindTexture(material->h_Textures[i], i);
     }
     renderState.h_activeMaterial = h_material;
 }
@@ -606,15 +603,15 @@ void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Wi
     };
     h_defaultRenderTarget = Renderer_CreateRenderTarget(1920, 1080, 1, renderTargetDefaultOutputsDesc);
 
-    Handle<ShaderStage> h_VS_screenQuad = Renderer_CreateShaderStage(SHADERSTAGE_TYPE_VERTEX, screenQuadVSSrc);
-    Handle<ShaderStage> h_PS_screenQuad = Renderer_CreateShaderStage(SHADERSTAGE_TYPE_PIXEL, screenQuadPSSrc);
-    h_screenQuadShader = Renderer_CreateShader(h_VS_screenQuad, h_PS_screenQuad);
+    h_screenQuadVS = Renderer_CreateShaderStage(SHADERSTAGE_TYPE_VERTEX, screenQuadVSSrc);
+    h_screenQuadPS = Renderer_CreateShaderStage(SHADERSTAGE_TYPE_PIXEL, screenQuadPSSrc);
+    h_screenQuadShader = Renderer_CreateShader(h_screenQuadVS, h_screenQuadPS);
 
     h_screenQuadMaterial = Renderer_CreateMaterial(0, NULL);   // This material is dynamic and textures are set on CopyToBackbuffer command
 
-    Handle<Buffer> h_VB_screenQuad = Renderer_CreateBuffer(BUFFER_TYPE_VERTEX, ArrayCount(screenQuadVertices), sizeof(f32), (u8*)screenQuadVertices);
-    Handle<Buffer> h_IB_screenQuad = Renderer_CreateBuffer(BUFFER_TYPE_INDEX, ArrayCount(screenQuadIndices), sizeof(u32), (u8*)screenQuadIndices);
-    h_screenQuadMesh = Renderer_CreateMesh(h_VB_screenQuad, h_IB_screenQuad,
+    Handle<Buffer> h_screenQuadVB = Renderer_CreateBuffer(BUFFER_TYPE_VERTEX, ArrayCount(screenQuadVertices), sizeof(f32), (u8*)screenQuadVertices);
+    Handle<Buffer> h_screenQuadIB = Renderer_CreateBuffer(BUFFER_TYPE_INDEX, ArrayCount(screenQuadIndices), sizeof(u32), (u8*)screenQuadIndices);
+    h_screenQuadMesh = Renderer_CreateMesh(h_screenQuadVB, h_screenQuadIB,
             {2, { VERTEX_ATTRIBUTE_VEC2, VERTEX_ATTRIBUTE_VEC2 }});
 
     h_defaultWhiteTexture = Renderer_CreateTexture(TEXTURE_FORMAT_RGBA8, {}, 1, 1, (u8*)&defaultWhiteTextureData);

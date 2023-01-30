@@ -184,6 +184,7 @@ void    Renderer_BindUniform_m4f(std::string_view name, m4f value);
 void    Renderer_BindRenderTarget(Handle<RenderTarget> h_renderTarget);
 void    Renderer_BindMesh(Handle<Mesh> h_mesh);
 void    Renderer_BindShader(Handle<Shader> h_shader);
+void    Renderer_BindTexture(Handle<Texture> h_texture, u32 slot);
 void    Renderer_BindMaterial(Handle<Material> h_material);
 void    Renderer_UnbindRenderTarget();
 // TODO(caio)#RENDER: Add more unbinds if needed
@@ -238,5 +239,14 @@ inline ShaderStage*     Renderer_GetShaderStage(Handle<ShaderStage> h_resource) 
 inline Shader*          Renderer_GetShader(Handle<Shader> h_resource) { return renderResourceTable.shaderResources[h_resource.value]; }
 inline Material*        Renderer_GetMaterial(Handle<Material> h_resource) { return renderResourceTable.materialResources[h_resource.value]; }
 inline RenderTarget*    Renderer_GetRenderTarget(Handle<RenderTarget> h_resource) { return renderResourceTable.renderTargetResources[h_resource.value]; }
+
+// Default resources
+inline Handle<Texture>         h_defaultWhiteTexture;
+inline Handle<ShaderStage>     h_screenQuadVS;
+inline Handle<ShaderStage>     h_screenQuadPS;
+inline Handle<Shader>          h_screenQuadShader;
+inline Handle<Material>        h_screenQuadMaterial;
+inline Handle<Mesh>            h_screenQuadMesh;
+inline Handle<RenderTarget>    h_defaultRenderTarget;
 
 } // namespace Ty

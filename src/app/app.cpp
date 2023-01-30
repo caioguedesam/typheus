@@ -123,7 +123,8 @@ Handle<RenderObject> CreateRenderObjectFromAsset(Handle<AssetModel> h_asset)
 }
 
 Handle<RenderTarget> h_gbufferRenderTarget;
-Handle<Shader> h_modelShader;
+Handle<Shader> h_modelGeometryPassShader;
+Handle<Shader> h_modelLightingPassShader;
 
 Handle<RenderObject> h_sponzaObject;
 std::vector<Handle<RenderObject>> h_bunnyObjects;
@@ -139,6 +140,7 @@ void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
     mainCamera.Move({0, 2, 3});
     Renderer_SetCamera(mainCamera);
 
+    // Render targets
     RenderTargetOutputDesc gbufferOutputDesc[] =
     {
         { TEXTURE_FORMAT_RGBA8, TEXTURE_WRAP_REPEAT, TEXTURE_FILTER_LINEAR, TEXTURE_FILTER_LINEAR },      // Diffuse + specular color output
@@ -147,12 +149,20 @@ void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
     };
     h_gbufferRenderTarget = Renderer_CreateRenderTarget(1920, 1080, 3, gbufferOutputDesc);
 
-    Handle<AssetShader> h_assetDefaultVS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"model_geometry_pass.vert");
-    Handle<AssetShader> h_assetDefaultPS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"model_geometry_pass.frag");
-    h_modelShader = Renderer_CreateShader(
-                GetShaderFromAsset(h_assetDefaultVS, SHADERSTAGE_TYPE_VERTEX),
-                GetShaderFromAsset(h_assetDefaultPS, SHADERSTAGE_TYPE_PIXEL)
+    // Shader resources
+    Handle<AssetShader> h_assetModelGeometryVS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"model_geometry_pass.vert");
+    Handle<AssetShader> h_assetModelGeometryPS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"model_geometry_pass.frag");
+    h_modelGeometryPassShader = Renderer_CreateShader(
+                GetShaderFromAsset(h_assetModelGeometryVS, SHADERSTAGE_TYPE_VERTEX),
+                GetShaderFromAsset(h_assetModelGeometryPS, SHADERSTAGE_TYPE_PIXEL)
             );
+    Handle<AssetShader> h_assetModelLightingPS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"model_lighting_pass.frag");
+    h_modelLightingPassShader = Renderer_CreateShader(
+            h_screenQuadVS,
+            GetShaderFromAsset(h_assetModelLightingPS, SHADERSTAGE_TYPE_PIXEL)
+            );
+
+    // In-game models
     Handle<AssetModel> h_assetSponzaModel = Asset_LoadModel_OBJ(APP_RESOURCE_MODELS_PATH"sponza/sponza.obj");
     h_sponzaObject = CreateRenderObjectFromAsset(h_assetSponzaModel);
     renderObjects[h_sponzaObject.value]->properties.u_world =
@@ -232,7 +242,7 @@ void App_Update()
 void App_Render()
 {
     Renderer_BeginFrame();
-    Handle<RenderTarget> h_defaultRenderTarget = Renderer_GetDefaultRenderTarget();
+    //Handle<RenderTarget> h_defaultRenderTarget = Renderer_GetDefaultRenderTarget();
 
     // Prepare
     {
@@ -242,9 +252,9 @@ void App_Render()
         Renderer_Clear({0.f, 0.f, 0.f, 0.f});
     }
 
-    // Render models
+    // G-Buffer geometry pass
     {
-        Renderer_BindShader(h_modelShader);
+        Renderer_BindShader(h_modelGeometryPassShader);
         Renderer_BindUniform_m4f("u_view", Renderer_GetCamera().GetView());
         Renderer_BindUniform_m4f("u_proj", Renderer_GetCamera().GetProjection(*renderState.window));
         for(i32 i = 0; i < renderObjects.size(); i++)
@@ -262,12 +272,27 @@ void App_Render()
         }
     }
 
+    // G-Buffer lighting pass
+    {
+        Renderer_BindRenderTarget(h_defaultRenderTarget);
+        Renderer_Clear({0.f,0.f,0.f,0.f});
+
+        Renderer_BindShader(h_modelLightingPassShader);
+        RenderTarget* gbufferRenderTarget = Renderer_GetRenderTarget(h_gbufferRenderTarget);
+        Renderer_BindTexture(gbufferRenderTarget->outputs[0], 0);   // Diffuse + specular
+        Renderer_BindTexture(gbufferRenderTarget->outputs[1], 1);   // View space positions
+        Renderer_BindTexture(gbufferRenderTarget->outputs[2], 2);   // View space normals
+        Renderer_BindMesh(h_screenQuadMesh);
+
+        Renderer_DrawMesh();
+    }
+
     // Copy to backbuffer
     {
-        //Renderer_GenerateMipsForRenderTarget(h_defaultRenderTarget);
-        //Renderer_CopyRenderTargetOutputToBackbuffer(h_defaultRenderTarget, 0);
-        Renderer_GenerateMipsForRenderTarget(h_gbufferRenderTarget);
-        Renderer_CopyRenderTargetOutputToBackbuffer(h_gbufferRenderTarget, 2);
+        Renderer_GenerateMipsForRenderTarget(h_defaultRenderTarget);
+        Renderer_CopyRenderTargetOutputToBackbuffer(h_defaultRenderTarget, 0);
+        //Renderer_GenerateMipsForRenderTarget(h_gbufferRenderTarget);
+        //Renderer_CopyRenderTargetOutputToBackbuffer(h_gbufferRenderTarget, 2);
     }
     
     Renderer_EndFrame();
