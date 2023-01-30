@@ -23,29 +23,29 @@ u32 defaultWhiteTextureData = 0xFFFFFFFF;
 
 const char* screenQuadVSSrc =
 "#version 460 core\n"
-"layout (location = 0) in vec2 vIn_Position;\n"
-"layout (location = 1) in vec2 vIn_Texcoord;\n"
+"layout (location = 0) in vec2 vIn_position;\n"
+"layout (location = 1) in vec2 vIn_texcoord;\n"
 "\n"
-"out vec2 vOut_Texcoord;\n"
+"out vec2 vOut_texcoord;\n"
 "\n"
 "void main()\n"
 "{\n"
-"    gl_Position = vec4(vIn_Position.xy, 0.0, 1.0);\n"
-"    vOut_Texcoord = vIn_Texcoord;\n"
+"    gl_Position = vec4(vIn_position.xy, 0.0, 1.0);\n"
+"    vOut_texcoord = vIn_texcoord;\n"
 "}\n\0";
 
 const char* screenQuadPSSrc =
 "#version 460 core\n"
 "\n"
-"in vec2 vOut_Texcoord;\n"
+"in vec2 vOut_texcoord;\n"
 "\n"
 "layout (binding = 0) uniform sampler2D u_inputTexture;\n"
 "\n"
-"out vec4 pOut_Color;\n"
+"out vec4 pOut_color;\n"
 "\n"
 "void main()\n"
 "{\n"
-"    pOut_Color = texture(u_inputTexture, vOut_Texcoord);\n"
+"    pOut_color = texture(u_inputTexture, vOut_texcoord);\n"
 "}\n\0";
 
 // Default renderer resources

@@ -147,8 +147,8 @@ void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
     };
     h_gbufferRenderTarget = Renderer_CreateRenderTarget(1920, 1080, 3, gbufferOutputDesc);
 
-    Handle<AssetShader> h_assetDefaultVS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"model_geometry_pass.vs");
-    Handle<AssetShader> h_assetDefaultPS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"model_geometry_pass.ps");
+    Handle<AssetShader> h_assetDefaultVS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"model_geometry_pass.vert");
+    Handle<AssetShader> h_assetDefaultPS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"model_geometry_pass.frag");
     h_modelShader = Renderer_CreateShader(
                 GetShaderFromAsset(h_assetDefaultVS, SHADERSTAGE_TYPE_VERTEX),
                 GetShaderFromAsset(h_assetDefaultPS, SHADERSTAGE_TYPE_PIXEL)
