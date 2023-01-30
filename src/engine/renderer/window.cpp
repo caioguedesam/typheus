@@ -1,6 +1,9 @@
 #include "engine/renderer/window.hpp"
 #include "glad/glad.h"
 #include "wglext.h"
+#include "backends/imgui_impl_win32.h"
+
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 namespace Ty
 {
@@ -9,6 +12,8 @@ std::unordered_map<HWND, Window*> activeWindows;
 
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    if(ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam)) return true;
+
     Window* window = activeWindows[hWnd];
     switch(uMsg)
     {

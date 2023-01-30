@@ -1,6 +1,7 @@
 #include "app/app.hpp"
 #include "engine/common/asset.hpp"
 #include "engine/renderer/renderer.hpp"
+#include "engine/renderer/gui.hpp"
 
 #define APP_RESOURCE_PATH           "../resources/"
 #define APP_RESOURCE_SHADERS_PATH   APP_RESOURCE_PATH"shaders/"
@@ -159,6 +160,8 @@ void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
     Camera mainCamera = {};
     mainCamera.Move({0, 2, 3});
     Renderer_SetCamera(mainCamera);
+
+    GUI_Init(&appWindow);
 
     // Render targets
     RenderTargetOutputDesc gbufferOutputDesc[] =
@@ -320,13 +323,19 @@ void App_Render()
         //Renderer_GenerateMipsForRenderTarget(h_gbufferRenderTarget);
         //Renderer_CopyRenderTargetOutputToBackbuffer(h_gbufferRenderTarget, 2);
     }
+
+    // Application GUI
+    {
+        GUI_BeginFrame();
+        ImGui::ShowDemoWindow();
+        GUI_EndFrame();
+    }
     
     Renderer_EndFrame();
 }
 
 void App_Destroy()
 {
-    // Destroy app window
     Window_Destroy(appWindow);
 }
 

@@ -1,6 +1,7 @@
 -std=c++17
 -I../src/
 -I../src/third_party/tracy/
+-I../src/third_party/imgui/
 -I../src/third_party/glad/
 -I../src/third_party/WGL/
 -I../src/third_party/stb/

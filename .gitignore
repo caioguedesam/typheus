@@ -4,5 +4,6 @@ docs/
 build/debug/
 build/profile/
 build/release/
+build/imgui.ini
 resources/textures/
 resources/models/
