@@ -1,8 +1,9 @@
 #version 460 core
 
 in vec3 vOut_position;
-in vec3 vOut_normal;
+//in vec3 vOut_normal;
 in vec2 vOut_texcoord;
+in mat3 vOut_TBN;
 
 layout (binding = 0) uniform sampler2D ambientMap;
 layout (binding = 1) uniform sampler2D diffuseMap;
@@ -23,6 +24,11 @@ layout (location = 0) out vec4 pOut_diffuse;    // Diffuse color (RGB), specular
 layout (location = 1) out vec3 pOut_position;   // View space position (RGB)
 layout (location = 2) out vec4 pOut_normal;     // View space normals (RGB), specular weight (A)
 
+vec4 sampleNeighbor(in sampler2D inputTexture, in vec2 texCoord, in vec2 texelSize, in ivec2 neighbor)
+{
+    return texture(inputTexture, texCoord + vec2(neighbor.x * texelSize.x, neighbor.y * texelSize.y));
+}
+
 void main()
 {
     vec3 ambientColor = 0.1 * u_ambientColor;
@@ -32,5 +38,28 @@ void main()
     pOut_diffuse = vec4(diffuseColor.rgb, specularIntensity);
 
     pOut_position = vOut_position;
-    pOut_normal = vec4(normalize(vOut_normal).rgb, u_specularWeight);
+
+    // Sample from bump map to get tangent space normals, then transform with TBN matrix
+    // to get view space normals
+    vec2 bumpMapTexelSize = 1.0 / textureSize(bumpMap, 0);
+    float normalKernel[9] = float[]
+        (
+            sampleNeighbor(bumpMap, vOut_texcoord, bumpMapTexelSize, ivec2(-1,-1)).r,
+            sampleNeighbor(bumpMap, vOut_texcoord, bumpMapTexelSize, ivec2( 0,-1)).r,
+            sampleNeighbor(bumpMap, vOut_texcoord, bumpMapTexelSize, ivec2( 1,-1)).r,
+            sampleNeighbor(bumpMap, vOut_texcoord, bumpMapTexelSize, ivec2(-1, 0)).r,
+            sampleNeighbor(bumpMap, vOut_texcoord, bumpMapTexelSize, ivec2( 0, 0)).r,
+            sampleNeighbor(bumpMap, vOut_texcoord, bumpMapTexelSize, ivec2( 1, 0)).r,
+            sampleNeighbor(bumpMap, vOut_texcoord, bumpMapTexelSize, ivec2(-1, 1)).r,
+            sampleNeighbor(bumpMap, vOut_texcoord, bumpMapTexelSize, ivec2( 0, 1)).r,
+            sampleNeighbor(bumpMap, vOut_texcoord, bumpMapTexelSize, ivec2( 1, 1)).r
+        );
+
+    vec3 normal;
+    normal.x = -(normalKernel[2] - normalKernel[0] + 2 * (normalKernel[5] - normalKernel[3]) + normalKernel[8] - normalKernel[6]);
+    normal.y = -(normalKernel[6] - normalKernel[0] + 2 * (normalKernel[7] - normalKernel[1]) + normalKernel[8] - normalKernel[2]);
+    normal.z = 1.0;
+    normal = normalize(normal);
+    normal = normalize(vOut_TBN * normal);
+    pOut_normal = vec4(normal.rgb, u_specularWeight);
 }

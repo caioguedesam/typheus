@@ -121,7 +121,7 @@ Handle<RenderObject> CreateRenderObjectFromAsset(Handle<AssetModel> h_asset)
         Handle<Buffer> h_objectIndexBuffer = Renderer_CreateBuffer(BUFFER_TYPE_INDEX, assetModelObject.indices.size(), sizeof(u32), (u8*)assetModelObject.indices.data());
         Handle<Mesh> h_objectMesh = Renderer_CreateMesh(h_modelVertexBuffer, h_objectIndexBuffer,
                 {
-                    3, { VERTEX_ATTRIBUTE_VEC3, VERTEX_ATTRIBUTE_VEC3, VERTEX_ATTRIBUTE_VEC2 }
+                    5, { VERTEX_ATTRIBUTE_VEC3, VERTEX_ATTRIBUTE_VEC3, VERTEX_ATTRIBUTE_VEC3, VERTEX_ATTRIBUTE_VEC3, VERTEX_ATTRIBUTE_VEC2 }
                 });
 
         ro->renderUnits.push_back(
@@ -164,7 +164,7 @@ void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
     {
         { TEXTURE_FORMAT_RGBA8, TEXTURE_WRAP_REPEAT, TEXTURE_FILTER_LINEAR, TEXTURE_FILTER_LINEAR },      // Diffuse + specular color output
         { TEXTURE_FORMAT_RGBA16F, TEXTURE_WRAP_REPEAT, TEXTURE_FILTER_LINEAR, TEXTURE_FILTER_LINEAR },    // Position output // TODO(caio)#RENDER: This can be removed and reconstructed via depth.
-        { TEXTURE_FORMAT_RGBA16F, TEXTURE_WRAP_REPEAT, TEXTURE_FILTER_LINEAR, TEXTURE_FILTER_LINEAR },    // Normals output
+        { TEXTURE_FORMAT_RGBA16F, TEXTURE_WRAP_CLAMP, TEXTURE_FILTER_LINEAR, TEXTURE_FILTER_LINEAR },    // Normals output
     };
     h_gbufferRenderTarget = Renderer_CreateRenderTarget(1920, 1080, 3, gbufferOutputDesc);
 

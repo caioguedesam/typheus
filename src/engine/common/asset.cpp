@@ -82,6 +82,11 @@ Handle<AssetModel> Asset_LoadModel_OBJ(const std::string& assetPath)
     }
 
     // Loading model vertex and index data
+    struct AssetVertex
+    {
+        v3f position; v3f normal; v2f texcoord;
+    }; 
+
     u64 currentIndex = 0;
     // Iterate on every group of OBJ
     for(u64 g = 0; g < fastObjData->group_count; g++)
@@ -97,6 +102,7 @@ Handle<AssetModel> Asset_LoadModel_OBJ(const std::string& assetPath)
             for(u64 t = 0; t < fastObjData->face_vertices[f] - 2; t++)
             {
                 u64 triangleIndices[] = {0, t + 1, t + 2};
+                AssetVertex triangleVertices[] = {{}, {}, {}};
                 // Iterate on each triangle vertex
                 for(u64 v = 0; v < 3; v++)
                 {
@@ -105,34 +111,68 @@ Handle<AssetModel> Asset_LoadModel_OBJ(const std::string& assetPath)
                     u64 iNormal     = fastObjData->indices[i].n;    ASSERT(iNormal);
                     u64 iTexcoord   = fastObjData->indices[i].t;    ASSERT(iTexcoord);
 
-                    v3f vertexPosition =
+                    //v3f vertexPosition =
+                    triangleVertices[v].position = 
                     {
                         fastObjData->positions[iPosition * 3 + 0],
                         fastObjData->positions[iPosition * 3 + 1],
                         fastObjData->positions[iPosition * 3 + 2],
                     };
 
-                    v3f vertexNormal =
+                    //v3f vertexNormal =
+                    triangleVertices[v].normal = 
                     {
                         fastObjData->normals[iNormal * 3 + 0],
                         fastObjData->normals[iNormal * 3 + 1],
                         fastObjData->normals[iNormal * 3 + 2],
                     };
                     
-                    v2f vertexTexcoord =
+                    //v2f vertexTexcoord =
+                    triangleVertices[v].texcoord = 
                     {
                         fastObjData->texcoords[iTexcoord * 2 + 0],
                         fastObjData->texcoords[iTexcoord * 2 + 1],
                     };
 
-                    model->vertices.push_back(vertexPosition.x);
-                    model->vertices.push_back(vertexPosition.y);
-                    model->vertices.push_back(vertexPosition.z);
-                    model->vertices.push_back(vertexNormal.x);
-                    model->vertices.push_back(vertexNormal.y);
-                    model->vertices.push_back(vertexNormal.z);
-                    model->vertices.push_back(vertexTexcoord.x);
-                    model->vertices.push_back(vertexTexcoord.y);
+                    //model->vertices.push_back(vertexPosition.x);
+                    //model->vertices.push_back(vertexPosition.y);
+                    //model->vertices.push_back(vertexPosition.z);
+                    //model->vertices.push_back(vertexNormal.x);
+                    //model->vertices.push_back(vertexNormal.y);
+                    //model->vertices.push_back(vertexNormal.z);
+                    //model->vertices.push_back(vertexTexcoord.x);
+                    //model->vertices.push_back(vertexTexcoord.y);
+
+                    //model->objects[faceMaterial].indices.push_back(currentIndex++);
+                }
+
+                // Calculate tangent/bitangent for all 3 vertices
+                v3f deltaPos0 = triangleVertices[1].position - triangleVertices[0].position;
+                v3f deltaPos1 = triangleVertices[2].position - triangleVertices[0].position;
+                v2f deltaUV0 = triangleVertices[1].texcoord - triangleVertices[0].texcoord;
+                v2f deltaUV1 = triangleVertices[2].texcoord - triangleVertices[0].texcoord;
+                f32 r = 1.f / (deltaUV0.x * deltaUV1.y - deltaUV0.y * deltaUV1.x);
+                v3f tangent = (deltaPos0 * deltaUV1.y - deltaPos1 * deltaUV0.y) * r;
+                v3f bitangent = (deltaPos1 * deltaUV0.x - deltaPos0 * deltaUV1.x) * r;
+
+                // Send vertex data
+                for(i32 v = 0; v < 3; v++)
+                {
+                    AssetVertex& av = triangleVertices[v];
+                    model->vertices.push_back(av.position.x);
+                    model->vertices.push_back(av.position.y);
+                    model->vertices.push_back(av.position.z);
+                    model->vertices.push_back(av.normal.x);
+                    model->vertices.push_back(av.normal.y);
+                    model->vertices.push_back(av.normal.z);
+                    model->vertices.push_back(tangent.x);
+                    model->vertices.push_back(tangent.y);
+                    model->vertices.push_back(tangent.z);
+                    model->vertices.push_back(bitangent.x);
+                    model->vertices.push_back(bitangent.y);
+                    model->vertices.push_back(bitangent.z);
+                    model->vertices.push_back(av.texcoord.x);
+                    model->vertices.push_back(av.texcoord.y);
 
                     model->objects[faceMaterial].indices.push_back(currentIndex++);
                 }
