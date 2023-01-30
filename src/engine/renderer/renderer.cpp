@@ -286,6 +286,18 @@ Handle<ShaderStage> Renderer_CreateShaderStage(ShaderStageType type, std::string
     glShaderSource(glHandle, 1, &shaderSrcCstr, NULL);
     glCompileShader(glHandle);
 
+    // Checking for compile errors
+    i32 ret;
+    glGetShaderiv(glHandle, GL_COMPILE_STATUS, &ret);
+    if(!ret)
+    {
+        char errorLog[1024];
+        glGetShaderInfoLog(glHandle, 1024, NULL, errorLog);
+        ASSERTF(0, "%s shader compilation error: %s",
+                type == SHADERSTAGE_TYPE_VERTEX ? "Vertex" : "Pixel",
+                errorLog);
+    }
+
     ShaderStage* shaderStage = new ShaderStage();
     *shaderStage =
     {
@@ -307,6 +319,15 @@ Handle<Shader> Renderer_CreateShader(Handle<ShaderStage> h_vertexShader, Handle<
     glAttachShader(glHandle, Renderer_GetShaderStage(h_vertexShader)->apiHandle);
     glAttachShader(glHandle, Renderer_GetShaderStage(h_pixelShader)->apiHandle);
     glLinkProgram(glHandle);
+    i32 ret;
+    glGetProgramiv(glHandle, GL_LINK_STATUS, &ret);
+    if(!ret)
+    {
+        char errorLog[1024];
+        glGetProgramInfoLog(glHandle, 1024, NULL, errorLog);
+        ASSERTF(0, "Shader program linking error: %s",
+                errorLog);
+    }
 
     Shader* shader = new Shader();
     *shader =

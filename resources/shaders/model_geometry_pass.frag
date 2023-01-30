@@ -14,15 +14,23 @@ uniform mat4 u_world;
 uniform mat4 u_view;
 uniform vec3 u_baseColor;
 
-layout (location = 0) out vec4 pOut_diffuse;
-layout (location = 1) out vec3 pOut_position;
-layout (location = 2) out vec3 pOut_normal;
+uniform vec3 u_ambientColor;
+uniform vec3 u_diffuseColor;
+uniform vec3 u_specularColor;
+uniform float u_specularWeight;
+
+layout (location = 0) out vec4 pOut_diffuse;    // Diffuse color (RGB), specular intensity (A)
+layout (location = 1) out vec3 pOut_position;   // View space position (RGB)
+layout (location = 2) out vec4 pOut_normal;     // View space normals (RGB), specular weight (A)
 
 void main()
 {
-    vec3 diffuseColor = texture(diffuseMap, vOut_texcoord).rgb * u_baseColor;
-    pOut_diffuse = vec4(diffuseColor.rgb, 1);
+    vec3 ambientColor = 0.1 * u_ambientColor;
+    vec3 diffuseColor = texture(diffuseMap, vOut_texcoord).rgb * u_diffuseColor * u_baseColor;
+    vec3 specularColor = texture(specularMap, vOut_texcoord).rgb * u_specularColor;
+    float specularIntensity = 0.2126 * specularColor.r + 0.7152 * specularColor.g + 0.0722 * specularColor.b;
+    pOut_diffuse = vec4(diffuseColor.rgb, specularIntensity);
 
     pOut_position = vOut_position;
-    pOut_normal = normalize(vOut_normal);
+    pOut_normal = vec4(normalize(vOut_normal).rgb, u_specularWeight);
 }

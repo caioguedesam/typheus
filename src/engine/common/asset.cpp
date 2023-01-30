@@ -54,26 +54,31 @@ Handle<AssetModel> Asset_LoadModel_OBJ(const std::string& assetPath)
     for(u64 m = 0; m < fastObjData->material_count; m++)
     {
         auto objMat = fastObjData->materials[m];
+        AssetModelObject& modelObject = model->objects[m];
         if(objMat.map_Ka.path)
         {
-            model->objects[m].textureAmbient = Asset_LoadTexture(objMat.map_Ka.path);
+            modelObject.textureAmbient = Asset_LoadTexture(objMat.map_Ka.path);
         }
         if(objMat.map_Kd.path)
         {
-            model->objects[m].textureDiffuse = Asset_LoadTexture(objMat.map_Kd.path);
+            modelObject.textureDiffuse = Asset_LoadTexture(objMat.map_Kd.path);
         }
         if(objMat.map_Ks.path)
         {
-            model->objects[m].textureSpecular = Asset_LoadTexture(objMat.map_Ks.path);
+            modelObject.textureSpecular = Asset_LoadTexture(objMat.map_Ks.path);
         }
         if(objMat.map_d.path)
         {
-            model->objects[m].textureAlphaMask = Asset_LoadTexture(objMat.map_d.path);
+            modelObject.textureAlphaMask = Asset_LoadTexture(objMat.map_d.path);
         }
         if(objMat.map_bump.path)
         {
-            model->objects[m].textureBump = Asset_LoadTexture(objMat.map_bump.path);
+            modelObject.textureBump = Asset_LoadTexture(objMat.map_bump.path);
         }
+        modelObject.ambientColor = { objMat.Ka[0], objMat.Ka[1], objMat.Ka[2] };
+        modelObject.diffuseColor = { objMat.Kd[0], objMat.Kd[1], objMat.Kd[2] };
+        modelObject.specularColor = { objMat.Ks[0], objMat.Ks[1], objMat.Ks[2] };
+        modelObject.specularWeight = objMat.Ns;
     }
 
     // Loading model vertex and index data

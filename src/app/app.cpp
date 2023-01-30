@@ -13,6 +13,11 @@ struct RenderUnit
 {
     Handle<Material>    h_material;
     Handle<Mesh>        h_mesh;
+
+    v3f u_ambientColor = {};
+    v3f u_diffuseColor = {};
+    v3f u_specularColor = {};
+    f32 u_specularWeight = 0.f;
 };
 
 struct RenderObjectProperties
@@ -20,17 +25,26 @@ struct RenderObjectProperties
     m4f u_world         = Identity();
     v3f u_baseColor     = {1,1,1};
 };
-void BindRenderObjectProperties(RenderObjectProperties properties)
-{
-    Renderer_BindUniform_m4f("u_world", properties.u_world);
-    Renderer_BindUniform_v3f("u_baseColor", properties.u_baseColor);
-}
 
 struct RenderObject
 {
     std::vector<RenderUnit> renderUnits;
     RenderObjectProperties properties = {};
 };
+
+void BindRenderUnitProperties(RenderUnit* unit)
+{
+    Renderer_BindUniform_v3f("u_ambientColor", unit->u_ambientColor);
+    Renderer_BindUniform_v3f("u_diffuseColor", unit->u_diffuseColor);
+    Renderer_BindUniform_v3f("u_specularColor", unit->u_specularColor);
+    Renderer_BindUniform_f32("u_specularWeight", unit->u_specularWeight);
+}
+
+void BindRenderObjectProperties(RenderObject* object)
+{
+    Renderer_BindUniform_m4f("u_world", object->properties.u_world);
+    Renderer_BindUniform_v3f("u_baseColor", object->properties.u_baseColor);
+}
 
 std::vector<RenderObject*> renderObjects;
 std::unordered_map<Handle<AssetShader>, Handle<ShaderStage>, HandleHash<AssetShader>> shaderStageFromAssetCache;
@@ -82,7 +96,8 @@ Handle<RenderObject> CreateRenderObjectFromAsset(Handle<AssetModel> h_asset)
     {
         // Create new render object with same data as previously created one,
         // to avoid duplicating render resource data.
-        ro->renderUnits = renderObjects[renderObjectFromModelCache[h_asset].value]->renderUnits;
+        RenderObject* roSrc = renderObjects[renderObjectFromModelCache[h_asset].value];
+        ro->renderUnits = roSrc->renderUnits;
         renderObjects.push_back(ro);
         return { (u32)renderObjects.size() - 1 };
     }
@@ -113,6 +128,10 @@ Handle<RenderObject> CreateRenderObjectFromAsset(Handle<AssetModel> h_asset)
                 {
                     h_objectMaterial,
                     h_objectMesh,
+                    assetModelObject.ambientColor,
+                    assetModelObject.diffuseColor,
+                    assetModelObject.specularColor,
+                    assetModelObject.specularWeight,
                 });
     }
 
@@ -260,12 +279,13 @@ void App_Render()
         for(i32 i = 0; i < renderObjects.size(); i++)
         {
             RenderObject* ro = renderObjects[i];
+            BindRenderObjectProperties(ro);
             for(i32 o = 0; o < ro->renderUnits.size(); o++)
             {
                 RenderUnit& renderUnit = ro->renderUnits[o];
                 Renderer_BindMaterial(renderUnit.h_material);
                 Renderer_BindMesh(renderUnit.h_mesh);
-                BindRenderObjectProperties(ro->properties);
+                BindRenderUnitProperties(&renderUnit);
 
                 Renderer_DrawMesh();
             }
@@ -278,6 +298,7 @@ void App_Render()
         Renderer_Clear({0.f,0.f,0.f,0.f});
 
         Renderer_BindShader(h_modelLightingPassShader);
+        Renderer_BindUniform_m4f("u_view", Renderer_GetCamera().GetView());
         RenderTarget* gbufferRenderTarget = Renderer_GetRenderTarget(h_gbufferRenderTarget);
         Renderer_BindTexture(gbufferRenderTarget->outputs[0], 0);   // Diffuse + specular
         Renderer_BindTexture(gbufferRenderTarget->outputs[1], 1);   // View space positions

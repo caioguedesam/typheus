@@ -33,6 +33,11 @@ struct AssetModelObject
     Handle<AssetTexture> textureSpecular;
     Handle<AssetTexture> textureAlphaMask;
     Handle<AssetTexture> textureBump;
+
+    v3f ambientColor    = {1, 1, 1};
+    v3f diffuseColor    = {1, 1, 1};
+    v3f specularColor   = {0, 0, 0};
+    f32 specularWeight  = 1.f;
 };
 
 struct AssetModel
