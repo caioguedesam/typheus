@@ -150,6 +150,11 @@ Handle<Shader> h_modelLightingPassShader;
 Handle<RenderObject> h_sponzaObject;
 Handle<RenderObject> h_backpackObject;
 std::vector<Handle<RenderObject>> h_bunnyObjects;
+struct
+{
+    v3f dir = {0,1,0};
+    v3f color = {1,1,1};
+} directionalLight;
 
 void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
 {
@@ -236,24 +241,28 @@ void App_Update()
     // Update common systems
     Input_UpdateState();
 
-    // Camera controls
-    Camera& mainCamera = Renderer_GetCamera();
+    static bool editorMode = false;
+    if(!editorMode)
+    {
+        // Camera controls
+        Camera& mainCamera = Renderer_GetCamera();
 
-    const f32 cameraRotationSpeed = 0.01f;
-    v2f mouseDelta = Input_GetMouseDelta();
-    mainCamera.RotateYaw(cameraRotationSpeed * -mouseDelta.y);
-    mainCamera.RotatePitch(cameraRotationSpeed * -mouseDelta.x);
+        const f32 cameraRotationSpeed = 0.01f;
+        v2f mouseDelta = Input_GetMouseDelta();
+        mainCamera.RotateYaw(cameraRotationSpeed * -mouseDelta.y);
+        mainCamera.RotatePitch(cameraRotationSpeed * -mouseDelta.x);
 
-    const f32 cameraSpeed = 0.01f;
-    v2f cameraMoveAmount = {};
-    if      (Input_IsKeyDown(KEY_W)) cameraMoveAmount.y =  1.f * cameraSpeed;
-    else if (Input_IsKeyDown(KEY_S)) cameraMoveAmount.y = -1.f * cameraSpeed;
-    if      (Input_IsKeyDown(KEY_A)) cameraMoveAmount.x = -1.f * cameraSpeed;
-    else if (Input_IsKeyDown(KEY_D)) cameraMoveAmount.x =  1.f * cameraSpeed;
+        const f32 cameraSpeed = 0.01f;
+        v2f cameraMoveAmount = {};
+        if      (Input_IsKeyDown(KEY_W)) cameraMoveAmount.y =  1.f * cameraSpeed;
+        else if (Input_IsKeyDown(KEY_S)) cameraMoveAmount.y = -1.f * cameraSpeed;
+        if      (Input_IsKeyDown(KEY_A)) cameraMoveAmount.x = -1.f * cameraSpeed;
+        else if (Input_IsKeyDown(KEY_D)) cameraMoveAmount.x =  1.f * cameraSpeed;
 
-    mainCamera.Move(mainCamera.position
-            + mainCamera.front * cameraMoveAmount.y
-            + mainCamera.right * cameraMoveAmount.x);
+        mainCamera.Move(mainCamera.position
+                + mainCamera.front * cameraMoveAmount.y
+                + mainCamera.right * cameraMoveAmount.x);
+    }
 
     // App controls
     if(Input_IsKeyJustDown(KEY_ESCAPE))
@@ -264,6 +273,7 @@ void App_Update()
     {
         Input_ToggleLockMouse();
         Input_ToggleShowMouse();
+        editorMode = !editorMode;
     }
 }
 
@@ -308,6 +318,10 @@ void App_Render()
 
         Renderer_BindShader(h_modelLightingPassShader);
         Renderer_BindUniform_m4f("u_view", Renderer_GetCamera().GetView());
+        //Renderer_BindUniform_v3f("u_lightDir", {0.5, 1, 0.5});
+        //Renderer_BindUniform_v3f("u_lightColor", {1, 0.5, 0});
+        Renderer_BindUniform_v3f("u_lightDir", directionalLight.dir);
+        Renderer_BindUniform_v3f("u_lightColor", directionalLight.color);
         RenderTarget* gbufferRenderTarget = Renderer_GetRenderTarget(h_gbufferRenderTarget);
         Renderer_BindTexture(gbufferRenderTarget->outputs[0], 0);   // Diffuse + specular
         Renderer_BindTexture(gbufferRenderTarget->outputs[1], 1);   // View space positions
@@ -328,7 +342,12 @@ void App_Render()
     // Application GUI
     {
         GUI_BeginFrame();
-        ImGui::ShowDemoWindow();
+
+        {
+            ImGui::DragFloat3("Light direction", &directionalLight.dir.x, 0.005f, -1.f, 1.f);
+            ImGui::ColorEdit3("Light color", &directionalLight.color.x);
+        }
+
         GUI_EndFrame();
     }
     
