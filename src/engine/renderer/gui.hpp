@@ -5,7 +5,7 @@
 namespace Ty
 {
 
-void GUI_Init(Window* window);
+void GUI_Init(Window* window, const char* fontAssetPath, u32 fontSize);
 void GUI_BeginFrame();
 void GUI_EndFrame();
 

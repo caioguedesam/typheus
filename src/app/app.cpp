@@ -6,6 +6,7 @@
 #define APP_RESOURCE_PATH           "../resources/"
 #define APP_RESOURCE_SHADERS_PATH   APP_RESOURCE_PATH"shaders/"
 #define APP_RESOURCE_MODELS_PATH    APP_RESOURCE_PATH"models/"
+#define APP_RESOURCE_FONTS_PATH     APP_RESOURCE_PATH"fonts/"
 
 namespace Ty
 {
@@ -161,7 +162,7 @@ void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
     mainCamera.Move({0, 2, 3});
     Renderer_SetCamera(mainCamera);
 
-    GUI_Init(&appWindow);
+    GUI_Init(&appWindow, APP_RESOURCE_FONTS_PATH"cascadia_code/CascadiaMono.ttf", 16);
 
     // Render targets
     RenderTargetOutputDesc gbufferOutputDesc[] =
