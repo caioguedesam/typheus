@@ -63,6 +63,28 @@ Handle<ShaderStage> GetShaderFromAsset(Handle<AssetShader> h_asset, ShaderStageT
     return h_shaderStage;
 }
 
+void RecompileShaders()
+{
+    // Recompile all shader stages from asset cache
+    for(auto& cacheElement : shaderStageFromAssetCache)
+    {
+        // Update shader asset source data
+        AssetShader* assetShader = Asset_GetShader(cacheElement.first);
+        assetShader->src = ReadFile_Str(assetShader->path);
+        // Recompile renderer resource
+        Renderer_CompileShaderStage(cacheElement.second, assetShader->src);
+    }
+
+    // Link all shaders from renderer resource cache
+    for(u32 i = 0; i < renderResourceTable.shaderResources.size(); i++)
+    {
+        Renderer_LinkShader({i});
+    }
+
+    // Rebind currently bound shader to not invalidate pipeline (like on ImGui draw)
+    Renderer_BindShader(renderState.h_activeShader);
+}
+
 Handle<Texture> GetTextureFromAsset(Handle<AssetTexture> h_asset)
 {
     if(!h_asset.IsValid())          return { HANDLE_INVALID };
@@ -155,6 +177,7 @@ struct
     v3f dir = {0,1,0};
     v3f color = {1,1,1};
 } directionalLight;
+bool inEditorMode = false;
 
 void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
 {
@@ -241,8 +264,7 @@ void App_Update()
     // Update common systems
     Input_UpdateState();
 
-    static bool editorMode = false;
-    if(!editorMode)
+    if(!inEditorMode)
     {
         // Camera controls
         Camera& mainCamera = Renderer_GetCamera();
@@ -273,19 +295,16 @@ void App_Update()
     {
         Input_ToggleLockMouse();
         Input_ToggleShowMouse();
-        editorMode = !editorMode;
+        inEditorMode = !inEditorMode;
     }
 }
 
 void App_Render()
 {
     Renderer_BeginFrame();
-    //Handle<RenderTarget> h_defaultRenderTarget = Renderer_GetDefaultRenderTarget();
 
     // Prepare
     {
-        //Renderer_BindRenderTarget(h_defaultRenderTarget);
-        //Renderer_Clear({1.f, 0.5f, 0.f, 1.f});
         Renderer_BindRenderTarget(h_gbufferRenderTarget);
         Renderer_Clear({0.f, 0.f, 0.f, 0.f});
     }
@@ -318,8 +337,6 @@ void App_Render()
 
         Renderer_BindShader(h_modelLightingPassShader);
         Renderer_BindUniform_m4f("u_view", Renderer_GetCamera().GetView());
-        //Renderer_BindUniform_v3f("u_lightDir", {0.5, 1, 0.5});
-        //Renderer_BindUniform_v3f("u_lightColor", {1, 0.5, 0});
         Renderer_BindUniform_v3f("u_lightDir", directionalLight.dir);
         Renderer_BindUniform_v3f("u_lightColor", directionalLight.color);
         RenderTarget* gbufferRenderTarget = Renderer_GetRenderTarget(h_gbufferRenderTarget);
@@ -332,18 +349,36 @@ void App_Render()
     }
 
     // Copy to backbuffer
+    static bool showGbufferOutput = false;
+    static i32 showGbufferOutputTarget = 0;
     {
-        Renderer_GenerateMipsForRenderTarget(h_defaultRenderTarget);
-        Renderer_CopyRenderTargetOutputToBackbuffer(h_defaultRenderTarget, 0);
-        //Renderer_GenerateMipsForRenderTarget(h_gbufferRenderTarget);
-        //Renderer_CopyRenderTargetOutputToBackbuffer(h_gbufferRenderTarget, 2);
+        if(showGbufferOutput)
+        {
+            Renderer_GenerateMipsForRenderTarget(h_gbufferRenderTarget);
+            Renderer_CopyRenderTargetOutputToBackbuffer(h_gbufferRenderTarget, showGbufferOutputTarget);
+        }
+        else
+        {
+            Renderer_GenerateMipsForRenderTarget(h_defaultRenderTarget);
+            Renderer_CopyRenderTargetOutputToBackbuffer(h_defaultRenderTarget, 0);
+        }
     }
 
     // Application GUI
+    if(inEditorMode)
     {
         GUI_BeginFrame();
 
         {
+            if(ImGui::Button("Recompile shaders")) RecompileShaders();
+            ImGui::Text("Final output");
+            ImGui::Checkbox("Show GBuffer output", &showGbufferOutput);
+            if(showGbufferOutput)
+            {
+                ImGui::RadioButton("Diffuse", &showGbufferOutputTarget, 0); ImGui::SameLine();
+                ImGui::RadioButton("Position", &showGbufferOutputTarget, 1); ImGui::SameLine();
+                ImGui::RadioButton("Normal", &showGbufferOutputTarget, 2);
+            }
             ImGui::DragFloat3("Light direction", &directionalLight.dir.x, 0.005f, -1.f, 1.f);
             ImGui::ColorEdit3("Light color", &directionalLight.color.x);
         }

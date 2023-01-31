@@ -164,11 +164,12 @@ struct RenderTarget
     u32 height                      = 0;
 };
 
-
 Handle<Buffer>              Renderer_CreateBuffer(BufferType type, u64 count, u64 stride, u8* data);
 Handle<Texture>             Renderer_CreateTexture(TextureFormat format, TextureParams parameters, u32 width, u32 height, u8* data);
 Handle<Mesh>                Renderer_CreateMesh(Handle<Buffer> h_vertexBuffer, Handle<Buffer> h_indexBuffer, VertexLayout vertexLayout);
+void                        Renderer_CompileShaderStage(Handle<ShaderStage> h_shaderStage, std::string_view src);
 Handle<ShaderStage>         Renderer_CreateShaderStage(ShaderStageType type, std::string_view src);
+void                        Renderer_LinkShader(Handle<Shader> h_shader);
 Handle<Shader>              Renderer_CreateShader(Handle<ShaderStage> h_vertexShader, Handle<ShaderStage> h_pixelShader);
 Handle<Material>            Renderer_CreateMaterial(u8 texturesCount, Handle<Texture>* h_textures);
 Handle<RenderTarget>        Renderer_CreateRenderTarget(u32 width, u32 height, u8 outputsCount, RenderTargetOutputDesc* outputsDesc);

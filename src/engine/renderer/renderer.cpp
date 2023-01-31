@@ -271,6 +271,27 @@ Handle<Mesh> Renderer_CreateMesh(Handle<Buffer> h_vertexBuffer, Handle<Buffer> h
     return { (u32)renderResourceTable.meshResources.size() - 1 };
 }
 
+void Renderer_CompileShaderStage(Handle<ShaderStage> h_shaderStage, std::string_view src)
+{
+    ShaderStage* shaderStage = Renderer_GetShaderStage(h_shaderStage);
+    ASSERT(shaderStage->apiHandle != API_HANDLE_INVALID);
+    const char* shaderSrcCstr = src.data();
+    glShaderSource(shaderStage->apiHandle, 1, &shaderSrcCstr, NULL);
+    glCompileShader(shaderStage->apiHandle);
+
+    // Checking for compile errors
+    i32 ret;
+    glGetShaderiv(shaderStage->apiHandle, GL_COMPILE_STATUS, &ret);
+    if(!ret)
+    {
+        char errorLog[1024];
+        glGetShaderInfoLog(shaderStage->apiHandle, 1024, NULL, errorLog);
+        ASSERTF(0, "%s shader compilation error: %s",
+                shaderStage->type == SHADERSTAGE_TYPE_VERTEX ? "Vertex" : "Pixel",
+                errorLog);
+    }
+}
+
 Handle<ShaderStage> Renderer_CreateShaderStage(ShaderStageType type, std::string_view src)
 {
     APIHandle glHandle = API_HANDLE_INVALID;
@@ -282,61 +303,68 @@ Handle<ShaderStage> Renderer_CreateShaderStage(ShaderStageType type, std::string
     }
     ASSERT(glHandle != API_HANDLE_INVALID);
 
-    const char* shaderSrcCstr = src.data();
-    glShaderSource(glHandle, 1, &shaderSrcCstr, NULL);
-    glCompileShader(glHandle);
-
-    // Checking for compile errors
-    i32 ret;
-    glGetShaderiv(glHandle, GL_COMPILE_STATUS, &ret);
-    if(!ret)
-    {
-        char errorLog[1024];
-        glGetShaderInfoLog(glHandle, 1024, NULL, errorLog);
-        ASSERTF(0, "%s shader compilation error: %s",
-                type == SHADERSTAGE_TYPE_VERTEX ? "Vertex" : "Pixel",
-                errorLog);
-    }
-
     ShaderStage* shaderStage = new ShaderStage();
     *shaderStage =
     {
         glHandle, type
     };
-
     renderResourceTable.shaderStageResources.push_back(shaderStage);
-    return { (u32)renderResourceTable.shaderStageResources.size() - 1 };
+    Handle<ShaderStage> h_shaderStage = { (u32)renderResourceTable.shaderStageResources.size() - 1 };
+
+    // Compilation is done after inserting into resource array for recompilation purposes
+    Renderer_CompileShaderStage(h_shaderStage, src);
+
+    return h_shaderStage;
+}
+
+void Renderer_LinkShader(Handle<Shader> h_shader)
+{    
+    // OpenGL linking requires new shader programs to be created every time.
+    Shader* shader = Renderer_GetShader(h_shader);
+    
+    // Delete previous program if existing
+    if(shader->apiHandle != API_HANDLE_INVALID)
+    {
+        glDeleteProgram(shader->apiHandle);
+    }
+
+    // Create and link new shader program
+    APIHandle glHandle = glCreateProgram();
+    ASSERT(glHandle != API_HANDLE_INVALID);
+    shader->apiHandle = glHandle;
+
+    ShaderStage* h_vs = Renderer_GetShaderStage(shader->h_VS);
+    ShaderStage* h_ps = Renderer_GetShaderStage(shader->h_PS);
+
+    glAttachShader(shader->apiHandle, h_vs->apiHandle);
+    glAttachShader(shader->apiHandle, h_ps->apiHandle);
+    glLinkProgram(shader->apiHandle);
+    i32 ret;
+    glGetProgramiv(shader->apiHandle, GL_LINK_STATUS, &ret);
+    if(!ret)
+    {
+        char errorLog[1024];
+        glGetProgramInfoLog(shader->apiHandle, 1024, NULL, errorLog);
+        ASSERTF(0, "Shader program linking error: %s",
+                errorLog);
+    }
 }
 
 Handle<Shader> Renderer_CreateShader(Handle<ShaderStage> h_vertexShader, Handle<ShaderStage> h_pixelShader)
 {
-    APIHandle glHandle = API_HANDLE_INVALID;
-    glHandle = glCreateProgram();
-    ASSERT(glHandle != API_HANDLE_INVALID);
-    ShaderStage* vertexShader = Renderer_GetShaderStage(h_vertexShader);
-    ShaderStage* pixelShader = Renderer_GetShaderStage(h_pixelShader);
-
-    glAttachShader(glHandle, Renderer_GetShaderStage(h_vertexShader)->apiHandle);
-    glAttachShader(glHandle, Renderer_GetShaderStage(h_pixelShader)->apiHandle);
-    glLinkProgram(glHandle);
-    i32 ret;
-    glGetProgramiv(glHandle, GL_LINK_STATUS, &ret);
-    if(!ret)
-    {
-        char errorLog[1024];
-        glGetProgramInfoLog(glHandle, 1024, NULL, errorLog);
-        ASSERTF(0, "Shader program linking error: %s",
-                errorLog);
-    }
-
     Shader* shader = new Shader();
     *shader =
     {
-        glHandle, h_vertexShader, h_pixelShader
+        API_HANDLE_INVALID, h_vertexShader, h_pixelShader
     };
 
     renderResourceTable.shaderResources.push_back(shader);
-    return { (u32)renderResourceTable.shaderResources.size() - 1 };
+    Handle<Shader> h_shader = { (u32)renderResourceTable.shaderResources.size() - 1 };
+
+    // Linking is done after inserting to resource array, for recompilation purposes.
+    Renderer_LinkShader(h_shader);
+
+    return h_shader;
 };
 
 Handle<Material> Renderer_CreateMaterial(u8 texturesCount, Handle<Texture>* h_textures)

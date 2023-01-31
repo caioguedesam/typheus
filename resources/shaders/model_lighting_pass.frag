@@ -19,19 +19,15 @@ void main()
     vec4 gbufferPositionSample = texture(gbufferPosition, vOut_texcoord);
     vec4 gbufferNormalSample = texture(gbufferNormal, vOut_texcoord);
 
-    //vec3 dirLight = normalize(vec3(0.5, 1, 0.5));
-    //vec3 viewDirLight = normalize(mat3(u_view) * dirLight);
     vec3 viewDirLight = normalize(mat3(u_view) * u_lightDir);
     vec3 viewPosition = gbufferPositionSample.xyz;
     vec3 viewNormal = normalize(gbufferNormalSample.xyz);
-    //vec3 diffuseColor = gbufferDiffuseSample.rgb;
     vec3 surfaceColor = gbufferDiffuseSample.rgb;
     float specularIntensity = gbufferDiffuseSample.a;
     float specularExponent = gbufferNormalSample.a;
 
     vec3 ambient = 0.1 * u_lightColor;
     vec3 diffuse = max(0, dot(viewNormal, viewDirLight)) * u_lightColor;
-    //vec3 outColor = (ambient + diffuse) * diffuseColor;
     vec3 outColor = (ambient + diffuse) * surfaceColor;
 
     pOut_color = vec4(outColor, 1);

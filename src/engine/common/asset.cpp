@@ -14,6 +14,7 @@ Handle<AssetShader> Asset_LoadShader(const std::string& assetPath)
     if(Asset_IsLoaded(assetPath)) return { assetTable.loadedAssets[assetPath] };
 
     AssetShader* shader = new AssetShader();
+    shader->path = assetPath;
     shader->src = ReadFile_Str(assetPath);
 
     assetTable.shaderAssets.push_back(shader);

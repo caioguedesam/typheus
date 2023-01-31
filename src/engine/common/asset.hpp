@@ -14,6 +14,7 @@ namespace Ty
 
 struct AssetShader
 {
+    std::string path;
     std::string src;
 };
 
