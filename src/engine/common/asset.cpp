@@ -112,7 +112,6 @@ Handle<AssetModel> Asset_LoadModel_OBJ(const std::string& assetPath, bool flipVe
                     u64 iNormal     = fastObjData->indices[i].n;    ASSERT(iNormal);
                     u64 iTexcoord   = fastObjData->indices[i].t;    ASSERT(iTexcoord);
 
-                    //v3f vertexPosition =
                     triangleVertices[v].position = 
                     {
                         fastObjData->positions[iPosition * 3 + 0],
@@ -120,7 +119,6 @@ Handle<AssetModel> Asset_LoadModel_OBJ(const std::string& assetPath, bool flipVe
                         fastObjData->positions[iPosition * 3 + 2],
                     };
 
-                    //v3f vertexNormal =
                     triangleVertices[v].normal = 
                     {
                         fastObjData->normals[iNormal * 3 + 0],
@@ -128,7 +126,6 @@ Handle<AssetModel> Asset_LoadModel_OBJ(const std::string& assetPath, bool flipVe
                         fastObjData->normals[iNormal * 3 + 2],
                     };
                     
-                    //v2f vertexTexcoord =
                     triangleVertices[v].texcoord = 
                     {
                         fastObjData->texcoords[iTexcoord * 2 + 0],
@@ -138,17 +135,6 @@ Handle<AssetModel> Asset_LoadModel_OBJ(const std::string& assetPath, bool flipVe
                     {
                         triangleVertices[v].texcoord.v = 1.f - triangleVertices[v].texcoord.v;
                     }
-
-                    //model->vertices.push_back(vertexPosition.x);
-                    //model->vertices.push_back(vertexPosition.y);
-                    //model->vertices.push_back(vertexPosition.z);
-                    //model->vertices.push_back(vertexNormal.x);
-                    //model->vertices.push_back(vertexNormal.y);
-                    //model->vertices.push_back(vertexNormal.z);
-                    //model->vertices.push_back(vertexTexcoord.x);
-                    //model->vertices.push_back(vertexTexcoord.y);
-
-                    //model->objects[faceMaterial].indices.push_back(currentIndex++);
                 }
 
                 // Calculate tangent/bitangent for all 3 vertices
@@ -157,8 +143,21 @@ Handle<AssetModel> Asset_LoadModel_OBJ(const std::string& assetPath, bool flipVe
                 v2f deltaUV0 = triangleVertices[1].texcoord - triangleVertices[0].texcoord;
                 v2f deltaUV1 = triangleVertices[2].texcoord - triangleVertices[0].texcoord;
                 f32 r = 1.f / (deltaUV0.x * deltaUV1.y - deltaUV0.y * deltaUV1.x);
+                if(isinf(r))
+                {
+                    // For some reason, sometimes 2/3 vertices share UV positions.
+                    // This results in r = 1/0 = INF. For these cases, use default
+                    // UV directions. Refer to:
+                    // https://github.com/assimp/assimp/issues/230 
+                    // https://github.com/focustense/easymod/commit/686d85a1c23e697887a4cad20926f814dec8aec5
+                    deltaUV0 = {1, 0};
+                    deltaUV1 = {0, 1};
+                    r = 1; // 1*1 - 0*0 
+                }
                 v3f tangent = Normalize((deltaPos0 * deltaUV1.y - deltaPos1 * deltaUV0.y) * r);
                 v3f bitangent = Normalize((deltaPos1 * deltaUV0.x - deltaPos0 * deltaUV1.x) * r);
+                ASSERT(!isnan(tangent.x)    && !isnan(tangent.y)    && !isnan(tangent.z)
+                    && !isnan(bitangent.x)  && !isnan(bitangent.y)  && !isnan(bitangent.z));
 
                 // Send vertex data
                 for(i32 v = 0; v < 3; v++)
