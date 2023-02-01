@@ -12,6 +12,8 @@ uniform mat4 u_view;
 
 uniform vec3 u_lightDir;
 uniform vec3 u_lightColor;
+uniform float u_lightIntensityAmbient;
+uniform float u_lightIntensitySpecular;
 
 void main()
 {
@@ -23,17 +25,17 @@ void main()
     vec3 viewPosition = gbufferPositionSample.xyz;
     vec3 viewNormal = normalize(gbufferNormalSample.xyz);
     vec3 surfaceColor = gbufferDiffuseSample.rgb;
-    float specularIntensity = gbufferDiffuseSample.a;
+    float specularColor = gbufferDiffuseSample.a;
     float specularExponent = gbufferNormalSample.a;
 
-    vec3 ambient = 0.1 * u_lightColor;
+    vec3 ambient = u_lightIntensityAmbient * u_lightColor;
 
     vec3 diffuse = max(0, dot(viewNormal, viewLightDir)) * u_lightColor;
 
     vec3 viewDir = normalize(-viewPosition);
     vec3 viewLightDirR = reflect(viewLightDir, viewNormal);
-    float specularFactor = pow(max(0, dot(viewDir, viewLightDir)), specularExponent) * specularIntensity;
-    vec3 specular = 0.5 * specularFactor * u_lightColor;
+    float specularFactor = pow(max(0, dot(viewDir, viewLightDir)), specularExponent) * specularColor;
+    vec3 specular = u_lightIntensitySpecular * specularFactor * u_lightColor;
 
     vec3 outColor = (ambient + diffuse + specular) * surfaceColor;
 

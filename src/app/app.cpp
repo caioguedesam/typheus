@@ -176,6 +176,8 @@ struct
 {
     v3f dir = {0,1,0};
     v3f color = {1,1,1};
+    f32 ambientIntensity = 0.1f;
+    f32 specularIntensity = 0.5f;
 } directionalLight;
 bool inEditorMode = false;
 
@@ -339,6 +341,8 @@ void App_Render()
         Renderer_BindUniform_m4f("u_view", Renderer_GetCamera().GetView());
         Renderer_BindUniform_v3f("u_lightDir", directionalLight.dir);
         Renderer_BindUniform_v3f("u_lightColor", directionalLight.color);
+        Renderer_BindUniform_f32("u_lightIntensityAmbient", directionalLight.ambientIntensity);
+        Renderer_BindUniform_f32("u_lightIntensitySpecular", directionalLight.specularIntensity);
         RenderTarget* gbufferRenderTarget = Renderer_GetRenderTarget(h_gbufferRenderTarget);
         Renderer_BindTexture(gbufferRenderTarget->outputs[0], 0);   // Diffuse + specular
         Renderer_BindTexture(gbufferRenderTarget->outputs[1], 1);   // View space positions
@@ -381,6 +385,8 @@ void App_Render()
             }
             ImGui::DragFloat3("Light direction", &directionalLight.dir.x, 0.005f, -1.f, 1.f);
             ImGui::ColorEdit3("Light color", &directionalLight.color.x);
+            ImGui::DragFloat("Ambient intensity", &directionalLight.ambientIntensity, 0.005f, 0.f);
+            ImGui::DragFloat("Specular intensity", &directionalLight.specularIntensity, 0.005f, 0.f);
         }
 
         GUI_EndFrame();
