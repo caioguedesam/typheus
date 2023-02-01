@@ -4,18 +4,10 @@
 // @Caio Guedes, 2022
 // ========================================================
 #pragma once
-#include <windows.h>
-#include <stdint.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <float.h>
-#include <string>
-#include <string_view>
-#include <vector>
-#include <unordered_map>
-#include <algorithm>
+#include "engine/common/stdafx.hpp"
 
 #if _PROFILE
+#include "glad/glad.h"
 #include "tracy/Tracy.hpp"
 #include "tracy/TracyOpenGL.hpp"
 #endif

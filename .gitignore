@@ -1,9 +1,12 @@
 .vim/
 src/third_party/tracy/
+src/engine/common/stdafx.pch
 docs/
 build/debug/
+build/lib/
 build/profile/
 build/release/
 build/imgui.ini
+build/build_trace.json
 resources/textures/
 resources/models/
