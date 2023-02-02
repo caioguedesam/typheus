@@ -279,6 +279,9 @@ f32 Dot(const v4f& a, const v4f& b);
 f32 Len2(const v4f& v);
 f32 Len(const v4f& v);
 v4f Normalize(const v4f& v);
+v4f v4f_AsDirection(const v3f& v);
+v4f v4f_AsPosition(const v3f& v);
+v3f v3f_As(const v4f& v);
 
 // TODO(caio)#MATH: Implement quaternion type
 

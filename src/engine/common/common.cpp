@@ -649,6 +649,21 @@ v4f Normalize(const v4f& v)
     return v * (1.f/l);
 }
 
+v4f v4f_AsDirection(const v3f& v)
+{
+    return {v.x, v.y, v.z, 0.f};
+}
+
+v4f v4f_AsPosition(const v3f& v)
+{
+    return {v.x, v.y, v.z, 1.f};
+}
+
+v3f v3f_As(const v4f& v)
+{
+    return {v.x, v.y, v.z};
+}
+
 bool operator==(const m4f& a, const m4f& b)
 {
     return memcmp(a.data, b.data, sizeof(a.data)) == 0;

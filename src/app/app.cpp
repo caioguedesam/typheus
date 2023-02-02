@@ -172,13 +172,59 @@ Handle<Shader> h_modelLightingPassShader;
 Handle<RenderObject> h_sponzaObject;
 Handle<RenderObject> h_backpackObject;
 std::vector<Handle<RenderObject>> h_bunnyObjects;
-struct
+
+struct DirectionalLight
 {
-    v3f dir = {0,1,0};
+    v3f worldDir = {0,1,0};
+    f32 strength = 1.f;
     v3f color = {1,1,1};
-    f32 ambientIntensity = 0.1f;
-    f32 specularIntensity = 0.5f;
-} directionalLight;
+};
+
+struct PointLight
+{
+    v3f worldPos = {0,0,0};
+    f32 strength = 1.f;
+    f32 radius = 1.f;
+    v3f color = {1,1,1};
+};
+
+void BindDirectionalLight(DirectionalLight* light, Camera* cam)
+{
+    Renderer_BindUniform_v3f("u_dirLight.viewDir", Normalize(v3f_As(cam->GetView() * v4f_AsDirection(light->worldDir))));
+    Renderer_BindUniform_f32("u_dirLight.strength", light->strength);
+    Renderer_BindUniform_v3f("u_dirLight.color", light->color);
+}
+
+void BindPointLights(PointLight* lights, u32 lightCount, Camera* cam)
+{
+    for(u32 i = 0; i < lightCount; i++)
+    {
+        PointLight& light = lights[i];
+        char buf[256];
+        sprintf(buf, "u_pointLights[%d].viewPos", i);
+        Renderer_BindUniform_v3f(buf, v3f_As(cam->GetView() * v4f_AsPosition(light.worldPos)));
+        sprintf(buf, "u_pointLights[%d].strength", i);
+        Renderer_BindUniform_f32(buf, light.strength);
+        sprintf(buf, "u_pointLights[%d].radius", i);
+        Renderer_BindUniform_f32(buf, light.radius);
+        sprintf(buf, "u_pointLights[%d].color", i);
+        Renderer_BindUniform_v3f(buf, light.color);
+    }
+    Renderer_BindUniform_u32("u_pointLightsCount", lightCount);
+}
+
+#define MAX_POINT_LIGHTS 16
+DirectionalLight directionalLight;
+PointLight pointLights[MAX_POINT_LIGHTS];
+u32 pointLightsCount = 0;
+
+void AddPointLight()
+{
+    ASSERT(pointLightsCount < MAX_POINT_LIGHTS);
+    pointLights[pointLightsCount] = {};
+    pointLightsCount++;
+}
+
 bool inEditorMode = false;
 
 void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
@@ -338,11 +384,14 @@ void App_Render()
         Renderer_Clear({0.f,0.f,0.f,0.f});
 
         Renderer_BindShader(h_modelLightingPassShader);
-        Renderer_BindUniform_m4f("u_view", Renderer_GetCamera().GetView());
-        Renderer_BindUniform_v3f("u_lightDir", directionalLight.dir);
-        Renderer_BindUniform_v3f("u_lightColor", directionalLight.color);
-        Renderer_BindUniform_f32("u_lightIntensityAmbient", directionalLight.ambientIntensity);
-        Renderer_BindUniform_f32("u_lightIntensitySpecular", directionalLight.specularIntensity);
+        //Renderer_BindUniform_m4f("u_view", Renderer_GetCamera().GetView());
+        //Renderer_BindUniform_v3f("u_lightDir", directionalLight.dir);
+        //Renderer_BindUniform_v3f("u_lightColor", directionalLight.color);
+        //Renderer_BindUniform_f32("u_lightIntensityAmbient", directionalLight.ambientIntensity);
+        //Renderer_BindUniform_f32("u_lightIntensitySpecular", directionalLight.specularIntensity);
+        BindDirectionalLight(&directionalLight, &Renderer_GetCamera());
+        BindPointLights(pointLights, pointLightsCount, &Renderer_GetCamera());
+
         RenderTarget* gbufferRenderTarget = Renderer_GetRenderTarget(h_gbufferRenderTarget);
         Renderer_BindTexture(gbufferRenderTarget->outputs[0], 0);   // Diffuse + specular
         Renderer_BindTexture(gbufferRenderTarget->outputs[1], 1);   // View space positions
@@ -383,10 +432,34 @@ void App_Render()
                 ImGui::RadioButton("Position", &showGbufferOutputTarget, 1); ImGui::SameLine();
                 ImGui::RadioButton("Normal", &showGbufferOutputTarget, 2);
             }
-            ImGui::DragFloat3("Light direction", &directionalLight.dir.x, 0.005f, -1.f, 1.f);
-            ImGui::ColorEdit3("Light color", &directionalLight.color.x);
-            ImGui::DragFloat("Ambient intensity", &directionalLight.ambientIntensity, 0.005f, 0.f);
-            ImGui::DragFloat("Specular intensity", &directionalLight.specularIntensity, 0.005f, 0.f);
+            //ImGui::DragFloat3("Light direction", &directionalLight.dir.x, 0.005f, -1.f, 1.f);
+            //ImGui::ColorEdit3("Light color", &directionalLight.color.x);
+            //ImGui::DragFloat("Ambient intensity", &directionalLight.ambientIntensity, 0.005f, 0.f);
+            //ImGui::DragFloat("Specular intensity", &directionalLight.specularIntensity, 0.005f, 0.f);
+            if(ImGui::TreeNode("Directional Light"))
+            {
+                ImGui::DragFloat3("World Direction", &directionalLight.worldDir.x, 0.005f, -1.f, 1.f);
+                ImGui::DragFloat("Strength", &directionalLight.strength, 0.005f, 0.f, 50.f);
+                ImGui::ColorEdit3("Color", &directionalLight.color.x);
+                ImGui::TreePop();
+            }
+            ImGui::Text("Point Lights");
+            for(i32 i = 0; i < pointLightsCount; i++)
+            {
+                if(ImGui::TreeNode((void*)(intptr_t)i, "Light %d", i))
+                {
+                    PointLight* light = &(pointLights[i]);
+                    ImGui::DragFloat3("World Position", &light->worldPos.x, 0.005f);
+                    ImGui::DragFloat("Radius", &light->radius, 0.005f, 0.f, 3000.f);
+                    ImGui::DragFloat("Strength", &light->strength, 0.005f, 0.f, 50.f);
+                    ImGui::ColorEdit3("Color", &light->color.x);
+                    ImGui::TreePop();
+                }
+            }
+            if(ImGui::Button("Add Point Light"))
+            {
+                AddPointLight();
+            }
         }
 
         GUI_EndFrame();
