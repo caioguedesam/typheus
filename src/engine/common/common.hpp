@@ -99,6 +99,7 @@ void LogFormat(const char* label, const char* fmt, ...);
 #if _PROFILE
 #define PROFILE_FRAME FrameMark
 #define PROFILE_SCOPED ZoneScoped
+#define PROFILE_SCOPED_NAME(name) ZoneScopedN(name)
 #define PROFILE_GPU_CONTEXT TracyGpuContext
 #define PROFILE_GPU_SCOPED(name) TracyGpuZone(name)
 #define PROFILE_GPU_FRAME TracyGpuCollect
@@ -106,6 +107,7 @@ void LogFormat(const char* label, const char* fmt, ...);
 #else
 #define PROFILE_FRAME
 #define PROFILE_SCOPED
+#define PROFILE_SCOPED_NAME(name)
 #define PROFILE_GPU_CONTEXT
 #define PROFILE_GPU_SCOPED(name)
 #define PROFILE_GPU_FRAME
