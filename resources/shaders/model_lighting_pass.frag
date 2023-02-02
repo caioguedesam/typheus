@@ -15,32 +15,32 @@ layout (location = 0) out vec4 pOut_color;
 
 struct DirLight
 {
-    vec3 viewDir;
+    vec3 vs_dir;
     float strength;
     vec3 color;
 };
 
 struct PointLight
 {
-    vec3 viewPos;
+    vec3 vs_pos;
     float strength;
     float radius;
     vec3 color;
 };
 
-vec3 CalculateDirLight(in DirLight light, in vec3 viewNormal, in vec3 viewPos, 
-        in vec4 surfaceSample, float specularExponent)
+vec3 CalculateDirLight(in DirLight light, in vec3 vs_surfaceNormal, in vec3 vs_surfacePosition, 
+        in vec4 surfaceColor, float specularExponent)
 {
     // Light intensities
     float ambi = AMBIENT_LIGHT_INTENSITY;
-    float diff = max(0, dot(viewNormal, light.viewDir));
-    vec3 viewLightDir_R = reflect(light.viewDir, viewNormal);
-    float spec = pow(max(0, dot(normalize(viewPos), viewLightDir_R)), specularExponent) * SPECULAR_LIGHT_INTENSITY;
+    float diff = max(0, dot(vs_surfaceNormal, light.vs_dir));
+    vec3 vs_lightDirR = reflect(light.vs_dir, vs_surfaceNormal);
+    float spec = pow(max(0, dot(normalize(vs_surfacePosition), vs_lightDirR)), specularExponent) * SPECULAR_LIGHT_INTENSITY;
 
     // Accumulate with surface lightmap samples
-    vec3 ambient =  ambi * surfaceSample.rgb;
-    vec3 diffuse =  diff * surfaceSample.rgb;
-    vec3 specular = spec * surfaceSample.aaa;
+    vec3 ambient =  ambi * surfaceColor.rgb;
+    vec3 diffuse =  diff * surfaceColor.rgb;
+    vec3 specular = spec * surfaceColor.aaa;
 
     // No attenuation for directional lights
     vec3 result = light.strength * (ambient + diffuse + specular) * light.color;
@@ -55,25 +55,25 @@ float GetPointLightAttenuation(in float dist, in float radius, in float falloff)
     return mix(result, 0, (s >= 1.0));  // if distance is greater than radius, no light.
 }
 
-vec3 CalculatePointLight(in PointLight light, in vec3 viewNormal, in vec3 viewPos,
-        in vec4 surfaceSample, float specularExponent)
+vec3 CalculatePointLight(in PointLight light, in vec3 vs_surfaceNormal, in vec3 vs_surfacePosition,
+        in vec4 surfaceColor, float specularExponent)
 {
     // Light intensities
     float ambi = AMBIENT_LIGHT_INTENSITY;
-    vec3 viewLightDir = normalize(viewPos - light.viewPos);
-    float diff = max(0, dot(viewNormal, viewLightDir));
-    vec3 viewLightDir_R = reflect(viewLightDir, viewNormal);
-    float spec = pow(max(0, dot(normalize(viewPos), viewLightDir_R)), specularExponent) * SPECULAR_LIGHT_INTENSITY;
+    vec3 vs_lightDir = normalize(vs_surfacePosition - light.vs_pos);
+    float diff = max(0, dot(vs_surfaceNormal, vs_lightDir));
+    vec3 vs_lightDirR = reflect(vs_lightDir, vs_surfaceNormal);
+    float spec = pow(max(0, dot(normalize(vs_surfacePosition), vs_lightDirR)), specularExponent) * SPECULAR_LIGHT_INTENSITY;
 
     // Accumulate with surface lightmap samples
-    vec3 ambient =  ambi * surfaceSample.rgb;
-    vec3 diffuse =  diff * surfaceSample.rgb;
-    vec3 specular = spec * surfaceSample.aaa;
+    vec3 ambient =  ambi * surfaceColor.rgb;
+    vec3 diffuse =  diff * surfaceColor.rgb;
+    vec3 specular = spec * surfaceColor.aaa;
 
     // Attenuation factor
     // Using custom function to eliminate singularities. R is radius where light is 0.
     // Reference: https://lisyarus.github.io/blog/graphics/2022/07/30/point-light-attenuation.html 
-    float dist = distance(light.viewPos, viewPos);
+    float dist = distance(light.vs_pos, vs_surfacePosition);
     float atten = GetPointLightAttenuation(dist, light.radius, POINT_LIGHT_FALLOFF);
     float strength = light.strength * atten;
 
@@ -91,16 +91,16 @@ void main()
     vec4 gbufferPositionSample = texture(gbufferPosition, vOut_texcoord);
     vec4 gbufferNormalSample = texture(gbufferNormal, vOut_texcoord);
 
-    vec3 viewPosition = gbufferPositionSample.xyz;
-    vec3 viewNormal = normalize(gbufferNormalSample.xyz);
-    vec4 surfaceSample = gbufferDiffuseSample;
+    vec3 vs_surfacePosition = gbufferPositionSample.xyz;
+    vec3 vs_surfaceNormal = normalize(gbufferNormalSample.xyz);
+    vec4 surfaceColor = gbufferDiffuseSample;
     float specularExponent = gbufferNormalSample.a;
 
     vec3 outColor = vec3(0,0,0);
-    outColor += CalculateDirLight(u_dirLight, viewNormal, viewPosition, surfaceSample, specularExponent);
+    outColor += CalculateDirLight(u_dirLight, vs_surfaceNormal, vs_surfacePosition, surfaceColor, specularExponent);
     for(int i = 0; i < u_pointLightsCount; i++)
     {
-        outColor += CalculatePointLight(u_pointLights[i], viewNormal, viewPosition, surfaceSample, specularExponent);
+        outColor += CalculatePointLight(u_pointLights[i], vs_surfaceNormal, vs_surfacePosition, surfaceColor, specularExponent);
     }
 
     pOut_color = vec4(outColor, 1);

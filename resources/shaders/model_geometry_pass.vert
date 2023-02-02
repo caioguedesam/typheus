@@ -9,8 +9,7 @@ uniform mat4 u_world;
 uniform mat4 u_view;
 uniform mat4 u_proj;
 
-out vec3 vOut_position;
-//out vec3 vOut_normal;
+out vec3 vOut_vs_position;
 out vec2 vOut_texcoord;
 out mat3 vOut_TBN;
 
@@ -18,11 +17,10 @@ void main()
 {
     // Vertex outputs from gbuffer are stored in view space
     mat4 VW = u_view * u_world;
-    vec4 viewPosition = VW * vec4(vIn_position.xyz, 1.0);
-    gl_Position = u_proj * viewPosition;
+    vec4 vs_position = VW * vec4(vIn_position.xyz, 1.0);
+    gl_Position = u_proj * vs_position;
 
-    vOut_position = vec3(viewPosition.xyz);
-    //vOut_normal = transpose(inverse(mat3(VW))) * vIn_normal;
+    vOut_vs_position = vec3(vs_position.xyz);
     vec3 tangentCol     = normalize(vec3(VW * vec4(vIn_tangent, 0)));
     vec3 bitangentCol   = normalize(vec3(VW * vec4(vIn_bitangent, 0)));
     vec3 normalCol      = normalize(vec3(VW * vec4(vIn_normal, 0)));

@@ -19,7 +19,7 @@ struct RenderUnit
     v3f u_ambientColor = {};
     v3f u_diffuseColor = {};
     v3f u_specularColor = {};
-    f32 u_specularWeight = 0.f;
+    f32 u_specularExponent = 0.f;
 };
 
 struct RenderObjectProperties
@@ -39,7 +39,7 @@ void BindRenderUnitProperties(RenderUnit* unit)
     Renderer_BindUniform_v3f("u_ambientColor", unit->u_ambientColor);
     Renderer_BindUniform_v3f("u_diffuseColor", unit->u_diffuseColor);
     Renderer_BindUniform_v3f("u_specularColor", unit->u_specularColor);
-    Renderer_BindUniform_f32("u_specularWeight", unit->u_specularWeight);
+    Renderer_BindUniform_f32("u_specularExponent", unit->u_specularExponent);
 }
 
 void BindRenderObjectProperties(RenderObject* object)
@@ -190,7 +190,7 @@ struct PointLight
 
 void BindDirectionalLight(DirectionalLight* light, Camera* cam)
 {
-    Renderer_BindUniform_v3f("u_dirLight.viewDir", Normalize(v3f_As(cam->GetView() * v4f_AsDirection(light->worldDir))));
+    Renderer_BindUniform_v3f("u_dirLight.vs_dir", Normalize(v3f_As(cam->GetView() * v4f_AsDirection(light->worldDir))));
     Renderer_BindUniform_f32("u_dirLight.strength", light->strength);
     Renderer_BindUniform_v3f("u_dirLight.color", light->color);
 }
@@ -201,7 +201,7 @@ void BindPointLights(PointLight* lights, u32 lightCount, Camera* cam)
     {
         PointLight& light = lights[i];
         char buf[256];
-        sprintf(buf, "u_pointLights[%d].viewPos", i);
+        sprintf(buf, "u_pointLights[%d].vs_pos", i);
         Renderer_BindUniform_v3f(buf, v3f_As(cam->GetView() * v4f_AsPosition(light.worldPos)));
         sprintf(buf, "u_pointLights[%d].strength", i);
         Renderer_BindUniform_f32(buf, light.strength);
@@ -384,11 +384,6 @@ void App_Render()
         Renderer_Clear({0.f,0.f,0.f,0.f});
 
         Renderer_BindShader(h_modelLightingPassShader);
-        //Renderer_BindUniform_m4f("u_view", Renderer_GetCamera().GetView());
-        //Renderer_BindUniform_v3f("u_lightDir", directionalLight.dir);
-        //Renderer_BindUniform_v3f("u_lightColor", directionalLight.color);
-        //Renderer_BindUniform_f32("u_lightIntensityAmbient", directionalLight.ambientIntensity);
-        //Renderer_BindUniform_f32("u_lightIntensitySpecular", directionalLight.specularIntensity);
         BindDirectionalLight(&directionalLight, &Renderer_GetCamera());
         BindPointLights(pointLights, pointLightsCount, &Renderer_GetCamera());
 
