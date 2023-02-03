@@ -72,6 +72,17 @@ struct Texture
     u64 GetSize();
 };
 
+#define CUBEMAP_FACES 6
+struct Cubemap
+{
+    APIHandle apiHandle     = API_HANDLE_INVALID;
+    TextureFormat format    = TEXTURE_FORMAT_INVALID;
+    TextureParams params    = {};
+    u32 width               = 0;
+    u32 height              = 0;
+    u8* data[CUBEMAP_FACES] = {0,0,0,0,0,0};
+};
+
 enum VertexAttributeType : u32
 {
     VERTEX_ATTRIBUTE_FLOAT,
@@ -166,6 +177,7 @@ struct RenderTarget
 
 Handle<Buffer>              Renderer_CreateBuffer(BufferType type, u64 count, u64 stride, u8* data);
 Handle<Texture>             Renderer_CreateTexture(TextureFormat format, TextureParams parameters, u32 width, u32 height, u8* data);
+Handle<Cubemap>             Renderer_CreateCubemap(TextureFormat format, TextureParams parameters, u32 width, u32 height, u8* data[CUBEMAP_FACES]);
 Handle<Mesh>                Renderer_CreateMesh(Handle<Buffer> h_vertexBuffer, Handle<Buffer> h_indexBuffer, VertexLayout vertexLayout);
 void                        Renderer_CompileShaderStage(Handle<ShaderStage> h_shaderStage, std::string_view src);
 Handle<ShaderStage>         Renderer_CreateShaderStage(ShaderStageType type, std::string_view src);
@@ -186,6 +198,7 @@ void    Renderer_BindRenderTarget(Handle<RenderTarget> h_renderTarget);
 void    Renderer_BindMesh(Handle<Mesh> h_mesh);
 void    Renderer_BindShader(Handle<Shader> h_shader);
 void    Renderer_BindTexture(Handle<Texture> h_texture, u32 slot);
+void    Renderer_BindCubemap(Handle<Cubemap> h_cubemap, u32 slot);
 void    Renderer_BindMaterial(Handle<Material> h_material);
 void    Renderer_UnbindRenderTarget();
 // TODO(caio)#RENDER: Add more unbinds if needed
@@ -207,6 +220,7 @@ struct RenderResourceTable
 {
     std::vector<Buffer*>        bufferResources;
     std::vector<Texture*>       textureResources;
+    std::vector<Cubemap*>       cubemapResources;
     std::vector<Mesh*>          meshResources;
     std::vector<ShaderStage*>   shaderStageResources;
     std::vector<Shader*>        shaderResources;
@@ -235,6 +249,7 @@ inline Window*          Renderer_GetWindow() { return renderState.window; }
 
 inline Buffer*          Renderer_GetBuffer(Handle<Buffer> h_resource) { return renderResourceTable.bufferResources[h_resource.value]; }
 inline Texture*         Renderer_GetTexture(Handle<Texture> h_resource) { return renderResourceTable.textureResources[h_resource.value]; }
+inline Cubemap*         Renderer_GetCubemap(Handle<Cubemap> h_resource) { return renderResourceTable.cubemapResources[h_resource.value]; }
 inline Mesh*            Renderer_GetMesh(Handle<Mesh> h_resource) { return renderResourceTable.meshResources[h_resource.value]; }
 inline ShaderStage*     Renderer_GetShaderStage(Handle<ShaderStage> h_resource) { return renderResourceTable.shaderStageResources[h_resource.value]; }
 inline Shader*          Renderer_GetShader(Handle<Shader> h_resource) { return renderResourceTable.shaderResources[h_resource.value]; }
@@ -242,12 +257,13 @@ inline Material*        Renderer_GetMaterial(Handle<Material> h_resource) { retu
 inline RenderTarget*    Renderer_GetRenderTarget(Handle<RenderTarget> h_resource) { return renderResourceTable.renderTargetResources[h_resource.value]; }
 
 // Default resources
-inline Handle<Texture>         h_defaultWhiteTexture;
-inline Handle<ShaderStage>     h_screenQuadVS;
-inline Handle<ShaderStage>     h_screenQuadPS;
-inline Handle<Shader>          h_screenQuadShader;
-inline Handle<Material>        h_screenQuadMaterial;
-inline Handle<Mesh>            h_screenQuadMesh;
-inline Handle<RenderTarget>    h_defaultRenderTarget;
+inline Handle<Texture>          h_defaultWhiteTexture;
+inline Handle<ShaderStage>      h_screenQuadVS;
+inline Handle<ShaderStage>      h_screenQuadPS;
+inline Handle<Shader>           h_screenQuadShader;
+inline Handle<Material>         h_screenQuadMaterial;
+inline Handle<Mesh>             h_screenQuadMesh;
+//inline Handle<Mesh>             h_defaultCubeMesh;
+inline Handle<RenderTarget>     h_defaultRenderTarget;
 
 } // namespace Ty

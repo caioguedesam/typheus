@@ -51,7 +51,7 @@ struct AssetModel
 // [ASSET LOADING]
 
 Handle<AssetShader>     Asset_LoadShader(const std::string& assetPath);
-Handle<AssetTexture>    Asset_LoadTexture(const std::string& assetPath);
+Handle<AssetTexture>    Asset_LoadTexture(const std::string& assetPath, bool flipVertical = true);
 Handle<AssetModel>      Asset_LoadModel_OBJ(const std::string& assetPath, bool flipVerticalTexcoord = false);
 
 // ========================================================

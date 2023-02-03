@@ -22,14 +22,14 @@ Handle<AssetShader> Asset_LoadShader(const std::string& assetPath)
     return { assetTable.loadedAssets[assetPath] };
 }
 
-Handle<AssetTexture> Asset_LoadTexture(const std::string& assetPath)
+Handle<AssetTexture> Asset_LoadTexture(const std::string& assetPath, bool flipVertical)
 {
     if(Asset_IsLoaded(assetPath)) return { assetTable.loadedAssets[assetPath] };
 
     AssetTexture* texture = new AssetTexture();
 
     i32 width, height, channels;
-    stbi_set_flip_vertically_on_load(1);
+    stbi_set_flip_vertically_on_load(flipVertical);
     u8* data = stbi_load(assetPath.c_str(), &width, &height, &channels, 0);
 
     texture->width = width;

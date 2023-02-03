@@ -19,7 +19,121 @@ u32 screenQuadIndices[] =
     0, 2, 3,
 };
 
+//f32 defaultCubeVertices[] =
+//{
+////    // Right face
+////    // positions        // normals            // UVs
+////     1.f, -1.f,  1.f,    1.f,  0.f,  0.f,     0.f, 0.f,     // 0
+////     1.f, -1.f, -1.f,    1.f,  0.f,  0.f,     1.f, 0.f,     // 1
+////     1.f,  1.f, -1.f,    1.f,  0.f,  0.f,     1.f, 1.f,     // 2
+////     1.f,  1.f,  1.f,    1.f,  0.f,  0.f,     0.f, 1.f,     // 3
+////
+////    // Left face
+////    // positions        // normals            // UVs
+////    -1.f, -1.f, -1.f,   -1.f,  0.f,  0.f,     0.f, 0.f,     // 4
+////    -1.f, -1.f,  1.f,   -1.f,  0.f,  0.f,     1.f, 0.f,     // 5
+////    -1.f,  1.f,  1.f,   -1.f,  0.f,  0.f,     1.f, 1.f,     // 6
+////    -1.f,  1.f, -1.f,   -1.f,  0.f,  0.f,     0.f, 1.f,     // 7
+////
+////    // Top face
+////    // positions        // normals            // UVs
+////    -1.f,  1.f,  1.f,    0.f,  1.f,  0.f,     0.f, 0.f,     // 8
+////     1.f,  1.f,  1.f,    0.f,  1.f,  0.f,     1.f, 0.f,     // 9
+////     1.f,  1.f, -1.f,    0.f,  1.f,  0.f,     1.f, 1.f,     // 10
+////    -1.f,  1.f, -1.f,    0.f,  1.f,  0.f,     0.f, 1.f,     // 11
+////
+////    // Bottom face
+////    // positions        // normals            // UVs
+////    -1.f, -1.f, -1.f,    0.f, -1.f,  0.f,     0.f, 0.f,     // 12
+////     1.f, -1.f, -1.f,    0.f, -1.f,  0.f,     1.f, 0.f,     // 13
+////     1.f, -1.f,  1.f,    0.f, -1.f,  0.f,     1.f, 1.f,     // 14
+////    -1.f, -1.f,  1.f,    0.f, -1.f,  0.f,     0.f, 1.f,     // 15
+////
+////    // Back face
+////    // positions        // normals            // UVs
+////     1.f, -1.f, -1.f,    0.f,  0.f,  1.f,     0.f, 0.f,     // 16
+////    -1.f, -1.f, -1.f,    0.f,  0.f,  1.f,     1.f, 0.f,     // 17
+////    -1.f,  1.f, -1.f,    0.f,  0.f,  1.f,     1.f, 1.f,     // 18
+////     1.f,  1.f, -1.f,    0.f,  0.f,  1.f,     0.f, 1.f,     // 19
+////
+////    // Front face
+////    // positions        // normals            // UVs
+////    -1.f, -1.f,  1.f,    0.f,  0.f, -1.f,     0.f, 0.f,     // 20
+////     1.f, -1.f,  1.f,    0.f,  0.f, -1.f,     1.f, 0.f,     // 21
+////     1.f,  1.f,  1.f,    0.f,  0.f, -1.f,     1.f, 1.f,     // 22
+////    -1.f,  1.f,  1.f,    0.f,  0.f, -1.f,     0.f, 1.f,     // 23
+    //-1.0f,  1.0f, -1.0f,    0.f, 0.f,
+    //-1.0f, -1.0f, -1.0f,    0.f, 0.f,
+     //1.0f, -1.0f, -1.0f,    0.f, 0.f,
+     //1.0f, -1.0f, -1.0f,    0.f, 0.f,
+     //1.0f,  1.0f, -1.0f,    0.f, 0.f,
+    //-1.0f,  1.0f, -1.0f,    0.f, 0.f,
+
+    //-1.0f, -1.0f,  1.0f,    0.f, 0.f,
+    //-1.0f, -1.0f, -1.0f,    0.f, 0.f,
+    //-1.0f,  1.0f, -1.0f,    0.f, 0.f,
+    //-1.0f,  1.0f, -1.0f,    0.f, 0.f,
+    //-1.0f,  1.0f,  1.0f,    0.f, 0.f,
+    //-1.0f, -1.0f,  1.0f,    0.f, 0.f,
+
+     //1.0f, -1.0f, -1.0f,    0.f, 0.f,
+     //1.0f, -1.0f,  1.0f,    0.f, 0.f,
+     //1.0f,  1.0f,  1.0f,    0.f, 0.f,
+     //1.0f,  1.0f,  1.0f,    0.f, 0.f,
+     //1.0f,  1.0f, -1.0f,    0.f, 0.f,
+     //1.0f, -1.0f, -1.0f,    0.f, 0.f,
+
+    //-1.0f, -1.0f,  1.0f,    0.f, 0.f,
+    //-1.0f,  1.0f,  1.0f,    0.f, 0.f,
+     //1.0f,  1.0f,  1.0f,    0.f, 0.f,
+     //1.0f,  1.0f,  1.0f,    0.f, 0.f,
+     //1.0f, -1.0f,  1.0f,    0.f, 0.f,
+    //-1.0f, -1.0f,  1.0f,    0.f, 0.f,
+
+    //-1.0f,  1.0f, -1.0f,    0.f, 0.f,
+     //1.0f,  1.0f, -1.0f,    0.f, 0.f,
+     //1.0f,  1.0f,  1.0f,    0.f, 0.f,
+     //1.0f,  1.0f,  1.0f,    0.f, 0.f,
+    //-1.0f,  1.0f,  1.0f,    0.f, 0.f,
+    //-1.0f,  1.0f, -1.0f,    0.f, 0.f,
+
+    //-1.0f, -1.0f, -1.0f,    0.f, 0.f,
+    //-1.0f, -1.0f,  1.0f,    0.f, 0.f,
+     //1.0f, -1.0f, -1.0f,    0.f, 0.f,
+     //1.0f, -1.0f, -1.0f,    0.f, 0.f,
+    //-1.0f, -1.0f,  1.0f,    0.f, 0.f,
+     //1.0f, -1.0f,  1.0f,    0.f, 0.f,
+//};
+
+//u32 defaultCubeIndices[] =
+//{
+    //0,1,2,3,4,5,6,7,8,9,
+    //10,11,12,13,14,15,16,17,18,19,
+    //20,21,22,23,24,25,26,27,28,29,
+    //30,31,32,33,34,35,
+////    // Right face
+////    0, 1, 2,
+////    0, 2, 3,
+////    // Left face
+////    4, 5, 6,
+////    4, 6, 7,
+////    // Top face
+////    8, 9, 10,
+////    8, 10, 11,
+////    // Bottom face
+////    12, 13, 14,
+////    12, 14, 15,
+////    // Back face
+////    16, 17, 18,
+////    16, 18, 19,
+////    // Front face
+////    20, 21, 22,
+////    20, 22, 23
+//};
+
 u32 defaultWhiteTextureData = 0xFFFFFFFF;
+//u8 defaultWhiteRGB8TextureData[] = { 0xFF, 0xFF, 0xFF };
+u8 defaultWhiteCubemapData[] = { 0xFF, 0xFF, 0xFF, 0xFF };
 
 const char* screenQuadVSSrc =
 "#version 460 core\n"
@@ -127,6 +241,7 @@ Handle<Texture> Renderer_CreateTexture(TextureFormat format, TextureParams param
     APIHandle glHandle = API_HANDLE_INVALID;
     glGenTextures(1, &glHandle);
     ASSERT(glHandle != API_HANDLE_INVALID);
+    glBindTexture(GL_TEXTURE_2D, glHandle);
 
     GLuint glWrapS, glWrapT, glFilterMin, glFilterMag;
     GLuint glInternalFormat, glFormat, glDataType;
@@ -193,7 +308,6 @@ Handle<Texture> Renderer_CreateTexture(TextureFormat format, TextureParams param
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glFilterMin);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glFilterMag);
 
-    glBindTexture(GL_TEXTURE_2D, glHandle);
     glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, width, height, 0, glFormat, glDataType, data);
 
     if(parameters.useMips)
@@ -209,7 +323,110 @@ Handle<Texture> Renderer_CreateTexture(TextureFormat format, TextureParams param
     return { (u32)renderResourceTable.textureResources.size() - 1 };
 }
 
+Handle<Cubemap> Renderer_CreateCubemap(TextureFormat format, TextureParams parameters, u32 width, u32 height, u8* data[CUBEMAP_FACES])
+{
+    APIHandle glHandle = API_HANDLE_INVALID;
+    glGenTextures(1, &glHandle);
+    ASSERT(glHandle != API_HANDLE_INVALID);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, glHandle);
 
+    GLuint glWrapS, glWrapT, glWrapR, glFilterMin, glFilterMag;
+    GLuint glInternalFormat, glFormat, glDataType;
+    switch(parameters.wrapMode)
+    {
+        case TEXTURE_WRAP_REPEAT: glWrapS = glWrapT = glWrapR = GL_REPEAT; break;
+        case TEXTURE_WRAP_CLAMP: glWrapS = glWrapT = glWrapR = GL_CLAMP_TO_EDGE; break;
+        default: ASSERT(0);
+    }
+
+    switch(parameters.filterMode_Min)
+    {
+        case TEXTURE_FILTER_LINEAR: glFilterMin = parameters.useMips ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR; break;
+        case TEXTURE_FILTER_NEAREST: glFilterMin = parameters.useMips ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST; break;
+        default: ASSERT(0);
+    }
+    
+    switch(parameters.filterMode_Max)
+    {
+        case TEXTURE_FILTER_LINEAR: glFilterMag = GL_LINEAR; break;
+        case TEXTURE_FILTER_NEAREST: glFilterMag = GL_NEAREST; break;
+        default: ASSERT(0);
+    }
+    
+    switch(format)
+    {
+        case TEXTURE_FORMAT_R8:
+            {
+                glInternalFormat = GL_R8;
+                glFormat = GL_RED;
+                glDataType = GL_UNSIGNED_BYTE;
+            }; break;
+        case TEXTURE_FORMAT_RG8:
+            {
+                glInternalFormat = GL_RG8;
+                glFormat = GL_RG;
+                glDataType = GL_UNSIGNED_BYTE;
+            }; break;
+        case TEXTURE_FORMAT_RGB8:
+            {
+                glInternalFormat = GL_RGB8;
+                glFormat = GL_RGB;
+                glDataType = GL_UNSIGNED_BYTE;
+            }; break;
+        case TEXTURE_FORMAT_RGBA8:
+            {
+                glInternalFormat = GL_RGBA8;
+                glFormat = GL_RGBA;
+                glDataType = GL_UNSIGNED_BYTE;
+            }; break;
+        case TEXTURE_FORMAT_RGBA16F:
+            {
+                glInternalFormat = GL_RGBA16F;
+                glFormat = GL_RGBA;
+                glDataType = GL_FLOAT;
+            } break;
+
+        default: ASSERT(0);
+    }
+
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, glWrapS);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, glWrapT);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, glWrapR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, glFilterMin);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, glFilterMag);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BASE_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, 0);
+
+    // Order: RIGHT -> LEFT -> TOP -> BOTTOM -> BACK -> FRONT
+    for(i32 i = 0; i < CUBEMAP_FACES; i++)
+    {
+        u8* faceData = data[i];
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, glInternalFormat, width, height, 0, glFormat, glDataType, faceData);
+        //glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB8, 1, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, (u8*)&defaultWhiteCubemapData[0]);
+    }
+
+    // TODO(caio)#RENDER: Implement support for mipmaps on cubemaps.
+    //if(parameters.useMips)
+        //glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+
+    Cubemap* cubemap = new Cubemap();
+    *cubemap =
+    {
+        //glHandle, format, parameters, width, height
+        glHandle, format, parameters, 1, 1
+    };
+    for(i32 i = 0; i < CUBEMAP_FACES; i++)
+    {
+        u8* faceData = data[i];
+        cubemap->data[i] = faceData;
+        //cubemap->data[i] = defaultWhiteRGB8TextureData;
+        //cubemap->data[i] = (u8*)&defaultWhiteCubemapData[0];
+    }
+
+    renderResourceTable.cubemapResources.push_back(cubemap);
+    return { (u32)renderResourceTable.cubemapResources.size() - 1 };
+}
 
 Handle<Mesh> Renderer_CreateMesh(Handle<Buffer> h_vertexBuffer, Handle<Buffer> h_indexBuffer, VertexLayout vertexLayout)
 {
@@ -528,6 +745,15 @@ void Renderer_BindTexture(Handle<Texture> h_texture, u32 slot)
     glBindTexture(GL_TEXTURE_2D, bindTarget);
 }
 
+void Renderer_BindCubemap(Handle<Cubemap> h_cubemap, u32 slot)
+{
+    u32 bindTarget = h_cubemap.IsValid()
+        ? Renderer_GetCubemap(h_cubemap)->apiHandle
+        : Renderer_GetTexture(h_defaultWhiteTexture)->apiHandle;    // No idea if this works...
+    glActiveTexture(GL_TEXTURE0 + slot);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, bindTarget);
+}
+
 void Renderer_BindMaterial(Handle<Material> h_material)
 {
     ASSERT(h_material.IsValid());
@@ -648,7 +874,7 @@ void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Wi
     // Creating default resources
     RenderTargetOutputDesc renderTargetDefaultOutputsDesc[] =
     {
-        { TEXTURE_FORMAT_RGBA8, TEXTURE_WRAP_CLAMP, TEXTURE_FILTER_NEAREST, TEXTURE_FILTER_NEAREST },
+        { TEXTURE_FORMAT_RGBA8, TEXTURE_WRAP_CLAMP, TEXTURE_FILTER_LINEAR, TEXTURE_FILTER_NEAREST },
     };
     h_defaultRenderTarget = Renderer_CreateRenderTarget(1920, 1080, 1, renderTargetDefaultOutputsDesc);
 
@@ -662,6 +888,11 @@ void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Wi
     Handle<Buffer> h_screenQuadIB = Renderer_CreateBuffer(BUFFER_TYPE_INDEX, ArrayCount(screenQuadIndices), sizeof(u32), (u8*)screenQuadIndices);
     h_screenQuadMesh = Renderer_CreateMesh(h_screenQuadVB, h_screenQuadIB,
             {2, { VERTEX_ATTRIBUTE_VEC2, VERTEX_ATTRIBUTE_VEC2 }});
+    
+    //Handle<Buffer> h_defaultCubeVB = Renderer_CreateBuffer(BUFFER_TYPE_VERTEX, ArrayCount(defaultCubeVertices), sizeof(f32), (u8*)defaultCubeVertices);
+    //Handle<Buffer> h_defaultCubeIB = Renderer_CreateBuffer(BUFFER_TYPE_INDEX, ArrayCount(defaultCubeIndices), sizeof(u32), (u8*)defaultCubeIndices);
+    //h_defaultCubeMesh = Renderer_CreateMesh(h_defaultCubeVB, h_defaultCubeIB,
+            //{3, { VERTEX_ATTRIBUTE_VEC3, VERTEX_ATTRIBUTE_VEC3, VERTEX_ATTRIBUTE_VEC2 }});
 
     h_defaultWhiteTexture = Renderer_CreateTexture(TEXTURE_FORMAT_RGBA8, {}, 1, 1, (u8*)&defaultWhiteTextureData);
 }

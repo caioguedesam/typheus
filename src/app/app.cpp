@@ -5,6 +5,7 @@
 
 #define APP_RESOURCE_PATH           "../resources/"
 #define APP_RESOURCE_SHADERS_PATH   APP_RESOURCE_PATH"shaders/"
+#define APP_RESOURCE_TEXTURES_PATH  APP_RESOURCE_PATH"textures/"
 #define APP_RESOURCE_MODELS_PATH    APP_RESOURCE_PATH"models/"
 #define APP_RESOURCE_FONTS_PATH     APP_RESOURCE_PATH"fonts/"
 
@@ -111,6 +112,40 @@ Handle<Texture> GetTextureFromAsset(Handle<AssetTexture> h_asset)
     return h_texture;
 }
 
+Handle<Cubemap> GetCubemapFromAsset(Handle<AssetTexture>* h_assets)
+{
+    for(i32 i = 0; i < CUBEMAP_FACES; i++)
+    {
+        if(!h_assets[i].IsValid()) return { HANDLE_INVALID };
+    }
+
+    TextureFormat format = {};
+    TextureParams params = {};
+    AssetTexture* assetRightTexture = Asset_GetTexture(h_assets[0]);
+    switch(assetRightTexture->channels)
+    {
+        case 1: format = TEXTURE_FORMAT_R8; break;
+        case 2: format = TEXTURE_FORMAT_RG8; break;
+        case 3: format = TEXTURE_FORMAT_RGB8; break;
+        case 4: format = TEXTURE_FORMAT_RGBA8; break;
+        default: ASSERT(0);
+    }
+    params.useMips = true;
+    params.wrapMode = TEXTURE_WRAP_CLAMP;
+    params.filterMode_Min = TEXTURE_FILTER_LINEAR;
+    params.filterMode_Max = TEXTURE_FILTER_LINEAR;
+
+    u8* textureData[CUBEMAP_FACES];
+    for(i32 i = 0; i < CUBEMAP_FACES; i++)
+    {
+        textureData[i] = Asset_GetTexture(h_assets[i])->data;
+    }
+
+    Handle<Cubemap> h_cubemap = Renderer_CreateCubemap(format, params, assetRightTexture->width, assetRightTexture->height, textureData);
+
+    return h_cubemap;
+}
+
 Handle<RenderObject> CreateRenderObjectFromAsset(Handle<AssetModel> h_asset)
 {
     if(!h_asset.IsValid())                  return { HANDLE_INVALID };
@@ -165,14 +200,6 @@ Handle<RenderObject> CreateRenderObjectFromAsset(Handle<AssetModel> h_asset)
     return h_model;
 }
 
-Handle<RenderTarget> h_gbufferRenderTarget;
-Handle<Shader> h_modelGeometryPassShader;
-Handle<Shader> h_modelLightingPassShader;
-
-Handle<RenderObject> h_sponzaObject;
-Handle<RenderObject> h_backpackObject;
-std::vector<Handle<RenderObject>> h_bunnyObjects;
-
 struct DirectionalLight
 {
     v3f worldDir = {0,1,0};
@@ -212,6 +239,14 @@ void BindPointLights(PointLight* lights, u32 lightCount, Camera* cam)
     }
     Renderer_BindUniform_u32("u_pointLightsCount", lightCount);
 }
+
+Handle<RenderTarget> h_gbufferRenderTarget;
+Handle<Shader> h_modelGeometryPassShader;
+Handle<Shader> h_modelLightingPassShader;
+
+Handle<RenderObject> h_sponzaObject;
+Handle<RenderObject> h_backpackObject;
+std::vector<Handle<RenderObject>> h_bunnyObjects;
 
 #define MAX_POINT_LIGHTS 16
 DirectionalLight directionalLight;
@@ -254,13 +289,11 @@ void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
     Handle<AssetShader> h_assetModelGeometryPS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"model_geometry_pass.frag");
     h_modelGeometryPassShader = Renderer_CreateShader(
                 GetShaderFromAsset(h_assetModelGeometryVS, SHADERSTAGE_TYPE_VERTEX),
-                GetShaderFromAsset(h_assetModelGeometryPS, SHADERSTAGE_TYPE_PIXEL)
-            );
+                GetShaderFromAsset(h_assetModelGeometryPS, SHADERSTAGE_TYPE_PIXEL));
     Handle<AssetShader> h_assetModelLightingPS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"model_lighting_pass.frag");
     h_modelLightingPassShader = Renderer_CreateShader(
             h_screenQuadVS,
-            GetShaderFromAsset(h_assetModelLightingPS, SHADERSTAGE_TYPE_PIXEL)
-            );
+            GetShaderFromAsset(h_assetModelLightingPS, SHADERSTAGE_TYPE_PIXEL));
 
     // In-game models
     Handle<AssetModel> h_assetSponzaModel = Asset_LoadModel_OBJ(APP_RESOURCE_MODELS_PATH"sponza/sponza.obj");
@@ -353,47 +386,47 @@ void App_Render()
 
     // Prepare
     {
-        Renderer_BindRenderTarget(h_gbufferRenderTarget);
-        Renderer_Clear({0.f, 0.f, 0.f, 0.f});
+      Renderer_BindRenderTarget(h_gbufferRenderTarget);
+      Renderer_Clear({0.f, 0.f, 0.f, 0.f});
     }
 
     // G-Buffer geometry pass
     {
-        Renderer_BindShader(h_modelGeometryPassShader);
-        Renderer_BindUniform_m4f("u_view", Renderer_GetCamera().GetView());
-        Renderer_BindUniform_m4f("u_proj", Renderer_GetCamera().GetProjection(*renderState.window));
-        for(i32 i = 0; i < renderObjects.size(); i++)
+      Renderer_BindShader(h_modelGeometryPassShader);
+      Renderer_BindUniform_m4f("u_view", Renderer_GetCamera().GetView());
+      Renderer_BindUniform_m4f("u_proj", Renderer_GetCamera().GetProjection(*renderState.window));
+      for(i32 i = 0; i < renderObjects.size(); i++)
+      {
+        RenderObject* ro = renderObjects[i];
+        BindRenderObjectProperties(ro);
+        for(i32 o = 0; o < ro->renderUnits.size(); o++)
         {
-            RenderObject* ro = renderObjects[i];
-            BindRenderObjectProperties(ro);
-            for(i32 o = 0; o < ro->renderUnits.size(); o++)
-            {
-                RenderUnit& renderUnit = ro->renderUnits[o];
-                Renderer_BindMaterial(renderUnit.h_material);
-                Renderer_BindMesh(renderUnit.h_mesh);
-                BindRenderUnitProperties(&renderUnit);
+          RenderUnit& renderUnit = ro->renderUnits[o];
+          Renderer_BindMaterial(renderUnit.h_material);
+          Renderer_BindMesh(renderUnit.h_mesh);
+          BindRenderUnitProperties(&renderUnit);
 
-                Renderer_DrawMesh();
-            }
+          Renderer_DrawMesh();
         }
+      }
     }
 
     // G-Buffer lighting pass
     {
-        Renderer_BindRenderTarget(h_defaultRenderTarget);
-        Renderer_Clear({0.f,0.f,0.f,0.f});
+      Renderer_BindRenderTarget(h_defaultRenderTarget);
+      Renderer_Clear({0.f,0.f,0.f,0.f});
 
-        Renderer_BindShader(h_modelLightingPassShader);
-        BindDirectionalLight(&directionalLight, &Renderer_GetCamera());
-        BindPointLights(pointLights, pointLightsCount, &Renderer_GetCamera());
+      Renderer_BindShader(h_modelLightingPassShader);
+      BindDirectionalLight(&directionalLight, &Renderer_GetCamera());
+      BindPointLights(pointLights, pointLightsCount, &Renderer_GetCamera());
 
-        RenderTarget* gbufferRenderTarget = Renderer_GetRenderTarget(h_gbufferRenderTarget);
-        Renderer_BindTexture(gbufferRenderTarget->outputs[0], 0);   // Diffuse + specular
-        Renderer_BindTexture(gbufferRenderTarget->outputs[1], 1);   // View space positions
-        Renderer_BindTexture(gbufferRenderTarget->outputs[2], 2);   // View space normals
-        Renderer_BindMesh(h_screenQuadMesh);
+      RenderTarget* gbufferRenderTarget = Renderer_GetRenderTarget(h_gbufferRenderTarget);
+      Renderer_BindTexture(gbufferRenderTarget->outputs[0], 0);   // Diffuse + specular
+      Renderer_BindTexture(gbufferRenderTarget->outputs[1], 1);   // View space positions
+      Renderer_BindTexture(gbufferRenderTarget->outputs[2], 2);   // View space normals
+      Renderer_BindMesh(h_screenQuadMesh);
 
-        Renderer_DrawMesh();
+      Renderer_DrawMesh();
     }
 
     // Copy to backbuffer
@@ -427,10 +460,6 @@ void App_Render()
                 ImGui::RadioButton("Position", &showGbufferOutputTarget, 1); ImGui::SameLine();
                 ImGui::RadioButton("Normal", &showGbufferOutputTarget, 2);
             }
-            //ImGui::DragFloat3("Light direction", &directionalLight.dir.x, 0.005f, -1.f, 1.f);
-            //ImGui::ColorEdit3("Light color", &directionalLight.color.x);
-            //ImGui::DragFloat("Ambient intensity", &directionalLight.ambientIntensity, 0.005f, 0.f);
-            //ImGui::DragFloat("Specular intensity", &directionalLight.specularIntensity, 0.005f, 0.f);
             if(ImGui::TreeNode("Directional Light"))
             {
                 ImGui::DragFloat3("World Direction", &directionalLight.worldDir.x, 0.005f, -1.f, 1.f);
