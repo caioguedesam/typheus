@@ -9,6 +9,18 @@ namespace Ty
 typedef GLuint APIHandle;
 #define API_HANDLE_INVALID      MAX_U32
 
+enum DepthCompare : u32
+{
+    DEPTH_COMPARE_NEVER = 0,
+    DEPTH_COMPARE_ALWAYS,
+    DEPTH_COMPARE_LT,
+    DEPTH_COMPARE_LE,
+    DEPTH_COMPARE_GT,
+    DEPTH_COMPARE_GE,
+    DEPTH_COMPARE_E,
+    DEPTH_COMPARE_NE,
+};
+
 enum BufferType : u32
 {
     BUFFER_TYPE_INVALID = 0,
@@ -36,6 +48,7 @@ enum TextureFormat : u32
     TEXTURE_FORMAT_RGB8,
     TEXTURE_FORMAT_RGBA8,
     TEXTURE_FORMAT_RGBA16F,
+    TEXTURE_FORMAT_D32,
     // TODO(caio)#RENDER: Add more texture formats whenever needed.
 };
 
@@ -168,8 +181,8 @@ struct RenderTargetOutputDesc
 struct RenderTarget
 {
     APIHandle apiHandle             = API_HANDLE_INVALID;
-    APIHandle depthStencilAPIHandle = API_HANDLE_INVALID;
     Handle<Texture> outputs[RENDER_TARGET_MAX_OUTPUTS];
+    Handle<Texture> depthOutput;
     u8 outputsCount                 = 0;
     u32 width                       = 0;
     u32 height                      = 0;
@@ -203,6 +216,7 @@ void    Renderer_BindMaterial(Handle<Material> h_material);
 void    Renderer_UnbindRenderTarget();
 // TODO(caio)#RENDER: Add more unbinds if needed
 
+void    Renderer_SetDepthCompare(DepthCompare func);
 void    Renderer_SetCamera(Camera camera);
 void    Renderer_SetViewport(RenderViewport viewport);
 void    Renderer_Clear(v4f color);
@@ -211,6 +225,9 @@ void    Renderer_GenerateMipsForRenderTarget(Handle<RenderTarget> h_renderTarget
 void    Renderer_DrawMesh();
 void    Renderer_CopyTextureToBackbuffer(Handle<Texture> h_texture);
 void    Renderer_CopyRenderTargetOutputToBackbuffer(Handle<RenderTarget> h_renderTarget, u8 outputIndex);
+void    Renderer_CopyRenderTargetDepthOutputToBackbuffer(Handle<RenderTarget> h_renderTarget);
+void    Renderer_CopyRenderTargetOutput(Handle<RenderTarget> h_src, Handle<RenderTarget> h_dest);
+void    Renderer_CopyRenderTargetDepth(Handle<RenderTarget> h_src, Handle<RenderTarget> h_dest);
 
 void    Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Window* outWindow);
 void    Renderer_BeginFrame();
@@ -233,6 +250,7 @@ struct RenderState
     Window* window          = nullptr;
     Camera camera           = {};
     RenderViewport viewport = {};
+    DepthCompare depthCompare = DEPTH_COMPARE_LT;
 
     Handle<RenderTarget>    h_activeRenderTarget;
     Handle<Shader>          h_activeShader;
@@ -246,6 +264,7 @@ inline RenderState          renderState;
 inline Camera&          Renderer_GetCamera() { return renderState.camera; }
 inline RenderViewport&  Renderer_GetViewport() { return renderState.viewport; }
 inline Window*          Renderer_GetWindow() { return renderState.window; }
+inline DepthCompare     Renderer_GetDepthCompare() { return renderState.depthCompare; }
 
 inline Buffer*          Renderer_GetBuffer(Handle<Buffer> h_resource) { return renderResourceTable.bufferResources[h_resource.value]; }
 inline Texture*         Renderer_GetTexture(Handle<Texture> h_resource) { return renderResourceTable.textureResources[h_resource.value]; }
@@ -263,7 +282,7 @@ inline Handle<ShaderStage>      h_screenQuadPS;
 inline Handle<Shader>           h_screenQuadShader;
 inline Handle<Material>         h_screenQuadMaterial;
 inline Handle<Mesh>             h_screenQuadMesh;
-//inline Handle<Mesh>             h_defaultCubeMesh;
+inline Handle<Mesh>             h_defaultCubeMesh;
 inline Handle<RenderTarget>     h_defaultRenderTarget;
 
 } // namespace Ty

@@ -215,6 +215,11 @@ struct PointLight
     v3f color = {1,1,1};
 };
 
+struct Skybox
+{
+    Handle<Cubemap> h_cubemap;
+};
+
 void BindDirectionalLight(DirectionalLight* light, Camera* cam)
 {
     Renderer_BindUniform_v3f("u_dirLight.vs_dir", Normalize(v3f_As(cam->GetView() * v4f_AsDirection(light->worldDir))));
@@ -243,6 +248,7 @@ void BindPointLights(PointLight* lights, u32 lightCount, Camera* cam)
 Handle<RenderTarget> h_gbufferRenderTarget;
 Handle<Shader> h_modelGeometryPassShader;
 Handle<Shader> h_modelLightingPassShader;
+Handle<Shader> h_skyboxShader;
 
 Handle<RenderObject> h_sponzaObject;
 Handle<RenderObject> h_backpackObject;
@@ -252,6 +258,7 @@ std::vector<Handle<RenderObject>> h_bunnyObjects;
 DirectionalLight directionalLight;
 PointLight pointLights[MAX_POINT_LIGHTS];
 u32 pointLightsCount = 0;
+Skybox skybox;
 
 void AddPointLight()
 {
@@ -294,6 +301,26 @@ void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
     h_modelLightingPassShader = Renderer_CreateShader(
             h_screenQuadVS,
             GetShaderFromAsset(h_assetModelLightingPS, SHADERSTAGE_TYPE_PIXEL));
+    Handle<AssetShader> h_assetSkyboxVS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"skybox.vert");
+    Handle<AssetShader> h_assetSkyboxPS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"skybox.frag");
+    h_skyboxShader = Renderer_CreateShader(
+            GetShaderFromAsset(h_assetSkyboxVS, SHADERSTAGE_TYPE_VERTEX),
+            GetShaderFromAsset(h_assetSkyboxPS, SHADERSTAGE_TYPE_PIXEL));
+
+    // Skybox
+    // Texture order: LEFT -> RIGHT -> TOP -> BOTTOM -> BACK -> FRONT
+    // Textures must not be flipped vertically, and top/bottom assets need to be rotated 180deg.
+    // TODO(caio)#ASSET: Add option to flip texture horizontally on load, like flipVertical.
+    Handle<AssetTexture> h_assetSkyboxFaces[] =
+    {
+        Asset_LoadTexture(APP_RESOURCE_TEXTURES_PATH"skybox_left.jpg",      false),
+        Asset_LoadTexture(APP_RESOURCE_TEXTURES_PATH"skybox_right.jpg",     false),
+        Asset_LoadTexture(APP_RESOURCE_TEXTURES_PATH"skybox_top.jpg",       false),
+        Asset_LoadTexture(APP_RESOURCE_TEXTURES_PATH"skybox_bottom.jpg",    false),
+        Asset_LoadTexture(APP_RESOURCE_TEXTURES_PATH"skybox_back.jpg",      false),
+        Asset_LoadTexture(APP_RESOURCE_TEXTURES_PATH"skybox_front.jpg",     false),
+    };
+    skybox.h_cubemap = GetCubemapFromAsset(h_assetSkyboxFaces);
 
     // In-game models
     Handle<AssetModel> h_assetSponzaModel = Asset_LoadModel_OBJ(APP_RESOURCE_MODELS_PATH"sponza/sponza.obj");
@@ -427,6 +454,23 @@ void App_Render()
       Renderer_BindMesh(h_screenQuadMesh);
 
       Renderer_DrawMesh();
+    }
+
+    
+    // Render Skybox
+    {
+        Renderer_CopyRenderTargetDepth(h_gbufferRenderTarget, h_defaultRenderTarget);
+        DepthCompare oldDepthCompare = Renderer_GetDepthCompare();
+        Renderer_SetDepthCompare(DEPTH_COMPARE_LE);
+
+        Renderer_BindShader(h_skyboxShader);
+        Renderer_BindUniform_m4f("u_view", Renderer_GetCamera().GetView());
+        Renderer_BindUniform_m4f("u_proj", Renderer_GetCamera().GetProjection(*renderState.window));
+        Renderer_BindCubemap(skybox.h_cubemap, 0);
+        Renderer_BindMesh(h_defaultCubeMesh);
+        Renderer_DrawMesh();
+
+        Renderer_SetDepthCompare(oldDepthCompare);
     }
 
     // Copy to backbuffer

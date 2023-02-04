@@ -19,121 +19,36 @@ u32 screenQuadIndices[] =
     0, 2, 3,
 };
 
-//f32 defaultCubeVertices[] =
-//{
-////    // Right face
-////    // positions        // normals            // UVs
-////     1.f, -1.f,  1.f,    1.f,  0.f,  0.f,     0.f, 0.f,     // 0
-////     1.f, -1.f, -1.f,    1.f,  0.f,  0.f,     1.f, 0.f,     // 1
-////     1.f,  1.f, -1.f,    1.f,  0.f,  0.f,     1.f, 1.f,     // 2
-////     1.f,  1.f,  1.f,    1.f,  0.f,  0.f,     0.f, 1.f,     // 3
-////
-////    // Left face
-////    // positions        // normals            // UVs
-////    -1.f, -1.f, -1.f,   -1.f,  0.f,  0.f,     0.f, 0.f,     // 4
-////    -1.f, -1.f,  1.f,   -1.f,  0.f,  0.f,     1.f, 0.f,     // 5
-////    -1.f,  1.f,  1.f,   -1.f,  0.f,  0.f,     1.f, 1.f,     // 6
-////    -1.f,  1.f, -1.f,   -1.f,  0.f,  0.f,     0.f, 1.f,     // 7
-////
-////    // Top face
-////    // positions        // normals            // UVs
-////    -1.f,  1.f,  1.f,    0.f,  1.f,  0.f,     0.f, 0.f,     // 8
-////     1.f,  1.f,  1.f,    0.f,  1.f,  0.f,     1.f, 0.f,     // 9
-////     1.f,  1.f, -1.f,    0.f,  1.f,  0.f,     1.f, 1.f,     // 10
-////    -1.f,  1.f, -1.f,    0.f,  1.f,  0.f,     0.f, 1.f,     // 11
-////
-////    // Bottom face
-////    // positions        // normals            // UVs
-////    -1.f, -1.f, -1.f,    0.f, -1.f,  0.f,     0.f, 0.f,     // 12
-////     1.f, -1.f, -1.f,    0.f, -1.f,  0.f,     1.f, 0.f,     // 13
-////     1.f, -1.f,  1.f,    0.f, -1.f,  0.f,     1.f, 1.f,     // 14
-////    -1.f, -1.f,  1.f,    0.f, -1.f,  0.f,     0.f, 1.f,     // 15
-////
-////    // Back face
-////    // positions        // normals            // UVs
-////     1.f, -1.f, -1.f,    0.f,  0.f,  1.f,     0.f, 0.f,     // 16
-////    -1.f, -1.f, -1.f,    0.f,  0.f,  1.f,     1.f, 0.f,     // 17
-////    -1.f,  1.f, -1.f,    0.f,  0.f,  1.f,     1.f, 1.f,     // 18
-////     1.f,  1.f, -1.f,    0.f,  0.f,  1.f,     0.f, 1.f,     // 19
-////
-////    // Front face
-////    // positions        // normals            // UVs
-////    -1.f, -1.f,  1.f,    0.f,  0.f, -1.f,     0.f, 0.f,     // 20
-////     1.f, -1.f,  1.f,    0.f,  0.f, -1.f,     1.f, 0.f,     // 21
-////     1.f,  1.f,  1.f,    0.f,  0.f, -1.f,     1.f, 1.f,     // 22
-////    -1.f,  1.f,  1.f,    0.f,  0.f, -1.f,     0.f, 1.f,     // 23
-    //-1.0f,  1.0f, -1.0f,    0.f, 0.f,
-    //-1.0f, -1.0f, -1.0f,    0.f, 0.f,
-     //1.0f, -1.0f, -1.0f,    0.f, 0.f,
-     //1.0f, -1.0f, -1.0f,    0.f, 0.f,
-     //1.0f,  1.0f, -1.0f,    0.f, 0.f,
-    //-1.0f,  1.0f, -1.0f,    0.f, 0.f,
+// TODO(caio)#RENDER: Add normals and texture coords here when needed.
+f32 defaultCubeVertices[] =
+{
+    -1, -1, -1,
+    -1, -1,  1,
+    -1,  1,  1,
+    -1,  1, -1,
+     1, -1,  1,
+     1, -1, -1,
+     1,  1, -1,
+     1,  1,  1,
+};
 
-    //-1.0f, -1.0f,  1.0f,    0.f, 0.f,
-    //-1.0f, -1.0f, -1.0f,    0.f, 0.f,
-    //-1.0f,  1.0f, -1.0f,    0.f, 0.f,
-    //-1.0f,  1.0f, -1.0f,    0.f, 0.f,
-    //-1.0f,  1.0f,  1.0f,    0.f, 0.f,
-    //-1.0f, -1.0f,  1.0f,    0.f, 0.f,
-
-     //1.0f, -1.0f, -1.0f,    0.f, 0.f,
-     //1.0f, -1.0f,  1.0f,    0.f, 0.f,
-     //1.0f,  1.0f,  1.0f,    0.f, 0.f,
-     //1.0f,  1.0f,  1.0f,    0.f, 0.f,
-     //1.0f,  1.0f, -1.0f,    0.f, 0.f,
-     //1.0f, -1.0f, -1.0f,    0.f, 0.f,
-
-    //-1.0f, -1.0f,  1.0f,    0.f, 0.f,
-    //-1.0f,  1.0f,  1.0f,    0.f, 0.f,
-     //1.0f,  1.0f,  1.0f,    0.f, 0.f,
-     //1.0f,  1.0f,  1.0f,    0.f, 0.f,
-     //1.0f, -1.0f,  1.0f,    0.f, 0.f,
-    //-1.0f, -1.0f,  1.0f,    0.f, 0.f,
-
-    //-1.0f,  1.0f, -1.0f,    0.f, 0.f,
-     //1.0f,  1.0f, -1.0f,    0.f, 0.f,
-     //1.0f,  1.0f,  1.0f,    0.f, 0.f,
-     //1.0f,  1.0f,  1.0f,    0.f, 0.f,
-    //-1.0f,  1.0f,  1.0f,    0.f, 0.f,
-    //-1.0f,  1.0f, -1.0f,    0.f, 0.f,
-
-    //-1.0f, -1.0f, -1.0f,    0.f, 0.f,
-    //-1.0f, -1.0f,  1.0f,    0.f, 0.f,
-     //1.0f, -1.0f, -1.0f,    0.f, 0.f,
-     //1.0f, -1.0f, -1.0f,    0.f, 0.f,
-    //-1.0f, -1.0f,  1.0f,    0.f, 0.f,
-     //1.0f, -1.0f,  1.0f,    0.f, 0.f,
-//};
-
-//u32 defaultCubeIndices[] =
-//{
-    //0,1,2,3,4,5,6,7,8,9,
-    //10,11,12,13,14,15,16,17,18,19,
-    //20,21,22,23,24,25,26,27,28,29,
-    //30,31,32,33,34,35,
-////    // Right face
-////    0, 1, 2,
-////    0, 2, 3,
-////    // Left face
-////    4, 5, 6,
-////    4, 6, 7,
-////    // Top face
-////    8, 9, 10,
-////    8, 10, 11,
-////    // Bottom face
-////    12, 13, 14,
-////    12, 14, 15,
-////    // Back face
-////    16, 17, 18,
-////    16, 18, 19,
-////    // Front face
-////    20, 21, 22,
-////    20, 22, 23
-//};
+u32 defaultCubeIndices[] =
+{
+    // Left
+    0, 2, 1, 0, 3, 2,
+    // Right
+    4, 6, 5, 4, 7, 6,
+    // Top
+    2, 6, 7, 2, 3, 6,
+    // Bottom
+    0, 4, 5, 0, 1, 4,
+    // Back
+    1, 7, 4, 1, 2, 7,
+    // Front
+    5, 3, 0, 5, 6, 3,
+};
 
 u32 defaultWhiteTextureData = 0xFFFFFFFF;
-//u8 defaultWhiteRGB8TextureData[] = { 0xFF, 0xFF, 0xFF };
-u8 defaultWhiteCubemapData[] = { 0xFF, 0xFF, 0xFF, 0xFF };
 
 const char* screenQuadVSSrc =
 "#version 460 core\n"
@@ -298,7 +213,12 @@ Handle<Texture> Renderer_CreateTexture(TextureFormat format, TextureParams param
                 glFormat = GL_RGBA;
                 glDataType = GL_FLOAT;
             } break;
-
+        case TEXTURE_FORMAT_D32:
+            {
+                glInternalFormat = GL_DEPTH_COMPONENT32;
+                glFormat = GL_DEPTH_COMPONENT;
+                glDataType = GL_FLOAT;
+            } break;
         default: ASSERT(0);
     }
 
@@ -398,12 +318,12 @@ Handle<Cubemap> Renderer_CreateCubemap(TextureFormat format, TextureParams param
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BASE_LEVEL, 0);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, 0);
 
-    // Order: RIGHT -> LEFT -> TOP -> BOTTOM -> BACK -> FRONT
+    // https://www.khronos.org/opengl/wiki/Cubemap_Texture
+    // Cubemap orientation is very confusing...
     for(i32 i = 0; i < CUBEMAP_FACES; i++)
     {
         u8* faceData = data[i];
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, glInternalFormat, width, height, 0, glFormat, glDataType, faceData);
-        //glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB8, 1, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, (u8*)&defaultWhiteCubemapData[0]);
     }
 
     // TODO(caio)#RENDER: Implement support for mipmaps on cubemaps.
@@ -413,15 +333,12 @@ Handle<Cubemap> Renderer_CreateCubemap(TextureFormat format, TextureParams param
     Cubemap* cubemap = new Cubemap();
     *cubemap =
     {
-        //glHandle, format, parameters, width, height
-        glHandle, format, parameters, 1, 1
+        glHandle, format, parameters, width, height
     };
     for(i32 i = 0; i < CUBEMAP_FACES; i++)
     {
         u8* faceData = data[i];
         cubemap->data[i] = faceData;
-        //cubemap->data[i] = defaultWhiteRGB8TextureData;
-        //cubemap->data[i] = (u8*)&defaultWhiteCubemapData[0];
     }
 
     renderResourceTable.cubemapResources.push_back(cubemap);
@@ -606,19 +523,20 @@ Handle<RenderTarget> Renderer_CreateRenderTarget(u32 width, u32 height, u8 outpu
         ASSERT(outputs[i].IsValid());
     }
 
+    // TODO(caio)#RENDER: Not sure if passing parameters other than these for depth textures makes sense,
+    // so leaving it like this for now. If needed, add option to pass depth parameters.
+    Handle<Texture> depthOutput = Renderer_CreateTexture(TEXTURE_FORMAT_D32, 
+            { TEXTURE_WRAP_CLAMP, TEXTURE_FILTER_NEAREST, TEXTURE_FILTER_NEAREST, false }, width, height, NULL);
+    ASSERT(depthOutput.IsValid());
+
     // Creating render target resource
     APIHandle glHandle = API_HANDLE_INVALID;
     glGenFramebuffers(1, &glHandle);
     ASSERT(glHandle != API_HANDLE_INVALID);
     glBindFramebuffer(GL_FRAMEBUFFER, glHandle);
 
-    // TODO(caio)#RENDER: This doesn't support stencil buffer yet.
-    APIHandle glDepthStencilHandle = API_HANDLE_INVALID;
-    glGenRenderbuffers(1, &glDepthStencilHandle);
-    ASSERT(glDepthStencilHandle != API_HANDLE_INVALID);
-    glBindRenderbuffer(GL_RENDERBUFFER, glDepthStencilHandle);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, glDepthStencilHandle);
+    // TODO(caio)#RENDER: Support depth-only render targets, without color attachments.
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Renderer_GetTexture(depthOutput)->apiHandle, 0);
 
     GLenum glAttachments[outputsCount];
     for(i32 i = 0; i < outputsCount; i++)
@@ -632,7 +550,7 @@ Handle<RenderTarget> Renderer_CreateRenderTarget(u32 width, u32 height, u8 outpu
 
     RenderTarget* renderTarget = new RenderTarget();
     renderTarget->apiHandle = glHandle;
-    renderTarget->depthStencilAPIHandle = glDepthStencilHandle;
+    renderTarget->depthOutput = depthOutput;
     renderTarget->width = width;
     renderTarget->height = height;
     renderTarget->outputsCount = outputsCount;
@@ -765,6 +683,24 @@ void Renderer_BindMaterial(Handle<Material> h_material)
     renderState.h_activeMaterial = h_material;
 }
 
+void Renderer_SetDepthCompare(DepthCompare func)
+{
+    GLenum depthFunc;
+    switch(func)
+    {
+        case DEPTH_COMPARE_NEVER:   depthFunc = GL_NEVER; break;
+        case DEPTH_COMPARE_ALWAYS:  depthFunc = GL_ALWAYS; break;
+        case DEPTH_COMPARE_LT:      depthFunc = GL_LESS; break;
+        case DEPTH_COMPARE_LE:      depthFunc = GL_LEQUAL; break;
+        case DEPTH_COMPARE_GT:      depthFunc = GL_GREATER; break;
+        case DEPTH_COMPARE_GE:      depthFunc = GL_GEQUAL; break;
+        case DEPTH_COMPARE_E:       depthFunc = GL_EQUAL; break;
+        case DEPTH_COMPARE_NE:      depthFunc = GL_NOTEQUAL; break;
+        default: ASSERT(0);
+    }
+    glDepthFunc(depthFunc);
+}
+
 void Renderer_SetCamera(Camera camera)
 {
     renderState.camera = camera;
@@ -842,6 +778,38 @@ void Renderer_CopyRenderTargetOutputToBackbuffer(Handle<RenderTarget> h_renderTa
     Renderer_CopyTextureToBackbuffer(h_texture);
 }
 
+void Renderer_CopyRenderTargetDepthOutputToBackbuffer(Handle<RenderTarget> h_renderTarget)
+{
+    ASSERT(h_renderTarget.IsValid());
+
+    Handle<Texture> h_texture = Renderer_GetRenderTarget(h_renderTarget)->depthOutput;
+    Renderer_CopyTextureToBackbuffer(h_texture);
+}
+
+void Renderer_CopyRenderTargetOutput(Handle<RenderTarget> h_src, Handle<RenderTarget> h_dest)
+{
+    RenderTarget* src = Renderer_GetRenderTarget(h_src);
+    RenderTarget* dest = Renderer_GetRenderTarget(h_dest);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, src->apiHandle);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dest->apiHandle);
+    glBlitFramebuffer(
+            0, 0, src->width, src->height,
+            0, 0, dest->width, dest->height,
+            GL_COLOR_BUFFER_BIT, GL_NEAREST);
+}
+
+void Renderer_CopyRenderTargetDepth(Handle<RenderTarget> h_src, Handle<RenderTarget> h_dest)
+{
+    RenderTarget* src = Renderer_GetRenderTarget(h_src);
+    RenderTarget* dest = Renderer_GetRenderTarget(h_dest);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, src->apiHandle);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dest->apiHandle);
+    glBlitFramebuffer(
+            0, 0, src->width, src->height,
+            0, 0, dest->width, dest->height,
+            GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+}
+
 void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Window* outWindow)
 {
     // Initializing window to render on
@@ -866,6 +834,7 @@ void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Wi
     // Initializing render state
     renderState.window = outWindow;
     Renderer_SetViewport({{0,0}, windowWidth, windowHeight});
+    Renderer_SetDepthCompare(DEPTH_COMPARE_LT);
     renderState.h_activeRenderTarget    = { HANDLE_INVALID };
     renderState.h_activeShader          = { HANDLE_INVALID };
     renderState.h_activeMaterial        = { HANDLE_INVALID };
@@ -889,10 +858,10 @@ void Renderer_Init(u32 windowWidth, u32 windowHeight, const char* windowName, Wi
     h_screenQuadMesh = Renderer_CreateMesh(h_screenQuadVB, h_screenQuadIB,
             {2, { VERTEX_ATTRIBUTE_VEC2, VERTEX_ATTRIBUTE_VEC2 }});
     
-    //Handle<Buffer> h_defaultCubeVB = Renderer_CreateBuffer(BUFFER_TYPE_VERTEX, ArrayCount(defaultCubeVertices), sizeof(f32), (u8*)defaultCubeVertices);
-    //Handle<Buffer> h_defaultCubeIB = Renderer_CreateBuffer(BUFFER_TYPE_INDEX, ArrayCount(defaultCubeIndices), sizeof(u32), (u8*)defaultCubeIndices);
-    //h_defaultCubeMesh = Renderer_CreateMesh(h_defaultCubeVB, h_defaultCubeIB,
-            //{3, { VERTEX_ATTRIBUTE_VEC3, VERTEX_ATTRIBUTE_VEC3, VERTEX_ATTRIBUTE_VEC2 }});
+    Handle<Buffer> h_defaultCubeVB = Renderer_CreateBuffer(BUFFER_TYPE_VERTEX, ArrayCount(defaultCubeVertices), sizeof(f32), (u8*)defaultCubeVertices);
+    Handle<Buffer> h_defaultCubeIB = Renderer_CreateBuffer(BUFFER_TYPE_INDEX, ArrayCount(defaultCubeIndices), sizeof(u32), (u8*)defaultCubeIndices);
+    h_defaultCubeMesh = Renderer_CreateMesh(h_defaultCubeVB, h_defaultCubeIB,
+            {1, { VERTEX_ATTRIBUTE_VEC3 }});    // This will change later when default cube is more useful.
 
     h_defaultWhiteTexture = Renderer_CreateTexture(TEXTURE_FORMAT_RGBA8, {}, 1, 1, (u8*)&defaultWhiteTextureData);
 }
