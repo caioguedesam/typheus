@@ -1,23 +1,34 @@
 # Typheus
-Typheus is an in-development 3D rendering engine for real-time applications. This is a personal project, and is being actively developed to study and apply computer graphics techniques.
+Typheus is a C++ library for general purpose game/application development. Currently, Typheus' main purpose is to work as a real-time 3D rendering framework on top of OpenGL, to use in game and graphics projects. Additional systems (like audio, animation, networking) may be developed in the future.
 
-Typheus is developed in C++17, and uses OpenGL as a graphics API. In the future, the engine will be ported to Vulkan.
+Typheus is developed in C++17, and uses OpenGL as a graphics API. In the near future, it will be ported to Vulkan.
 
-Currently the engine supports simple forward rendering of 3D meshes with applied textures.
+## Examples
 
-## Screenshots
+Here are some screenshots highlighting Typheus' current state:
 
-![Imgur](https://imgur.com/IwvnOUC.png)
+![Imgur](https://i.imgur.com/OGjm69p.png)
+Deferred rendering scene setup with directional light
+
+![Imgur](https://i.imgur.com/KlhyvTt.png)
+Point lights
+
+![Imgur](https://i.imgur.com/obsQJFa.png)
+Skybox
 
 ## Build instructions
 
 Soon:tm:
 
 ## Current Milestone Goals
-- Deferred rendering
-- Lights
-- Shadows
-- Skyboxes
-- Gamma correction
-- Asset management
-- GUI (ImGui)
+- Shadow mapping
+- Soft shadows (PCF)
+- Unified CMake build pipeline
+
+## Dependencies
+
+Typheus requires a few third party libraries to operate:
+- [stb_image.h](https://github.com/nothings/stb/blob/master/stb_image.h)
+- [fast_obj](https://github.com/thisistherk/fast_obj)
+- [Dear ImGui](https://github.com/ocornut/imgui)
+- [Tracy](https://github.com/wolfpld/tracy) (only for profiling builds)
