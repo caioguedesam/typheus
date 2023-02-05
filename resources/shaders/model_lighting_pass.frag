@@ -20,6 +20,7 @@ struct DirLight
     vec3 vs_dir;
     float strength;
     vec3 color;
+    float shadowStrength;
 };
 
 struct PointLight
@@ -28,6 +29,12 @@ struct PointLight
     float strength;
     float radius;
     vec3 color;
+};
+
+struct SkyLight
+{
+    vec3 color;
+    float strength;
 };
 
 float CalculateShadow(in vec4 ls_surfacePosition)
@@ -110,6 +117,7 @@ vec3 CalculatePointLight(in PointLight light, in vec3 vs_surfaceNormal, in vec3 
     return result;
 }
 
+uniform SkyLight u_skyLight;
 uniform DirLight u_dirLight;
 uniform PointLight u_pointLights[MAX_POINT_LIGHTS];
 uniform uint u_pointLightsCount;
@@ -128,9 +136,9 @@ void main()
 
     // Calculate shadow
     vec4 ls_surfacePosition = u_viewToLight * vec4(vs_surfacePosition, 1);
-    float shadow = CalculateShadow(ls_surfacePosition);
+    float shadow = CalculateShadow(ls_surfacePosition) * u_dirLight.shadowStrength;
 
-    vec3 outColor = vec3(0,0,0);
+    vec3 outColor = u_skyLight.strength * u_skyLight.color;
     outColor += CalculateDirLight(u_dirLight, vs_surfaceNormal, vs_surfacePosition, surfaceColor, specularExponent, shadow);
     for(int i = 0; i < u_pointLightsCount; i++)
     {

@@ -200,11 +200,18 @@ Handle<RenderObject> CreateRenderObjectFromAsset(Handle<AssetModel> h_asset)
     return h_model;
 }
 
+struct SkyLight
+{
+    v3f color = {1,1,1};
+    f32 strength = 0.05f;
+};
+
 struct DirectionalLight
 {
     v3f worldDir = {0,1,0};
     f32 strength = 1.f;
     v3f color = {1,1,1};
+    f32 shadowStrength = 1.f;
 };
 
 struct PointLight
@@ -220,11 +227,18 @@ struct Skybox
     Handle<Cubemap> h_cubemap;
 };
 
+void BindSkyLight(SkyLight* light)
+{
+    Renderer_BindUniform_f32("u_skyLight.strength", light->strength);
+    Renderer_BindUniform_v3f("u_skyLight.color", light->color);
+}
+
 void BindDirectionalLight(DirectionalLight* light, Camera* cam)
 {
     Renderer_BindUniform_v3f("u_dirLight.vs_dir", Normalize(v3f_As(cam->GetView() * v4f_AsDirection(light->worldDir))));
     Renderer_BindUniform_f32("u_dirLight.strength", light->strength);
     Renderer_BindUniform_v3f("u_dirLight.color", light->color);
+    Renderer_BindUniform_f32("u_dirLight.shadowStrength", light->shadowStrength);
 }
 
 m4f GetWorldToLightSpaceMatrix(DirectionalLight* light)
@@ -271,6 +285,7 @@ Handle<RenderObject> h_backpackObject;
 std::vector<Handle<RenderObject>> h_bunnyObjects;
 
 #define MAX_POINT_LIGHTS 16
+SkyLight skyLight;
 DirectionalLight directionalLight;
 PointLight pointLights[MAX_POINT_LIGHTS];
 u32 pointLightsCount = 0;
@@ -484,6 +499,7 @@ void App_Render()
         Renderer_Clear({0.f,0.f,0.f,0.f});
 
         Renderer_BindShader(h_modelLightingPassShader);
+        BindSkyLight(&skyLight);
         BindDirectionalLight(&directionalLight, &Renderer_GetCamera());
         Renderer_BindUniform_m4f("u_viewToLight", GetViewToLightSpaceMatrix(&directionalLight, &Renderer_GetCamera()));
         BindPointLights(pointLights, pointLightsCount, &Renderer_GetCamera());
@@ -547,11 +563,18 @@ void App_Render()
                 ImGui::RadioButton("Position", &showGbufferOutputTarget, 1); ImGui::SameLine();
                 ImGui::RadioButton("Normal", &showGbufferOutputTarget, 2);
             }
+            if(ImGui::TreeNode("Sky Light"))
+            {
+                ImGui::DragFloat("Strength", &skyLight.strength, 0.005f, 0.f, 1.f);
+                ImGui::ColorEdit3("Color", &skyLight.color.x);
+                ImGui::TreePop();
+            }
             if(ImGui::TreeNode("Directional Light"))
             {
                 ImGui::DragFloat3("World Direction", &directionalLight.worldDir.x, 0.005f, -1.f, 1.f);
                 ImGui::DragFloat("Strength", &directionalLight.strength, 0.005f, 0.f, 50.f);
                 ImGui::ColorEdit3("Color", &directionalLight.color.x);
+                ImGui::DragFloat("Shadow Strength", &directionalLight.shadowStrength, 0.005f, 0.f, 50.f);
                 ImGui::TreePop();
             }
             ImGui::Text("Point Lights");
