@@ -227,6 +227,7 @@ Handle<Texture> Renderer_CreateTexture(TextureFormat format, TextureParams param
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, glWrapT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glFilterMin);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glFilterMag);
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, &parameters.borderColor.x);
 
     glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, width, height, 0, glFormat, glDataType, data);
 
@@ -317,6 +318,7 @@ Handle<Cubemap> Renderer_CreateCubemap(TextureFormat format, TextureParams param
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, glFilterMag);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BASE_LEVEL, 0);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameterfv(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BORDER_COLOR, &parameters.borderColor.x);
 
     // https://www.khronos.org/opengl/wiki/Cubemap_Texture
     // Cubemap orientation is very confusing...
@@ -516,6 +518,7 @@ Handle<Material> Renderer_CreateMaterial(u8 texturesCount, Handle<Texture>* h_te
 
 Handle<RenderTarget> Renderer_CreateRenderTarget(u32 width, u32 height, u8 outputsCount, RenderTargetOutputDesc* outputsDesc)
 {
+    ASSERT(width && height && outputsDesc && outputsCount != 0);
     Handle<Texture> outputs[RENDER_TARGET_MAX_OUTPUTS];
     for(i32 i = 0; i < outputsCount; i++)
     {
@@ -535,7 +538,6 @@ Handle<RenderTarget> Renderer_CreateRenderTarget(u32 width, u32 height, u8 outpu
     ASSERT(glHandle != API_HANDLE_INVALID);
     glBindFramebuffer(GL_FRAMEBUFFER, glHandle);
 
-    // TODO(caio)#RENDER: Support depth-only render targets, without color attachments.
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Renderer_GetTexture(depthOutput)->apiHandle, 0);
 
     GLenum glAttachments[outputsCount];
@@ -558,6 +560,37 @@ Handle<RenderTarget> Renderer_CreateRenderTarget(u32 width, u32 height, u8 outpu
     {
         renderTarget->outputs[i] = outputs[i];
     }
+
+    renderResourceTable.renderTargetResources.push_back(renderTarget);
+    return { (u32)renderResourceTable.renderTargetResources.size() - 1 };
+}
+
+Handle<RenderTarget> Renderer_CreateDepthOnlyRenderTarget(u32 width, u32 height)
+{
+    // TODO(caio)#RENDER: Not sure if passing parameters other than these for depth textures makes sense,
+    // so leaving it like this for now. If needed, add option to pass depth parameters.
+    Handle<Texture> depthOutput = Renderer_CreateTexture(TEXTURE_FORMAT_D32, 
+            { TEXTURE_WRAP_CLAMP, TEXTURE_FILTER_NEAREST, TEXTURE_FILTER_NEAREST, false, {1,1,1,1} }, width, height, NULL);
+    ASSERT(depthOutput.IsValid());
+
+    // Creating render target resource
+    APIHandle glHandle = API_HANDLE_INVALID;
+    glGenFramebuffers(1, &glHandle);
+    ASSERT(glHandle != API_HANDLE_INVALID);
+    glBindFramebuffer(GL_FRAMEBUFFER, glHandle);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Renderer_GetTexture(depthOutput)->apiHandle, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+
+    ASSERT(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+
+    RenderTarget* renderTarget = new RenderTarget();
+    renderTarget->apiHandle = glHandle;
+    renderTarget->depthOutput = depthOutput;
+    renderTarget->width = width;
+    renderTarget->height = height;
+    renderTarget->outputsCount = 0;
 
     renderResourceTable.renderTargetResources.push_back(renderTarget);
     return { (u32)renderResourceTable.renderTargetResources.size() - 1 };

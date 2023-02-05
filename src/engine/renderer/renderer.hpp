@@ -70,6 +70,7 @@ struct TextureParams
     TextureParam_Filter filterMode_Min      = TEXTURE_FILTER_LINEAR;
     TextureParam_Filter filterMode_Max      = TEXTURE_FILTER_LINEAR;
     bool useMips                            = true;
+    v4f borderColor                         = {0.f, 0.f, 0.f, 0.f};
 };
 
 struct Texture
@@ -198,6 +199,7 @@ void                        Renderer_LinkShader(Handle<Shader> h_shader);
 Handle<Shader>              Renderer_CreateShader(Handle<ShaderStage> h_vertexShader, Handle<ShaderStage> h_pixelShader);
 Handle<Material>            Renderer_CreateMaterial(u8 texturesCount, Handle<Texture>* h_textures);
 Handle<RenderTarget>        Renderer_CreateRenderTarget(u32 width, u32 height, u8 outputsCount, RenderTargetOutputDesc* outputsDesc);
+Handle<RenderTarget>        Renderer_CreateDepthOnlyRenderTarget(u32 width, u32 height);
 Handle<RenderTarget>        Renderer_GetDefaultRenderTarget();
 
 void    Renderer_BindUniform_i32(std::string_view name, i32 value);

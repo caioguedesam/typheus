@@ -321,6 +321,7 @@ v3f TransformDirection(const v3f& direction, const m4f& transform);
 
 m4f LookAtMatrix(const v3f& center, const v3f& target, const v3f& up);
 m4f PerspectiveProjectionMatrix(const f32& fovY, const f32& aspectRatio, const f32& nearPlane, const f32& farPlane);
+m4f OrthographicProjectionMatrix(const f32& left, const f32& right, const f32& bottom, const f32& top, const f32& nearPlane, const f32& farPlane);
 
 // Math utilities
 f32 Lerp(const f32& a, const f32& b, const f32& t);

@@ -935,6 +935,18 @@ m4f PerspectiveProjectionMatrix(const f32& fovY, const f32& aspectRatio, const f
     return Transpose(result);   // TODO(caio)#MATH: OpenGL convention transposes this matrix. Figure out later.
 }
 
+m4f OrthographicProjectionMatrix(const f32& left, const f32& right, const f32& bottom, const f32& top, const f32& nearPlane, const f32& farPlane)
+{
+    m4f result =
+    {
+        2.f / (right - left), 0, 0, 0,
+        0, 2.f / (top - bottom), 0, 0,
+        0, 0, 2.f / (farPlane - nearPlane), 0,
+        -(right + left) / (right - left), -(top + bottom) / (top - bottom), -(farPlane + nearPlane) / (farPlane - nearPlane), 1,
+    };
+    return Transpose(result);   // TODO(caio)#MATH: OpenGL convention transposes this matrix. Figure out later.
+}
+
 f32 Lerp(const f32& a, const f32& b, const f32& t)
 {
     return a + (b - a) * CLAMP(t, 0, 1);

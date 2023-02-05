@@ -227,6 +227,20 @@ void BindDirectionalLight(DirectionalLight* light, Camera* cam)
     Renderer_BindUniform_v3f("u_dirLight.color", light->color);
 }
 
+m4f GetWorldToLightSpaceMatrix(DirectionalLight* light)
+{
+    // TODO(caio)#APP: These orthographic frustum values are very important for
+    // shadows to look nice. Verify them whenever needed.
+    m4f lightProj = OrthographicProjectionMatrix(-10, 10, -10, 10, -10, 10);
+    m4f lightView = LookAtMatrix({0, 0, 0}, light->worldDir, {0, 1, 0});
+    return lightProj * lightView;
+}
+
+m4f GetViewToLightSpaceMatrix(DirectionalLight* light, Camera* cam)
+{
+    return GetWorldToLightSpaceMatrix(light) * Inverse(cam->GetView());
+}
+
 void BindPointLights(PointLight* lights, u32 lightCount, Camera* cam)
 {
     for(u32 i = 0; i < lightCount; i++)
@@ -246,6 +260,8 @@ void BindPointLights(PointLight* lights, u32 lightCount, Camera* cam)
 }
 
 Handle<RenderTarget> h_gbufferRenderTarget;
+Handle<RenderTarget> h_shadowMapRenderTarget;
+Handle<Shader> h_shadowPassShader;
 Handle<Shader> h_modelGeometryPassShader;
 Handle<Shader> h_modelLightingPassShader;
 Handle<Shader> h_skyboxShader;
@@ -290,8 +306,14 @@ void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
         { TEXTURE_FORMAT_RGBA16F, TEXTURE_WRAP_CLAMP, TEXTURE_FILTER_LINEAR, TEXTURE_FILTER_LINEAR },    // Normals output
     };
     h_gbufferRenderTarget = Renderer_CreateRenderTarget(1920, 1080, 3, gbufferOutputDesc);
+    h_shadowMapRenderTarget = Renderer_CreateDepthOnlyRenderTarget(2048, 2048);
 
     // Shader resources
+    Handle<AssetShader> h_assetShadowPassVS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"shadow_pass.vert");
+    Handle<AssetShader> h_assetShadowPassPS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"shadow_pass.frag");
+    h_shadowPassShader = Renderer_CreateShader(
+                GetShaderFromAsset(h_assetShadowPassVS, SHADERSTAGE_TYPE_VERTEX),
+                GetShaderFromAsset(h_assetShadowPassPS, SHADERSTAGE_TYPE_PIXEL));
     Handle<AssetShader> h_assetModelGeometryVS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"model_geometry_pass.vert");
     Handle<AssetShader> h_assetModelGeometryPS = Asset_LoadShader(APP_RESOURCE_SHADERS_PATH"model_geometry_pass.frag");
     h_modelGeometryPassShader = Renderer_CreateShader(
@@ -411,49 +433,70 @@ void App_Render()
 {
     Renderer_BeginFrame();
 
-    // Prepare
+    // Shadow pass
     {
-      Renderer_BindRenderTarget(h_gbufferRenderTarget);
-      Renderer_Clear({0.f, 0.f, 0.f, 0.f});
+        Renderer_BindRenderTarget(h_shadowMapRenderTarget);
+        Renderer_Clear({0.f, 0.f, 0.f, 0.f});
+        Renderer_BindShader(h_shadowPassShader);
+        //Renderer_BindUniform_m4f("u_view", Renderer_GetCamera().GetView());
+        //Renderer_BindUniform_m4f("u_proj", Renderer_GetCamera().GetProjection(*renderState.window));
+        Renderer_BindUniform_m4f("u_worldToLight", GetWorldToLightSpaceMatrix(&directionalLight));
+        for(i32 i = 0; i < renderObjects.size(); i++)
+        {
+            RenderObject* ro = renderObjects[i];
+            Renderer_BindUniform_m4f("u_world", ro->properties.u_world);
+            for(i32 o = 0; o < ro->renderUnits.size(); o++)
+            {
+                RenderUnit& renderUnit = ro->renderUnits[o];
+                Renderer_BindMesh(renderUnit.h_mesh);
+
+                Renderer_DrawMesh();
+            }
+        }
     }
 
     // G-Buffer geometry pass
     {
-      Renderer_BindShader(h_modelGeometryPassShader);
-      Renderer_BindUniform_m4f("u_view", Renderer_GetCamera().GetView());
-      Renderer_BindUniform_m4f("u_proj", Renderer_GetCamera().GetProjection(*renderState.window));
-      for(i32 i = 0; i < renderObjects.size(); i++)
-      {
-        RenderObject* ro = renderObjects[i];
-        BindRenderObjectProperties(ro);
-        for(i32 o = 0; o < ro->renderUnits.size(); o++)
+        Renderer_BindRenderTarget(h_gbufferRenderTarget);
+        Renderer_Clear({0.f, 0.f, 0.f, 0.f});
+        Renderer_BindShader(h_modelGeometryPassShader);
+        Renderer_BindUniform_m4f("u_view", Renderer_GetCamera().GetView());
+        Renderer_BindUniform_m4f("u_proj", Renderer_GetCamera().GetProjection(*renderState.window));
+        for(i32 i = 0; i < renderObjects.size(); i++)
         {
-          RenderUnit& renderUnit = ro->renderUnits[o];
-          Renderer_BindMaterial(renderUnit.h_material);
-          Renderer_BindMesh(renderUnit.h_mesh);
-          BindRenderUnitProperties(&renderUnit);
+            RenderObject* ro = renderObjects[i];
+            BindRenderObjectProperties(ro);
+            for(i32 o = 0; o < ro->renderUnits.size(); o++)
+            {
+                RenderUnit& renderUnit = ro->renderUnits[o];
+                Renderer_BindMaterial(renderUnit.h_material);
+                Renderer_BindMesh(renderUnit.h_mesh);
+                BindRenderUnitProperties(&renderUnit);
 
-          Renderer_DrawMesh();
+                Renderer_DrawMesh();
+            }
         }
-      }
     }
 
     // G-Buffer lighting pass
     {
-      Renderer_BindRenderTarget(h_defaultRenderTarget);
-      Renderer_Clear({0.f,0.f,0.f,0.f});
+        Renderer_BindRenderTarget(h_defaultRenderTarget);
+        Renderer_Clear({0.f,0.f,0.f,0.f});
 
-      Renderer_BindShader(h_modelLightingPassShader);
-      BindDirectionalLight(&directionalLight, &Renderer_GetCamera());
-      BindPointLights(pointLights, pointLightsCount, &Renderer_GetCamera());
+        Renderer_BindShader(h_modelLightingPassShader);
+        BindDirectionalLight(&directionalLight, &Renderer_GetCamera());
+        Renderer_BindUniform_m4f("u_viewToLight", GetViewToLightSpaceMatrix(&directionalLight, &Renderer_GetCamera()));
+        BindPointLights(pointLights, pointLightsCount, &Renderer_GetCamera());
 
-      RenderTarget* gbufferRenderTarget = Renderer_GetRenderTarget(h_gbufferRenderTarget);
-      Renderer_BindTexture(gbufferRenderTarget->outputs[0], 0);   // Diffuse + specular
-      Renderer_BindTexture(gbufferRenderTarget->outputs[1], 1);   // View space positions
-      Renderer_BindTexture(gbufferRenderTarget->outputs[2], 2);   // View space normals
-      Renderer_BindMesh(h_screenQuadMesh);
+        RenderTarget* gbufferRenderTarget = Renderer_GetRenderTarget(h_gbufferRenderTarget);
+        RenderTarget* shadowMapRenderTarget = Renderer_GetRenderTarget(h_shadowMapRenderTarget);
+        Renderer_BindTexture(gbufferRenderTarget->outputs[0], 0);   // Diffuse + specular
+        Renderer_BindTexture(gbufferRenderTarget->outputs[1], 1);   // View space positions
+        Renderer_BindTexture(gbufferRenderTarget->outputs[2], 2);   // View space normals
+        Renderer_BindTexture(shadowMapRenderTarget->depthOutput, 3);
+        Renderer_BindMesh(h_screenQuadMesh);
 
-      Renderer_DrawMesh();
+        Renderer_DrawMesh();
     }
 
     
