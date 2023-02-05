@@ -998,7 +998,9 @@ void Input_UpdateMouseState(MouseState* mouseState)
 
     if(mouseState->locked)
     {
-        POINT lockPoint = {0,0};
+        RECT clientRect;
+        ret = GetClientRect(GetActiveWindow(), &clientRect);
+        POINT lockPoint = {clientRect.right / 2, clientRect.bottom / 2};
         ret = ClientToScreen(GetActiveWindow(), &lockPoint);
         ret = SetCursorPos(lockPoint.x, lockPoint.y);
         ASSERT(ret);
