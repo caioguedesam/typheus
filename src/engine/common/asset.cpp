@@ -9,6 +9,11 @@
 namespace Ty
 {
 
+void Asset_Init()
+{
+    assetTableMutex = Async_CreateMutex();
+}
+
 Handle<AssetShader> Asset_LoadShader(const std::string& assetPath)
 {
     if(Asset_IsLoaded(assetPath)) return { assetTable.loadedAssets[assetPath] };
@@ -17,9 +22,12 @@ Handle<AssetShader> Asset_LoadShader(const std::string& assetPath)
     shader->path = assetPath;
     shader->src = ReadFile_Str(assetPath);
 
+    Async_AcquireMutex(&assetTableMutex);
     assetTable.shaderAssets.push_back(shader);
     assetTable.loadedAssets[assetPath] = (u32)assetTable.shaderAssets.size() - 1;
-    return { assetTable.loadedAssets[assetPath] };
+    Handle<AssetShader> result = { assetTable.loadedAssets[assetPath] };
+    Async_ReleaseMutex(&assetTableMutex);
+    return result;
 }
 
 Handle<AssetTexture> Asset_LoadTexture(const std::string& assetPath, bool flipVertical)
@@ -37,9 +45,19 @@ Handle<AssetTexture> Asset_LoadTexture(const std::string& assetPath, bool flipVe
     texture->channels = channels;
     texture->data = data;
 
+    Async_AcquireMutex(&assetTableMutex);
     assetTable.textureAssets.push_back(texture);
     assetTable.loadedAssets[assetPath] = (u32)assetTable.textureAssets.size() - 1;
-    return { assetTable.loadedAssets[assetPath] };
+    Handle<AssetTexture> result = { assetTable.loadedAssets[assetPath] };
+    Async_ReleaseMutex(&assetTableMutex);
+    return result;
+}
+
+ASYNC_CALLBACK(Asset_LoadTextureAsync)
+{
+    ASYNC_CALLBACK_ARG(const char*, assetPath, 0);
+    ASYNC_CALLBACK_ARG(bool, flipVertical, 1);
+    Asset_LoadTexture(assetPath, flipVertical);
 }
 
 Handle<AssetModel> Asset_LoadModel_OBJ(const std::string& assetPath, bool flipVerticalTexcoord)
@@ -51,7 +69,46 @@ Handle<AssetModel> Asset_LoadModel_OBJ(const std::string& assetPath, bool flipVe
     fastObjMesh* fastObjData = fast_obj_read(assetPath.c_str());
     model->objects = std::vector<AssetModelObject>(MAX(1, fastObjData->material_count));
 
-    // Loading model material textures
+    // Loading all textures asynchronously
+#if 1
+    for(u64 m = 0; m < fastObjData->material_count; m++)
+    {
+        auto objMat = fastObjData->materials[m];
+        if(objMat.map_Ka.path)
+        {
+            Async_AddTaskToWorkerQueue({Asset_LoadTextureAsync,
+                    (void*)objMat.map_Ka.path,
+                    (void*)true});
+        }
+        if(objMat.map_Kd.path)
+        {
+            Async_AddTaskToWorkerQueue({Asset_LoadTextureAsync,
+                    (void*)objMat.map_Kd.path,
+                    (void*)true});
+        }
+        if(objMat.map_Ks.path)
+        {
+            Async_AddTaskToWorkerQueue({Asset_LoadTextureAsync,
+                    (void*)objMat.map_Ks.path,
+                    (void*)true});
+        }
+        if(objMat.map_d.path)
+        {
+            Async_AddTaskToWorkerQueue({Asset_LoadTextureAsync,
+                    (void*)objMat.map_d.path,
+                    (void*)true});
+        }
+        if(objMat.map_bump.path)
+        {
+            Async_AddTaskToWorkerQueue({Asset_LoadTextureAsync,
+                    (void*)objMat.map_bump.path,
+                    (void*)true});
+        }
+    }
+    Async_WaitForAllTasks();
+#endif
+
+    // Populating model material textures with previously loaded assets
     for(u64 m = 0; m < fastObjData->material_count; m++)
     {
         auto objMat = fastObjData->materials[m];
@@ -188,9 +245,12 @@ Handle<AssetModel> Asset_LoadModel_OBJ(const std::string& assetPath, bool flipVe
 
     fast_obj_destroy(fastObjData);
 
+    Async_AcquireMutex(&assetTableMutex);
     assetTable.modelAssets.push_back(model);
     assetTable.loadedAssets[assetPath] = (u32)assetTable.modelAssets.size() - 1;
-    return { assetTable.loadedAssets[assetPath] };
+    Handle<AssetModel> result = { assetTable.loadedAssets[assetPath] };
+    Async_ReleaseMutex(&assetTableMutex);
+    return result;
 }
 
 }   // namespace Ty

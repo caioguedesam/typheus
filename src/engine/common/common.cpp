@@ -1069,4 +1069,126 @@ v2f Input_GetMouseDelta()
     return currentState.mouse.delta;
 }
 
+Mutex Async_CreateMutex()
+{
+    Mutex result = {};
+    result.handle = CreateMutex(NULL, FALSE, NULL);
+    ASSERT(result.handle);
+    return result;
+}
+
+void Async_AcquireMutex(Mutex* mutex)
+{
+    i32 result = WaitForSingleObjectEx(mutex->handle, INFINITE, FALSE);
+    ASSERT(result == WAIT_OBJECT_0);
+}
+
+void Async_ReleaseMutex(Mutex* mutex)
+{
+    i32 result = ReleaseMutex(mutex->handle);
+    ASSERT(result);
+}
+
+void Async_Init()
+{
+    // Initialize async state
+    asyncTaskQueue = {};
+    asyncTaskQueue.semaphore = CreateSemaphoreExA(
+            0, 0, ASYNC_WORKER_THREAD_COUNT,
+            0, 0, SEMAPHORE_ALL_ACCESS);
+    ASSERT(asyncTaskQueue.semaphore);
+
+    InitializeCriticalSection(&asyncTaskQueue.waitAllSection);
+    InitializeConditionVariable(&asyncTaskQueue.waitAllCond);
+
+    // Initalize worker threads
+    for(i32 i = 0; i < ASYNC_WORKER_THREAD_COUNT; i++)
+    {
+        asyncThreadData[i] = { (u32)i, &asyncTaskQueue };
+        HANDLE threadID = CreateThread(
+                NULL,
+                0,
+                Async_WorkerThreadProc,
+                &asyncThreadData[i],
+                0,
+                NULL);
+        ASSERT(threadID);
+        //TODO(caio)#PLATFORM: Should this handle be closed?
+    }
+}
+
+DWORD WINAPI Async_WorkerThreadProc(void* data)
+{
+    AsyncWorkerThreadData* threadData = (AsyncWorkerThreadData*)data;
+    AsyncTaskQueue* taskQueue = threadData->taskQueue;
+
+    while(true)
+    {
+        bool hasProcessedTask = false;
+        u32 taskToRead = taskQueue->nextTaskToRead;
+        u32 nextTaskToRead = (taskToRead + 1) % ASYNC_MAX_TASKS;
+
+        if(taskToRead != asyncTaskQueue.nextTaskToWrite)
+        {
+            u32 taskIndex = InterlockedCompareExchange(
+                    (LONG volatile*)&taskQueue->nextTaskToRead,
+                    nextTaskToRead,
+                    taskToRead);
+
+            if(taskIndex == taskToRead)
+            {
+                hasProcessedTask = true;
+                AsyncTask task = taskQueue->tasks[taskIndex];
+                // Perform work
+                //LOGF("Thread %u working on task %u", threadData->threadID, taskIndex);
+                PROFILE_START_SCOPE("Async Work")
+                task.callback(task._callbackData0, task._callbackData1, task._callbackData2,
+                                task._callbackData3, task._callbackData4);
+                PROFILE_END_SCOPE
+
+                // Mark work as finished
+                InterlockedIncrement((LONG volatile*)&taskQueue->taskCompletedCount);
+
+                WakeAllConditionVariable(&taskQueue->waitAllCond);
+            }
+        }
+
+        if(!hasProcessedTask)
+        {
+            // No available tasks in the task queue, go to sleep until new task is added.
+            WaitForSingleObjectEx(taskQueue->semaphore, INFINITE, FALSE);
+        }
+    }
+}
+
+void Async_AddTaskToWorkerQueue(AsyncTask task)
+{
+    u32 taskToWrite = asyncTaskQueue.nextTaskToWrite;
+    u32 nextTaskToWrite = (taskToWrite + 1) % ASYNC_MAX_TASKS;
+    ASSERT(nextTaskToWrite != asyncTaskQueue.nextTaskToRead);
+
+    asyncTaskQueue.tasks[taskToWrite] = task;
+    asyncTaskQueue.taskAddedCount++;
+
+    // Ensure next write index is not incremented before task data is written to queue
+    MEMORY_BARRIER();
+
+    asyncTaskQueue.nextTaskToWrite = nextTaskToWrite;
+
+    // Signal worker threads that there's available work
+    ReleaseSemaphore(asyncTaskQueue.semaphore, 1, 0);
+}
+
+void Async_WaitForAllTasks()
+{
+    EnterCriticalSection(&asyncTaskQueue.waitAllSection);
+
+    while(asyncTaskQueue.taskCompletedCount != asyncTaskQueue.taskAddedCount)
+    {
+        SleepConditionVariableCS(&asyncTaskQueue.waitAllCond, &asyncTaskQueue.waitAllSection, INFINITE);
+    }
+
+    LeaveCriticalSection(&asyncTaskQueue.waitAllSection);
+}
+
 }   // namespace Ty

@@ -97,20 +97,27 @@ void LogFormat(const char* label, const char* fmt, ...);
 // ========================================================
 // [PROFILING]
 #if _PROFILE
+#define TRACY_CALLSTACK 10
 #define PROFILE_FRAME FrameMark
-#define PROFILE_SCOPED ZoneScoped
-#define PROFILE_SCOPED_NAME(name) ZoneScopedN(name)
+#define PROFILE_SCOPED(name) ZoneScopedN(name)
 #define PROFILE_GPU_CONTEXT TracyGpuContext
 #define PROFILE_GPU_SCOPED(name) TracyGpuZone(name)
 #define PROFILE_GPU_FRAME TracyGpuCollect
+#define PROFILE_START_SCOPE(name) { PROFILE_SCOPED(name);
+#define PROFILE_END_SCOPE }
+#define PROFILE_GPU_START_SCOPE(name) { PROFILE_GPU_SCOPED(name);
+#define PROFILE_GPU_END_SCOPE }
 //TODO(caio)#PROFILING: Add support for named zones and colors
 #else
 #define PROFILE_FRAME
-#define PROFILE_SCOPED
-#define PROFILE_SCOPED_NAME(name)
+#define PROFILE_SCOPED(name)
 #define PROFILE_GPU_CONTEXT
 #define PROFILE_GPU_SCOPED(name)
 #define PROFILE_GPU_FRAME
+#define PROFILE_START_SCOPE(name)
+#define PROFILE_END_SCOPE
+#define PROFILE_GPU_START_SCOPE(name)
+#define PROFILE_GPU_END_SCOPE
 #endif
 
 // ========================================================
@@ -444,5 +451,70 @@ struct HandleHash
 {
     size_t operator()(Handle<T> handle) const { return (handle.value * 0xdeece66d + 0xb); }
 };
+
+// ========================================================
+// [THREADING]
+// Task-based multithreading functionality. This uses OS-specific types and primitives.
+// // TODO(caio)#ASYNC: Implement Semaphore primitive maybe
+// // TODO(caio)#ASYNC: I'm sure this could be improved or simplified in the future. For now it'll do.
+
+struct Mutex
+{
+    // Platform-specific
+    HANDLE handle = NULL;
+};
+
+Mutex       Async_CreateMutex();
+void        Async_AcquireMutex(Mutex* mutex);
+void        Async_ReleaseMutex(Mutex* mutex);
+
+#define ASYNC_CALLBACK(CallbackName) void CallbackName(void* _callbackData0, void* _callbackData1, void* _callbackData2, void* _callbackData3, void* _callbackData4)
+typedef ASYNC_CALLBACK(AsyncCallback);  // AsyncCallback is a function pointer to a function with the above signature.
+#define ASYNC_CALLBACK_ARG(VarType, VarName, N) VarType VarName = *(VarType*)(&_callbackData##N)  // Used to convert to/from void* for AsyncCallbacks arguments.
+
+struct AsyncTask
+{
+    AsyncCallback* callback     = NULL;
+    void* _callbackData0        = NULL;
+    void* _callbackData1        = NULL;
+    void* _callbackData2        = NULL;
+    void* _callbackData3        = NULL;
+    void* _callbackData4        = NULL;
+};
+
+#define ASYNC_MAX_TASKS 256
+#define ASYNC_WORKER_THREAD_COUNT 8
+#define MEMORY_BARRIER()    MemoryBarrier()
+
+struct AsyncTaskQueue
+{
+    volatile u32 nextTaskToRead     = 0;
+    volatile u32 nextTaskToWrite    = 0;
+    volatile u32 taskAddedCount     = 0;
+    volatile u32 taskCompletedCount = 0;
+
+    // Platform-specific
+    HANDLE              semaphore;
+    CRITICAL_SECTION    waitAllSection;
+    CONDITION_VARIABLE  waitAllCond;
+
+    AsyncTask tasks[ASYNC_MAX_TASKS];
+};
+
+struct AsyncWorkerThreadData
+{
+    u32 threadID = 0;
+    AsyncTaskQueue* taskQueue;
+};
+
+inline AsyncTaskQueue           asyncTaskQueue;
+inline AsyncWorkerThreadData    asyncThreadData[ASYNC_WORKER_THREAD_COUNT];
+
+void                    Async_Init();
+void                    Async_AddTaskToWorkerQueue(AsyncTask task);
+void                    Async_WaitForAllTasks();
+
+// Platform-specific
+DWORD WINAPI            Async_WorkerThreadProc(void* data);
 
 }   // namespace Ty

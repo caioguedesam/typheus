@@ -50,9 +50,12 @@ struct AssetModel
 // ========================================================
 // [ASSET LOADING]
 
+void                    Asset_Init();
 Handle<AssetShader>     Asset_LoadShader(const std::string& assetPath);
 Handle<AssetTexture>    Asset_LoadTexture(const std::string& assetPath, bool flipVertical = true);
 Handle<AssetModel>      Asset_LoadModel_OBJ(const std::string& assetPath, bool flipVerticalTexcoord = false);
+
+ASYNC_CALLBACK(Asset_LoadTextureAsync);
 
 // ========================================================
 // [ASSET DATA]
@@ -64,7 +67,8 @@ struct AssetTable
 
     std::unordered_map<std::string, u32>    loadedAssets;
 };
-inline AssetTable assetTable;
+inline AssetTable   assetTable;
+inline Mutex        assetTableMutex;
 
 inline bool Asset_IsLoaded(const std::string& assetPath) { return assetTable.loadedAssets.count(assetPath); }
 inline AssetShader* Asset_GetShader(Handle<AssetShader> h_Asset) { return assetTable.shaderAssets[h_Asset.value]; }

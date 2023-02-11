@@ -282,10 +282,10 @@ Handle<Shader> h_modelGeometryPassShader;
 Handle<Shader> h_modelLightingPassShader;
 Handle<Shader> h_skyboxShader;
 
-//Handle<RenderObject> h_sponzaObject;
-//Handle<RenderObject> h_backpackObject;
-//std::vector<Handle<RenderObject>> h_bunnyObjects;
-Handle<RenderObject> h_chestObject;
+Handle<RenderObject> h_sponzaObject;
+Handle<RenderObject> h_backpackObject;
+std::vector<Handle<RenderObject>> h_bunnyObjects;
+//Handle<RenderObject> h_chestObject;
 
 #define MAX_POINT_LIGHTS 16
 SkyLight skyLight;
@@ -306,15 +306,17 @@ bool inEditorMode = false;
 void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
 {
     // Initializing common engine systems
+    Async_Init();
+    Asset_Init();
     Time_Init();
 
     // Initializing renderer
     Renderer_Init(windowWidth, windowHeight, appTitle, &appWindow);
     Camera mainCamera = {};
-    //mainCamera.Move({0, 2, 3});
-    mainCamera.Move({2.34, 2.08, 3.81});
-    mainCamera.RotatePitch(TO_RAD(30.f));
-    mainCamera.RotateYaw(TO_RAD(-10.f));
+    mainCamera.Move({0, 2, 3});
+    //mainCamera.Move({2.34, 2.08, 3.81});
+    //mainCamera.RotatePitch(TO_RAD(30.f));
+    //mainCamera.RotateYaw(TO_RAD(-10.f));
     Renderer_SetCamera(mainCamera);
 
     GUI_Init(&appWindow, APP_RESOURCE_FONTS_PATH"cascadia_code/CascadiaMono.ttf", 16);
@@ -366,47 +368,47 @@ void App_Init(u32 windowWidth, u32 windowHeight, const char* appTitle)
     skybox.h_cubemap = GetCubemapFromAsset(h_assetSkyboxFaces);
 
     // In-game models
-    Handle<AssetModel> h_assetChestModel = Asset_LoadModel_OBJ(APP_RESOURCE_MODELS_PATH"chest/Chest.obj");
-    h_chestObject = CreateRenderObjectFromAsset(h_assetChestModel);
-    renderObjects[h_chestObject.value]->properties.u_world = ScaleMatrix(v3f{1.f, 1.f, 1.f} * 0.05f);
-    //Handle<AssetModel> h_assetSponzaModel = Asset_LoadModel_OBJ(APP_RESOURCE_MODELS_PATH"sponza/sponza.obj");
-    //h_sponzaObject = CreateRenderObjectFromAsset(h_assetSponzaModel);
-    //Handle<AssetModel> h_assetBackpackModel = Asset_LoadModel_OBJ(APP_RESOURCE_MODELS_PATH"backpack/backpack.obj", true);
-    //h_backpackObject = CreateRenderObjectFromAsset(h_assetBackpackModel);
+    //Handle<AssetModel> h_assetChestModel = Asset_LoadModel_OBJ(APP_RESOURCE_MODELS_PATH"chest/Chest.obj");
+    //h_chestObject = CreateRenderObjectFromAsset(h_assetChestModel);
+    //renderObjects[h_chestObject.value]->properties.u_world = ScaleMatrix(v3f{1.f, 1.f, 1.f} * 0.05f);
+    Handle<AssetModel> h_assetSponzaModel = Asset_LoadModel_OBJ(APP_RESOURCE_MODELS_PATH"sponza/sponza.obj");
+    h_sponzaObject = CreateRenderObjectFromAsset(h_assetSponzaModel);
+    Handle<AssetModel> h_assetBackpackModel = Asset_LoadModel_OBJ(APP_RESOURCE_MODELS_PATH"backpack/backpack.obj", true);
+    h_backpackObject = CreateRenderObjectFromAsset(h_assetBackpackModel);
 
-    //renderObjects[h_sponzaObject.value]->properties.u_world =
-        //RotationMatrix(TO_RAD(90.f), {0.f, 1.f, 0.f}) * ScaleMatrix(v3f{1.f, 1.f, 1.f} * 0.01f);
-    //renderObjects[h_backpackObject.value]->properties.u_world = ScaleMatrix(v3f{1.f, 1.f, 1.f} * 0.5f);
-    //Handle<AssetModel> h_assetBunnyModel = Asset_LoadModel_OBJ(APP_RESOURCE_MODELS_PATH"bunny/bunny.obj");
-    //for(i32 i = 0; i < 10; i++)
-    //{
-        //Handle<RenderObject> h_bunnyObject = CreateRenderObjectFromAsset(h_assetBunnyModel);
-        //h_bunnyObjects.push_back(h_bunnyObject);
-        //RenderObjectProperties& bunnyProperties = renderObjects[h_bunnyObject.value]->properties;
+    renderObjects[h_sponzaObject.value]->properties.u_world =
+        RotationMatrix(TO_RAD(90.f), {0.f, 1.f, 0.f}) * ScaleMatrix(v3f{1.f, 1.f, 1.f} * 0.01f);
+    renderObjects[h_backpackObject.value]->properties.u_world = ScaleMatrix(v3f{1.f, 1.f, 1.f} * 0.5f);
+    Handle<AssetModel> h_assetBunnyModel = Asset_LoadModel_OBJ(APP_RESOURCE_MODELS_PATH"bunny/bunny.obj");
+    for(i32 i = 0; i < 10; i++)
+    {
+        Handle<RenderObject> h_bunnyObject = CreateRenderObjectFromAsset(h_assetBunnyModel);
+        h_bunnyObjects.push_back(h_bunnyObject);
+        RenderObjectProperties& bunnyProperties = renderObjects[h_bunnyObject.value]->properties;
 
-        //v3f pos =
-        //{
-          //RandomRange(-2.f, 2.f),
-          //RandomRange(-2.f, 2.f),
-          //RandomRange(-2.f, 2.f),
-        //};
-        //f32 angle = RandomRange(0.f, 360.f);
-        //v3f axis =
-        //{
-          //RandomRange(0.f, 1.f),
-          //RandomRange(0.f, 1.f),
-          //RandomRange(0.f, 1.f),
-        //};
-        //axis = Normalize(axis);
-        //f32 scale = RandomRange(0.2f, 1.5f);
-        //bunnyProperties.u_world = TranslationMatrix(pos) * RotationMatrix(angle, axis) * ScaleMatrix({scale, scale, scale});
-        //bunnyProperties.u_baseColor =
-        //{
-            //RandomRange(0.f, 1.f),
-            //RandomRange(0.f, 1.f),
-            //RandomRange(0.f, 1.f)
-        //};
-    //}
+        v3f pos =
+        {
+          RandomRange(-2.f, 2.f),
+          RandomRange(-2.f, 2.f),
+          RandomRange(-2.f, 2.f),
+        };
+        f32 angle = RandomRange(0.f, 360.f);
+        v3f axis =
+        {
+          RandomRange(0.f, 1.f),
+          RandomRange(0.f, 1.f),
+          RandomRange(0.f, 1.f),
+        };
+        axis = Normalize(axis);
+        f32 scale = RandomRange(0.2f, 1.5f);
+        bunnyProperties.u_world = TranslationMatrix(pos) * RotationMatrix(angle, axis) * ScaleMatrix({scale, scale, scale});
+        bunnyProperties.u_baseColor =
+        {
+            RandomRange(0.f, 1.f),
+            RandomRange(0.f, 1.f),
+            RandomRange(0.f, 1.f)
+        };
+    }
     
     // App settings
     Input_LockMouse(true);
