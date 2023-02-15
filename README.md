@@ -16,6 +16,9 @@ Point lights
 ![Imgur](https://i.imgur.com/obsQJFa.png)
 Skybox
 
+![Imgur](https://i.imgur.com/WRfBrA1.png)
+Directional shadow mapping with PCF
+
 ## Build instructions
 
 Soon:tm:
