@@ -1,40 +1,51 @@
-// [UNITY BUILD]
-// Including all app source files here to improve build times by using only one compilation unit.
+// Typheus app uses a unity build system to improve compilation
+#include "engine/core/base.hpp"
+#include "engine/core/debug.hpp"
+#include "engine/core/memory.hpp"
+#include "engine/core/string.hpp"
+#include "engine/core/math.hpp"
+#include "engine/core/time.hpp"
+#include "engine/core/input.hpp"
+#include "engine/core/file.hpp"
+#include "engine/core/async.hpp"
+#include "engine/core/ds.hpp"
 
-// [PROJECT]
-// Header files
-#include "engine/common/common.hpp"
-#include "engine/common/asset.hpp"
-#include "engine/renderer/window.hpp"
-#include "engine/renderer/renderer.hpp"
-#include "engine/renderer/gui.hpp"
+#include "engine/asset/asset.hpp"
 
-#include "app/app.hpp"
+#include "engine/core/debug.cpp"
+#include "engine/core/memory.cpp"
+#include "engine/core/string.cpp"
+#include "engine/core/math.cpp"
+#include "engine/core/time.cpp"
+#include "engine/core/input.cpp"
+#include "engine/core/file.cpp"
+#include "engine/core/async.cpp"
+#include "engine/core/ds.cpp"
 
-// Source files
+#include "engine/asset/asset.cpp"
 
-#include "engine/common/common.cpp"
-#include "engine/common/asset.cpp"
-#include "engine/renderer/window.cpp"
-#include "engine/renderer/renderer.cpp"
-#include "engine/renderer/gui.cpp"
-
-#include "app/app.cpp"
+#include "engine/core/tests.cpp"
+#include "engine/asset/tests.cpp"
 
 // ===============================================================
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nCmdShow)
 {
-    Ty::App_Init(1280, 720, "Test app");
+    //Ty::App_Init(1280, 720, "Test app");
 
-    while(!Ty::appWindow.shouldClose)
-    {
-      Ty::Window_ProcessMessages(Ty::appWindow);
-      Ty::App_Update();
-      Ty::App_Render();
-    }
+    //while(!Ty::appWindow.shouldClose)
+    //{
+      //Ty::Window_ProcessMessages(Ty::appWindow);
+      //Ty::App_Update();
+      //Ty::App_Render();
+    //}
 
-    Ty::App_Destroy();
+    //Ty::App_Destroy();
+
+    ty::TestCore();
+    ty::TestAssets();
+    return 0;
+
 }
 
 int main()
