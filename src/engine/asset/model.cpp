@@ -1,4 +1,5 @@
 #include "engine/core/debug.hpp"
+#include "engine/core/profile.hpp"
 #include "engine/asset/asset.hpp"
 #include "engine/core/file.hpp"
 
@@ -258,6 +259,7 @@ u32 AddVertex(List<f32>* vertices,
 // //TODO(caio): This does not support all parameters of .mtl, e.g. emissiveness, transparency.
 HashMap<String, Handle<Material>> LoadMaterials(u8* mtlData, u64 mtlDataSize)
 {
+    PROFILE_SCOPE;
     HashMap<String, Handle<Material>> result = MakeMap<String, Handle<Material>>(512); // Maximum of 512 materials per model
 
     u8* fp = mtlData;
@@ -395,6 +397,7 @@ HashMap<String, Handle<Material>> LoadMaterials(u8* mtlData, u64 mtlDataSize)
 
 Handle<Model> LoadModelOBJ(file::Path assetPath, bool flipVerticalTexcoord)
 {
+    PROFILE_SCOPE;
     if(IsLoaded(assetPath)) return { assetDatabase.loadedAssets[assetPath.str] };
     mem::SetContext(&assetHeap);
 
@@ -532,8 +535,6 @@ Handle<Model> LoadModelOBJ(file::Path assetPath, bool flipVerticalTexcoord)
     
     return result;
 }
-
-
 
 }   // asset
 }   // ty

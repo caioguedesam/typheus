@@ -1,36 +1,30 @@
 // All Typheus dependencies are built separately into a static library.
 // This is done in order to not build them every time the rest builds.
 
-// [DEPENDENCIES]
-// Implementation defines
-//#define STB_IMAGE_IMPLEMENTATION
-//#define FAST_OBJ_IMPLEMENTATION
-//#define IMGUI_IMPL_OPENGL_LOADER_CUSTOM     // Need this for unity build since
-//                                             //ImGui has own OpenGL function loader
+// Optick
+#ifdef _PROFILE
+#include "engine/core/base.hpp"
+#include "engine/core/profile.hpp"  // this has optick defines
 
-// Header files
-//#if _PROFILE
-//#include "tracy/Tracy.hpp"
-//#endif
-//#include "glad/glad.h"
-//#include "stb_image.h"
-//#include "fast_obj.h"
-//#include "imgui.h"
-//#include "backends/imgui_impl_win32.h"
-//#include "backends/imgui_impl_opengl3.h"
+#include "optick.h"
+#include "optick.config.h"
+#include "optick_capi.h"
+#include "optick_common.h"
+#include "optick_core.h"
+#include "optick_core.platform.h"
+#include "optick_core.win.h"
+#include "optick_gpu.h"
+#include "optick_memory.h"
+#include "optick_message.h"
+#include "optick_miniz.h"
+#include "optick_serialization.h"
+#include "optick_server.h"
 
-//#undef STB_IMAGE_IMPLEMENTATION
-//#undef FAST_OBJ_IMPLEMENTATION
-// Source files
-//#if _PROFILE
-//#include "TracyClient.cpp"
-//#endif
-//#include "glad/glad.c"
-//#include "imgui.cpp"
-//#include "imgui_demo.cpp"
-//#include "imgui_draw.cpp"
-//#include "imgui_tables.cpp"
-//#include "imgui_widgets.cpp"
-//#include "backends/imgui_impl_win32.cpp"
-//#include "backends/imgui_impl_opengl3.cpp"
-//#undef IMGUI_IMPL_OPENGL_LOADER_CUSTOM
+#include "optick_capi.cpp"
+#include "optick_core.cpp"
+#include "optick_gpu.cpp"
+#include "optick_message.cpp"
+#include "optick_miniz.cpp"
+#include "optick_serialization.cpp"
+#include "optick_server.cpp"
+#endif

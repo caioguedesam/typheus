@@ -1,6 +1,7 @@
 // Typheus app uses a unity build system to improve compilation
 #include "engine/core/base.hpp"
 #include "engine/core/debug.hpp"
+#include "engine/core/profile.hpp"
 #include "engine/core/memory.hpp"
 #include "engine/core/string.hpp"
 #include "engine/core/math.hpp"
@@ -42,10 +43,21 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
 
     //Ty::App_Destroy();
 
-    ty::TestCore();
-    ty::TestAssets();
-    return 0;
+    ty::i32 frame = 0;
+    while(frame < 5)
+    {
+        PROFILE_FRAME;
+        if(!frame)
+        {
+            ty::TestCore();
+            ty::TestAssets();
+        }
+        frame++;
+        Sleep(500);
+    }
 
+    PROFILE_END;
+    return 0;
 }
 
 int main()

@@ -1,5 +1,6 @@
 .vim/
 src/third_party/unused/
+src/third_party/optick/
 build/debug/
 build/lib/
 build/profile/

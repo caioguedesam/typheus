@@ -50,6 +50,7 @@ void TestAssets()
     // Test model loading
     time::Timer timer = {};
     assetPath = file::MakePath(IStr("./resources/models/sponza/sponza.obj"));
+    //assetPath = file::MakePath(IStr("./resources/models/room/breakfast_room.obj"));
     timer.Start();
     Handle<asset::Model> h_sponzaModel = asset::LoadModelOBJ(assetPath);
     timer.Stop();
