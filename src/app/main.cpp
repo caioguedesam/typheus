@@ -1,4 +1,6 @@
 // Typheus app uses a unity build system to improve compilation
+// ===============================================================
+// [HEADER FILES]
 #include "engine/core/base.hpp"
 #include "engine/core/debug.hpp"
 #include "engine/core/profile.hpp"
@@ -10,9 +12,11 @@
 #include "engine/core/file.hpp"
 #include "engine/core/async.hpp"
 #include "engine/core/ds.hpp"
-
 #include "engine/asset/asset.hpp"
+#include "engine/render/render.hpp"
 
+// ===============================================================
+// [SOURCE FILES]
 #include "engine/core/debug.cpp"
 #include "engine/core/memory.cpp"
 #include "engine/core/string.cpp"
@@ -22,10 +26,8 @@
 #include "engine/core/file.cpp"
 #include "engine/core/async.cpp"
 #include "engine/core/ds.cpp"
-
-#include "engine/asset/asset.cpp"
-
 #include "engine/core/tests.cpp"
+#include "engine/asset/asset.cpp"
 #include "engine/asset/tests.cpp"
 
 // ===============================================================

@@ -1,5 +1,3 @@
-#TODO(caio): Profile build
-#TODO(caio): Dependencies build
 import sys
 import subprocess
 import time
@@ -29,9 +27,10 @@ if full_build and build_type == 'd':
     print(f'Finished precompiled header build in {end - start} seconds')
 
 # Linker flags
-l_flags = '-luser32.lib -lopengl32.lib -lgdi32.lib'
+l_flags = '-luser32.lib -lgdi32.lib'
 if build_type == 'p':
     l_flags += ' -lbuild/profile/dependencies.lib'
+l_flags += ' -lC:/VulkanSDK/1.3.239.0/Lib/vulkan-1.lib'
 
 # Dependencies build (full build only)
 #TODO(caio): No dependencies yet
