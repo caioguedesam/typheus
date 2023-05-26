@@ -13,6 +13,7 @@
 #include "engine/core/async.hpp"
 #include "engine/core/ds.hpp"
 #include "engine/asset/asset.hpp"
+#include "engine/render/window.hpp"
 #include "engine/render/render.hpp"
 
 // ===============================================================
@@ -29,34 +30,37 @@
 #include "engine/core/tests.cpp"
 #include "engine/asset/asset.cpp"
 #include "engine/asset/tests.cpp"
+#include "engine/render/window.cpp"
 
 // ===============================================================
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nCmdShow)
 {
-    //Ty::App_Init(1280, 720, "Test app");
+    using namespace ty;
 
-    //while(!Ty::appWindow.shouldClose)
-    //{
-      //Ty::Window_ProcessMessages(Ty::appWindow);
-      //Ty::App_Update();
-      //Ty::App_Render();
-    //}
+    time::Init();
 
-    //Ty::App_Destroy();
+    render::Window window;
+    render::InitWindow(&window, 800, 600, "Typheus");
 
-    ty::i32 frame = 0;
-    while(frame < 5)
+    i32 frame = 0;
+    time::Timer frameTimer;
+    while(window.state != render::WINDOW_CLOSED)
     {
+        frameTimer.Start();
         PROFILE_FRAME;
+        window.PollMessages();
         if(!frame)
         {
-            ty::TestCore();
-            ty::TestAssets();
+            TestCore();
+            TestAssets();
         }
+        frameTimer.Stop();
+        LOGF("Frame %d: %.4lf ms", frame, (f32)frameTimer.GetElapsedMS());
         frame++;
-        Sleep(500);
     }
+
+    render::DestroyWindow(&window);
 
     PROFILE_END;
     return 0;
