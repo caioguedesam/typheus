@@ -31,6 +31,7 @@
 #include "engine/asset/asset.cpp"
 #include "engine/asset/tests.cpp"
 #include "engine/render/window.cpp"
+#include "engine/render/render.cpp"
 
 // ===============================================================
 
@@ -42,6 +43,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
 
     render::Window window;
     render::InitWindow(&window, 800, 600, "Typheus");
+    render::Init(&window);
 
     i32 frame = 0;
     time::Timer frameTimer;
@@ -60,6 +62,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         frame++;
     }
 
+    render::Shutdown();
     render::DestroyWindow(&window);
 
     PROFILE_END;

@@ -27,7 +27,8 @@ void InitWindow(Window* window, i32 w, i32 h, const char* title)
             window);
     ASSERT(handle);
 
-    window->handle = handle;
+    window->winHandle = handle;
+    window->winInstance = windowClass.hInstance;
     window->w = w;
     window->h = h;
     window->state = WINDOW_IDLE;
@@ -41,7 +42,7 @@ void InitWindow(Window* window, i32 w, i32 h, const char* title)
 
 void DestroyWindow(Window* window)
 {
-    DestroyWindow(window->handle);
+    DestroyWindow(window->winHandle);
 }
 
 void ResizeWindow(Window* window)
@@ -54,7 +55,7 @@ void Window::PollMessages()
     MSG msg = {};
     while(true)
     {
-        i32 ret = PeekMessage(&msg, handle, 0, 0, PM_REMOVE);
+        i32 ret = PeekMessage(&msg, winHandle, 0, 0, PM_REMOVE);
         ASSERT(ret >= 0);
         if(!ret) break;
         DispatchMessage(&msg);

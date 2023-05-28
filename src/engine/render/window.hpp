@@ -24,7 +24,8 @@ enum WindowState
 
 struct Window
 {
-    HWND handle = NULL;
+    HWND winHandle = NULL;
+    HINSTANCE winInstance = NULL;
     i32 w = 0;
     i32 h = 0;
     WindowState state = WINDOW_INVALID;

@@ -28,3 +28,8 @@
 #include "optick_serialization.cpp"
 #include "optick_server.cpp"
 #endif
+
+// Vulkan Memory Allocator
+#define VMA_IMPLEMENTATION
+#include "vma/vk_mem_alloc.h"
+

@@ -28,17 +28,25 @@ if full_build and build_type == 'd':
 
 # Linker flags
 l_flags = '-luser32.lib -lgdi32.lib'
-if build_type == 'p':
+if build_type == 'd':
+    l_flags += ' -lbuild/debug/dependencies.lib'
+elif build_type == 'r':
+    l_flags += ' -lbuild/release/dependencies.lib'
+elif build_type == 'p':
     l_flags += ' -lbuild/profile/dependencies.lib'
 l_flags += ' -lC:/VulkanSDK/1.3.239.0/Lib/vulkan-1.lib'
 
 # Dependencies build (full build only)
-#TODO(caio): No dependencies yet
 if full_build:
     print(f'Starting dependencies build...')
     start = time.time()
-    if build_type == 'p':
-        subprocess.run(f'clang {cc_flags} -D_NDEBUG -D_PROFILE -Ofast -c ./src/app/dependencies.cpp --output=./build/profile/dependencies.o', shell=True, stdout=subprocess.DEVNULL)
+    if build_type == 'd' or build_type == 'r':  # Debug dependencies are compiled as release
+        subfolder = 'debug' if build_type == 'd' else 'release'
+        subprocess.run(f'clang {cc_flags} -D_NDEBUG -Ofast -Wno-nullability-completeness -c ./src/app/dependencies.cpp --output=./build/{subfolder}/dependencies.o', shell=True, stdout=subprocess.DEVNULL)
+        subprocess.run(f'lib ./build/{subfolder}/dependencies.o', shell=True)
+        subprocess.run(f'del ".\\build\\{subfolder}\\dependencies.o\"', shell=True)
+    elif build_type == 'p':
+        subprocess.run(f'clang {cc_flags} -D_NDEBUG -D_PROFILE -Ofast -Wno-nullability-completeness -c ./src/app/dependencies.cpp --output=./build/profile/dependencies.o', shell=True, stdout=subprocess.DEVNULL)
         subprocess.run('lib ./build/profile/dependencies.o', shell=True)
         subprocess.run('del ".\\build\\profile\\dependencies.o\"', shell=True)
     end = time.time()

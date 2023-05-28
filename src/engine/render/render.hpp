@@ -8,14 +8,61 @@
 #pragma once
 #include "engine/core/base.hpp"
 #include "engine/core/debug.hpp"
-#include "engine/core/math.hpp"
+#include "engine/core/memory.hpp"
+#include "engine/core/ds.hpp"
+#include "engine/render/window.hpp"
 
+#define VK_USE_PLATFORM_WIN32_KHR
 #include "vulkan/vulkan.h"
+#include "vulkan/vulkan_win32.h"
+#include "vma/vk_mem_alloc.h"
 
 namespace ty
 {
 namespace render
 {
+
+#define ASSERTVK(EXPR) ASSERT((EXPR) == VK_SUCCESS)
+
+#define RENDER_CONTEXT_MEMORY MB(1)
+#define RENDER_CONCURRENT_FRAMES 2
+
+inline mem::ArenaAllocator contextArena;
+
+struct Context
+{
+    VkInstance vkInstance = VK_NULL_HANDLE;
+    VkSurfaceKHR vkSurface = VK_NULL_HANDLE;
+    VkPhysicalDevice vkPhysicalDevice = VK_NULL_HANDLE;
+    VkDevice vkDevice = VK_NULL_HANDLE;
+#ifdef _DEBUG
+    VkDebugUtilsMessengerEXT vkDebugMessenger = VK_NULL_HANDLE;
+#endif
+    VmaAllocator vkAllocator = VK_NULL_HANDLE;
+
+    // Command queue/buffer
+    i32 vkCommandQueueFamily = -1;
+    VkQueue vkCommandQueue = VK_NULL_HANDLE;
+    VkCommandPool vkCommandPool = VK_NULL_HANDLE;
+    VkCommandPool vkSingleTimeCommandPool = VK_NULL_HANDLE;
+    Array<VkCommandBuffer> vkCommandBuffers;
+    VkCommandBuffer vkSingleTimeCommandBuffer = VK_NULL_HANDLE;
+
+    // Sync primitives
+    Array<VkSemaphore> vkRenderSemaphores;
+    Array<VkSemaphore> vkPresentSemaphores;
+    Array<VkFence> vkRenderFences;
+    VkFence vkSingleTimeCommandFence = VK_NULL_HANDLE;
+};
+
+Context InitContext(Window* window);
+void    DestroyContext(Context* ctx);
+
+inline Context ctx;
+
+void Init(Window* window);
+void Shutdown();
+
 };
 };
 
