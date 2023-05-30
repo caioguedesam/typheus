@@ -26,8 +26,53 @@ namespace render
 
 #define RENDER_CONTEXT_MEMORY MB(1)
 #define RENDER_CONCURRENT_FRAMES 2
+#define RENDER_MAX_RENDER_PASSES 8
 
-inline mem::ArenaAllocator contextArena;
+enum Format
+{
+    FORMAT_INVALID = 0,
+    FORMAT_RGBA8_SRGB,
+    FORMAT_BGRA8_SRGB,
+    FORMAT_D32_FLOAT,
+
+    FORMAT_COUNT,
+};
+
+enum ImageLayout
+{
+    IMAGE_LAYOUT_UNDEFINED = 0,
+    IMAGE_LAYOUT_COLOR_OUTPUT,
+    IMAGE_LAYOUT_PRESENT_SRC,
+    IMAGE_LAYOUT_TRANSFER_SRC,
+    IMAGE_LAYOUT_TRANSFER_DST,
+    IMAGE_LAYOUT_SHADER_READ_ONLY,
+
+    IMAGE_LAYOUT_COUNT,
+};
+
+enum LoadOp
+{
+    LOAD_OP_DONT_CARE = 0,
+    LOAD_OP_LOAD,
+    LOAD_OP_CLEAR,
+
+    LOAD_OP_COUNT,
+};
+
+enum StoreOp
+{
+    STORE_OP_DONT_CARE = 0,
+    STORE_OP_STORE,
+
+    STORE_OP_COUNT,
+};
+
+enum VertexAttribute
+{
+    VA_INVALID = 0,
+    VA_V2F,
+    VA_V3F,
+};
 
 struct Context
 {
@@ -38,6 +83,7 @@ struct Context
 #ifdef _DEBUG
     VkDebugUtilsMessengerEXT vkDebugMessenger = VK_NULL_HANDLE;
 #endif
+    //TODO(caio): Maybe use more than one allocator for resource types
     VmaAllocator vkAllocator = VK_NULL_HANDLE;
 
     // Command queue/buffer
@@ -54,11 +100,65 @@ struct Context
     Array<VkFence> vkRenderFences;
     VkFence vkSingleTimeCommandFence = VK_NULL_HANDLE;
 };
-
 Context InitContext(Window* window);
 void    DestroyContext(Context* ctx);
 
+struct SwapChain
+{
+    VkSwapchainKHR vkHandle = VK_NULL_HANDLE;
+
+    // Swap chain settings
+    VkFormat vkFormat;
+    VkColorSpaceKHR vkColorSpace;
+    VkPresentModeKHR vkPresentMode;
+    VkExtent2D vkExtents;
+
+    // Present images
+    Array<VkImage> vkImages;
+    Array<VkImageView> vkImageViews;
+};
+
+SwapChain   InitSwapChain(Context* ctx, Window* window);
+void        DestroySwapChain(Context* ctx, SwapChain* swapChain);
+void        ResizeSwapChain(Context* ctx, Window* window, SwapChain* swapChain);
+
+struct RenderPassDesc
+{
+    u32         width           = 0;
+    u32         height          = 0;
+    LoadOp      loadOp          = LOAD_OP_DONT_CARE;
+    StoreOp     storeOp         = STORE_OP_DONT_CARE;
+    ImageLayout initialLayout   = IMAGE_LAYOUT_UNDEFINED;
+    ImageLayout finalLayout     = IMAGE_LAYOUT_UNDEFINED;
+};
+
+struct RenderPass
+{
+    VkRenderPass vkHandle = VK_NULL_HANDLE;
+    VkFramebuffer vkFramebuffer = VK_NULL_HANDLE;
+
+    RenderPassDesc desc = {};
+
+    u32 colorImageCount = 0;
+    Array<Format> outputImageFormats;
+    Array<VkImage> vkOutputImages;
+    Array<VkImageView> vkOutputImageViews;
+    Array<VmaAllocation> vkOutputImageAllocations;
+};
+
+Handle<RenderPass>  InitRenderPass(RenderPassDesc desc, u32 colorImageCount, Format* colorImageFormats, Format depthImageFormat);
+void                DestroyRenderPass(Context* ctx, RenderPass* renderPass);
+
+struct VertexLayout
+{
+
+};
+
+inline mem::HeapAllocator renderHeap;
 inline Context ctx;
+inline SwapChain swapChain;
+
+inline Array<RenderPass> renderPasses;
 
 void Init(Window* window);
 void Shutdown();

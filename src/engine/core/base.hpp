@@ -66,6 +66,11 @@ typedef double      f64;
 
 #define OFFSET_IN(type, member) ((u64)&((type*)0)->member)  // Offset of member variable in struct type
 
+#define SET_BIT(x, pos) ((x) |= (1UL << (pos)))
+#define CLEAR_BIT(x, pos) ((x) &= (~(1UL << (pos))))
+#define TOGGLE_BIT(x, pos) ((x) ^= (1UL << (pos)))
+#define CHECK_BIT(x, pos) ((x) & (1UL << (pos)))
+
 // ========================================================
 // [HANDLES]
 // These are useful for any system that needs type-specific simple handles.

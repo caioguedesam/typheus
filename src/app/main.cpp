@@ -41,22 +41,44 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
 
     time::Init();
 
+    const u32 appWidth = 1280;
+    const u32 appHeight = 720;
+
     render::Window window;
-    render::InitWindow(&window, 800, 600, "Typheus");
+    render::InitWindow(&window, appWidth, appHeight, "Typheus");
+
     render::Init(&window);
+
+    // Main render pass (output will be copied to swap chain image)
+    render::RenderPassDesc mainRenderPassDesc = {};
+    mainRenderPassDesc.width = appWidth;
+    mainRenderPassDesc.height = appHeight;
+    mainRenderPassDesc.loadOp = render::LOAD_OP_CLEAR;
+    mainRenderPassDesc.storeOp = render::STORE_OP_STORE;
+    mainRenderPassDesc.initialLayout = render::IMAGE_LAYOUT_UNDEFINED;
+    mainRenderPassDesc.finalLayout = render::IMAGE_LAYOUT_TRANSFER_SRC;
+    render::Format mainRenderPassColorFormats[] =
+    {
+        render::FORMAT_RGBA8_SRGB,
+    };
+    Handle<render::RenderPass> mainRenderPass = render::InitRenderPass(mainRenderPassDesc, 1, mainRenderPassColorFormats, render::FORMAT_D32_FLOAT);
+
+    // Program flow:
+    // > Render to main render pass
+    // > Transition swap chain image to transfer dst
+    // > Copy main render pass output image to swap chain image
+    // > Transition swap chain image to present src
+    // > Present
 
     i32 frame = 0;
     time::Timer frameTimer;
     while(window.state != render::WINDOW_CLOSED)
     {
-        frameTimer.Start();
         PROFILE_FRAME;
+        frameTimer.Start();
+
         window.PollMessages();
-        if(!frame)
-        {
-            TestCore();
-            TestAssets();
-        }
+
         frameTimer.Stop();
         LOGF("Frame %d: %.4lf ms", frame, (f32)frameTimer.GetElapsedMS());
         frame++;

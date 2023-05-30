@@ -16,6 +16,7 @@ namespace ty
 #if _NOASSERT
 #define ASSERT(EXPR)
 #define ASSERTF(EXPR, ...)
+#define STATIC_ASSERT(EXPR)
 #else
 
 void Assert(u64 expr, const char* msg);
@@ -23,6 +24,7 @@ void AssertFormat(u64 expr, const char* fmt, ...);
 
 #define ASSERT(EXPR) STMT(ty::Assert((ty::u64)(EXPR), STRINGIFY(EXPR)))
 #define ASSERTF(EXPR, FMT, ...) STMT(ty::AssertFormat((ty::i32)(EXPR), FMT, __VA_ARGS__))
+#define STATIC_ASSERT(EXPR) static_assert((EXPR))
 
 #endif
 
