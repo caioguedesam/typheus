@@ -40,6 +40,8 @@ VkFormat formatToVk[] =
     VK_FORMAT_UNDEFINED,
     VK_FORMAT_R8G8B8A8_SRGB,
     VK_FORMAT_B8G8R8A8_SRGB,
+    VK_FORMAT_R32G32_SFLOAT,
+    VK_FORMAT_R32G32B32_SFLOAT,
     VK_FORMAT_D32_SFLOAT,
 };
 STATIC_ASSERT(ARR_LEN(formatToVk) == FORMAT_COUNT);
@@ -66,16 +68,31 @@ VkAttachmentStoreOp storeOpToVk[] =
     VK_ATTACHMENT_STORE_OP_STORE,
 };
 STATIC_ASSERT(ARR_LEN(storeOpToVk) == STORE_OP_COUNT);
+u32 vertexAttributeSizes[] =
+{
+    0,
+    2,
+    3,
+};
+STATIC_ASSERT(ARR_LEN(vertexAttributeSizes) == VERTEX_ATTR_COUNT);
+VkShaderStageFlagBits shaderTypeToVk[] =
+{
+    VK_SHADER_STAGE_VERTEX_BIT,
+    VK_SHADER_STAGE_FRAGMENT_BIT,
+};
+STATIC_ASSERT(ARR_LEN(shaderTypeToVk) == SHADER_TYPE_COUNT);
 
 void Init(Window* window)
 {
-    renderHeap = mem::InitHeapAllocator(RENDER_CONTEXT_MEMORY);
+    renderHeap = mem::MakeHeapAllocator(RENDER_CONTEXT_MEMORY);
     mem::SetContext(&renderHeap);
 
-    ctx = InitContext(window);
-    swapChain = InitSwapChain(&ctx, window);
+    ctx = MakeContext(window);
+    swapChain = MakeSwapChain(window);
 
     renderPasses = MakeArray<RenderPass>(RENDER_MAX_RENDER_PASSES);
+    vertexLayouts = MakeArray<VertexLayout>(RENDER_MAX_VERTEX_LAYOUTS);
+    shaders = MakeArray<Shader>(RENDER_MAX_SHADERS);
 }
 
 void Shutdown()
@@ -84,16 +101,26 @@ void Shutdown()
 
     for(i32 i = 0; i < renderPasses.count; i++)
     {
-        DestroyRenderPass(&ctx, &renderPasses[i]);
+        DestroyRenderPass(&renderPasses[i]);
+    }
+    for(i32 i = 0; i < vertexLayouts.count; i++)
+    {
+        DestroyVertexLayout(&vertexLayouts[i]);
+    }
+    for(i32 i = 0; i < shaders.count; i++)
+    {
+        DestroyShader(&shaders[i]);
     }
     DestroyArray(&renderPasses);
+    DestroyArray(&vertexLayouts);
+    DestroyArray(&shaders);
 
-    DestroySwapChain(&ctx, &swapChain);
+    DestroySwapChain(&swapChain);
     DestroyContext(&ctx);
     mem::DestroyHeapAllocator(&renderHeap);
 }
 
-void InitContext_CreateInstance(Context* ctx)
+void MakeContext_CreateInstance(Context* ctx)
 {
     ASSERT(ctx);
     // Application info
@@ -149,7 +176,7 @@ void InitContext_CreateInstance(Context* ctx)
     ctx->vkInstance = instance;
 }
 
-void InitContext_SetupValidation(Context* ctx)
+void MakeContext_SetupValidation(Context* ctx)
 {
 #ifdef _DEBUG
     ASSERT(ctx);
@@ -175,7 +202,7 @@ void InitContext_SetupValidation(Context* ctx)
 #endif
 }
 
-void InitContext_CreateSurface(Context* ctx, Window* window)
+void MakeContext_CreateSurface(Context* ctx, Window* window)
 {
     ASSERT(ctx);
     VkWin32SurfaceCreateInfoKHR surfaceInfo = {};
@@ -189,7 +216,7 @@ void InitContext_CreateSurface(Context* ctx, Window* window)
     ctx->vkSurface = surface;
 }
 
-void InitContext_GetPhysicalDevice(Context* ctx)
+void MakeContext_GetPhysicalDevice(Context* ctx)
 {
     ASSERT(ctx);
     // Selecting the first device to match requirements
@@ -251,7 +278,7 @@ void InitContext_GetPhysicalDevice(Context* ctx)
     ctx->vkPhysicalDevice = devices[selectedDevice];
 }
 
-void InitContext_CreateDeviceAndCommandQueue(Context* ctx)
+void MakeContext_CreateDeviceAndCommandQueue(Context* ctx)
 {
     ASSERT(ctx);
 
@@ -316,7 +343,7 @@ void InitContext_CreateDeviceAndCommandQueue(Context* ctx)
     ctx->vkCommandQueue = queue;
 }
 
-void InitContext_CreateAllocator(Context* ctx)
+void MakeContext_CreateAllocator(Context* ctx)
 {
     ASSERT(ctx);
     VmaAllocatorCreateInfo allocatorInfo = {};
@@ -331,7 +358,7 @@ void InitContext_CreateAllocator(Context* ctx)
     ctx->vkAllocator = allocator;
 }
 
-void InitContext_CreateCommandBuffers(Context* ctx)
+void MakeContext_CreateCommandBuffers(Context* ctx)
 {
     ASSERT(ctx);
 
@@ -371,7 +398,7 @@ void InitContext_CreateCommandBuffers(Context* ctx)
     ctx->vkSingleTimeCommandBuffer = commandBuffer;
 }
 
-void InitContext_CreateSyncPrimitives(Context* ctx)
+void MakeContext_CreateSyncPrimitives(Context* ctx)
 {
     ASSERT(ctx);
 
@@ -409,17 +436,19 @@ void InitContext_CreateSyncPrimitives(Context* ctx)
     ctx->vkSingleTimeCommandFence = fence;
 }
 
-Context InitContext(Window *window)
+Context MakeContext(Window *window)
 {
+    mem::SetContext(&renderHeap);
+
     Context ctx = {};
-    InitContext_CreateInstance(&ctx);
-    InitContext_SetupValidation(&ctx);
-    InitContext_CreateSurface(&ctx, window);
-    InitContext_GetPhysicalDevice(&ctx);
-    InitContext_CreateDeviceAndCommandQueue(&ctx);
-    InitContext_CreateAllocator(&ctx);
-    InitContext_CreateCommandBuffers(&ctx);
-    InitContext_CreateSyncPrimitives(&ctx);
+    MakeContext_CreateInstance(&ctx);
+    MakeContext_SetupValidation(&ctx);
+    MakeContext_CreateSurface(&ctx, window);
+    MakeContext_GetPhysicalDevice(&ctx);
+    MakeContext_CreateDeviceAndCommandQueue(&ctx);
+    MakeContext_CreateAllocator(&ctx);
+    MakeContext_CreateCommandBuffers(&ctx);
+    MakeContext_CreateSyncPrimitives(&ctx);
 
     return ctx;
 }
@@ -454,7 +483,7 @@ void DestroyContext(Context *ctx)
     *ctx = {};
 }
 
-void InitSwapChain_CreateSwapChain(Context* ctx, SwapChain* swapChain)
+void MakeSwapChain_CreateSwapChain(Context* ctx, SwapChain* swapChain)
 {
     ASSERT(ctx && swapChain);
     ASSERT(ctx->vkDevice != VK_NULL_HANDLE && ctx->vkSurface != VK_NULL_HANDLE);
@@ -542,7 +571,7 @@ void InitSwapChain_CreateSwapChain(Context* ctx, SwapChain* swapChain)
     swapChain->vkExtents = extents;
 }
 
-void InitSwapChain_CreateImages(Context* ctx, SwapChain* swapChain)
+void MakeSwapChain_CreateImages(Context* ctx, SwapChain* swapChain)
 {
     ASSERT(ctx && swapChain);
     ASSERT(ctx->vkDevice != VK_NULL_HANDLE && swapChain->vkHandle != VK_NULL_HANDLE);
@@ -584,45 +613,44 @@ void InitSwapChain_CreateImages(Context* ctx, SwapChain* swapChain)
     }
 }
 
-SwapChain InitSwapChain(Context* ctx, Window* window)
+SwapChain MakeSwapChain(Window* window)
 {
-    ASSERT(ctx);
-    ASSERT(ctx->vkDevice != VK_NULL_HANDLE && ctx->vkSurface != VK_NULL_HANDLE);
+    ASSERT(ctx.vkDevice != VK_NULL_HANDLE && ctx.vkSurface != VK_NULL_HANDLE);
     mem::SetContext(&renderHeap);
 
     SwapChain result = {};
-    InitSwapChain_CreateSwapChain(ctx, &result);
-    InitSwapChain_CreateImages(ctx, &result);
+    MakeSwapChain_CreateSwapChain(&ctx, &result);
+    MakeSwapChain_CreateImages(&ctx, &result);
     return result;
 }
 
-void DestroySwapChain(Context* ctx, SwapChain* swapChain)
+void DestroySwapChain(SwapChain* swapChain)
 {
-    ASSERT(ctx && swapChain);
-    ASSERT(ctx->vkDevice != VK_NULL_HANDLE && swapChain->vkHandle != VK_NULL_HANDLE);
+    ASSERT(swapChain);
+    ASSERT(ctx.vkDevice != VK_NULL_HANDLE && swapChain->vkHandle != VK_NULL_HANDLE);
 
     for(i32 i = 0; i < swapChain->vkImageViews.count; i++)
     {
-        vkDestroyImageView(ctx->vkDevice, swapChain->vkImageViews[i], NULL);
+        vkDestroyImageView(ctx.vkDevice, swapChain->vkImageViews[i], NULL);
     }
     DestroyArray(&swapChain->vkImageViews);
     DestroyArray(&swapChain->vkImages);
-    vkDestroySwapchainKHR(ctx->vkDevice, swapChain->vkHandle, NULL);
+    vkDestroySwapchainKHR(ctx.vkDevice, swapChain->vkHandle, NULL);
 
     *swapChain = {};
 }
 
-void ResizeSwapChain(Context* ctx, Window* window, SwapChain* swapChain)
+void ResizeSwapChain(Window* window, SwapChain* swapChain)
 {
     // Destroys and recreates swap chain
-    ASSERT(ctx && swapChain);
-    ASSERT(ctx->vkDevice != VK_NULL_HANDLE && swapChain->vkHandle != VK_NULL_HANDLE);
+    ASSERT(swapChain);
+    ASSERT(ctx.vkDevice != VK_NULL_HANDLE && swapChain->vkHandle != VK_NULL_HANDLE);
 
-    DestroySwapChain(ctx, swapChain);
-    *swapChain = InitSwapChain(ctx, window);
+    DestroySwapChain(swapChain);
+    *swapChain = MakeSwapChain(window);
 }
 
-void InitRenderPass_CreateRenderPass(Context* ctx, RenderPassDesc desc, u32 colorImageCount, Format* colorImageFormats, Format depthImageFormat, RenderPass* renderPass)
+void MakeRenderPass_CreateRenderPass(Context* ctx, RenderPassDesc desc, u32 colorImageCount, Format* colorImageFormats, Format depthImageFormat, RenderPass* renderPass)
 {
     ASSERT(ctx && renderPass);
     // Color attachments
@@ -704,7 +732,7 @@ void InitRenderPass_CreateRenderPass(Context* ctx, RenderPassDesc desc, u32 colo
     renderPass->outputImageFormats.Push(depthImageFormat);
 }
 
-void InitRenderPass_CreateOutputImages(Context* ctx, RenderPass* renderPass)
+void MakeRenderPass_CreateOutputImages(Context* ctx, RenderPass* renderPass)
 {
     ASSERT(ctx && renderPass);
     renderPass->vkOutputImages = MakeArray<VkImage>(renderPass->colorImageCount + 1);
@@ -803,7 +831,7 @@ void InitRenderPass_CreateOutputImages(Context* ctx, RenderPass* renderPass)
     renderPass->vkOutputImageAllocations.Push(imageAllocation);
 }
 
-void InitRenderPass_CreateFramebuffer(Context* ctx, RenderPass* renderPass)
+void MakeRenderPass_CreateFramebuffer(Context* ctx, RenderPass* renderPass)
 {
     ASSERT(ctx && renderPass);
     VkFramebufferCreateInfo framebufferInfo = {};
@@ -822,32 +850,32 @@ void InitRenderPass_CreateFramebuffer(Context* ctx, RenderPass* renderPass)
     renderPass->vkFramebuffer = framebuffer;
 }
 
-Handle<RenderPass> InitRenderPass(RenderPassDesc desc, u32 colorImageCount, Format* colorImageFormats, Format depthImageFormat)
+Handle<RenderPass> MakeRenderPass(RenderPassDesc desc, u32 colorImageCount, Format* colorImageFormats, Format depthImageFormat)
 {
     ASSERT(colorImageFormats);
     mem::SetContext(&renderHeap);
 
     RenderPass result = {};
 
-    InitRenderPass_CreateRenderPass(&ctx, desc, colorImageCount, colorImageFormats, depthImageFormat, &result);
-    InitRenderPass_CreateOutputImages(&ctx, &result);
-    InitRenderPass_CreateFramebuffer(&ctx, &result);
+    MakeRenderPass_CreateRenderPass(&ctx, desc, colorImageCount, colorImageFormats, depthImageFormat, &result);
+    MakeRenderPass_CreateOutputImages(&ctx, &result);
+    MakeRenderPass_CreateFramebuffer(&ctx, &result);
 
     renderPasses.Push(result);
     return { (u32)renderPasses.count - 1 };
 }
 
-void DestroyRenderPass(Context *ctx, RenderPass *renderPass)
+void DestroyRenderPass(RenderPass *renderPass)
 {
-    ASSERT(ctx && renderPass);
-    ASSERT(ctx->vkDevice != VK_NULL_HANDLE && renderPass->vkHandle != VK_NULL_HANDLE);
+    ASSERT(renderPass);
+    ASSERT(ctx.vkDevice != VK_NULL_HANDLE && renderPass->vkHandle != VK_NULL_HANDLE);
     for(i32 i = 0; i < renderPass->colorImageCount + 1; i++)
     {
-        vkDestroyImageView(ctx->vkDevice, renderPass->vkOutputImageViews[i], NULL);
-        vmaDestroyImage(ctx->vkAllocator, renderPass->vkOutputImages[i], renderPass->vkOutputImageAllocations[i]);
+        vkDestroyImageView(ctx.vkDevice, renderPass->vkOutputImageViews[i], NULL);
+        vmaDestroyImage(ctx.vkAllocator, renderPass->vkOutputImages[i], renderPass->vkOutputImageAllocations[i]);
     }
-    vkDestroyFramebuffer(ctx->vkDevice, renderPass->vkFramebuffer, NULL);
-    vkDestroyRenderPass(ctx->vkDevice, renderPass->vkHandle, NULL);
+    vkDestroyFramebuffer(ctx.vkDevice, renderPass->vkFramebuffer, NULL);
+    vkDestroyRenderPass(ctx.vkDevice, renderPass->vkHandle, NULL);
 
     DestroyArray(&renderPass->outputImageFormats);
     DestroyArray(&renderPass->vkOutputImages);
@@ -855,6 +883,73 @@ void DestroyRenderPass(Context *ctx, RenderPass *renderPass)
     DestroyArray(&renderPass->vkOutputImageAllocations);
 
     *renderPass = {};
+}
+
+Handle<VertexLayout> MakeVertexLayout(u32 attrCount, VertexAttribute* attributes)
+{
+    mem::SetContext(&renderHeap);
+
+    VertexLayout result = {};
+    result.vkBindingDescription = {};
+    result.vkBindingDescription.binding = 0;    // Change this if needed later?
+    result.vkBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;    //TODO(caio): Instancing
+    result.vkBindingDescription.stride = 0;
+    result.attributes = MakeArray<VertexAttribute>(attrCount);
+    result.vkAttributeDescriptions = MakeArray<VkVertexInputAttributeDescription>(attrCount);
+    
+    for(i32 i = 0; i < attrCount; i++)
+    {
+        VertexAttribute attr = attributes[i];
+        result.vkBindingDescription.stride += vertexAttributeSizes[attr];
+        VkVertexInputAttributeDescription attributeDesc = {};
+        attributeDesc.binding = 0;              // Change this if needed later?
+        attributeDesc.location = i;
+        attributeDesc.format = formatToVk[attr];
+        attributeDesc.offset = result.vkBindingDescription.stride;
+        
+        result.attributes.Push(attr);
+        result.vkAttributeDescriptions.Push(attributeDesc);
+    }
+
+    vertexLayouts.Push(result);
+    return { (u32)vertexLayouts.count - 1 };
+}
+
+void DestroyVertexLayout(VertexLayout* vertexLayout)
+{
+    ASSERT(vertexLayout);
+    DestroyArray(&vertexLayout->attributes);
+    DestroyArray(&vertexLayout->vkAttributeDescriptions);
+
+    *vertexLayout = {};
+}
+
+Handle<Shader> MakeShader(ShaderType type, u64 bytecodeSize, u8* bytecode)
+{
+    ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
+    ASSERT(bytecodeSize && bytecode);
+    VkShaderModuleCreateInfo shaderInfo = {};
+    shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    shaderInfo.codeSize = bytecodeSize;
+    shaderInfo.pCode = (u32*)bytecode; //TODO(caio): See if this bites my ass because of alignment
+    VkShaderModule shaderModule;
+    VkResult ret = vkCreateShaderModule(ctx.vkDevice, &shaderInfo, NULL, &shaderModule);
+    ASSERTVK(ret);
+
+    Shader result = {};
+    result.type = type;
+    result.vkShaderModule = shaderModule;
+
+    shaders.Push(result);
+    return { (u32) shaders.count - 1 };
+}
+
+void DestroyShader(Shader* shader)
+{
+    ASSERT(shader);
+    ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
+    vkDestroyShaderModule(ctx.vkDevice, shader->vkShaderModule, NULL);
+    *shader = {};
 }
 
 };

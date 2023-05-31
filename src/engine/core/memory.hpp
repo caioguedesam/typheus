@@ -59,7 +59,7 @@ struct ArenaAllocator
     Region region = {};
     u64 offset = 0;
 };
-ArenaAllocator  InitArenaAllocator(u64 capacity);
+ArenaAllocator  MakeArenaAllocator(u64 capacity);
 void            DestroyArenaAllocator(ArenaAllocator* arena); 
 
 void  SetContext(ArenaAllocator* arena);
@@ -105,7 +105,7 @@ struct HeapAllocator
     HeapAllocatorFreeListNode* FindFirst(u64 size, HeapAllocatorFreeListNode** prev);
     HeapAllocatorFreeListNode* FindBest(u64 size, HeapAllocatorFreeListNode** prev);
 };
-HeapAllocator   InitHeapAllocator(u64 capacity);
+HeapAllocator   MakeHeapAllocator(u64 capacity);
 void            DestroyHeapAllocator(HeapAllocator* heap);
 
 void  SetContext(HeapAllocator* heap);

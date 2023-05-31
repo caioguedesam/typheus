@@ -59,7 +59,7 @@ void ResetContext()
     FreeAll = InvalidFreeAll;
 }
 
-ArenaAllocator InitArenaAllocator(u64 capacity)
+ArenaAllocator MakeArenaAllocator(u64 capacity)
 {
     ArenaAllocator result = {};
     result.region = AllocateRegion(capacity);
@@ -108,7 +108,7 @@ void ArenaFreeAll()
     arena->offset = 0;
 }
 
-HeapAllocator InitHeapAllocator(u64 capacity)
+HeapAllocator MakeHeapAllocator(u64 capacity)
 {
     HeapAllocator result = {};
     result.region = AllocateRegion(capacity);

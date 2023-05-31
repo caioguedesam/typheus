@@ -20,7 +20,7 @@ namespace ty
 void TestMemory()
 {
     // Arena allocator
-    mem::ArenaAllocator testArena = mem::InitArenaAllocator(2048);
+    mem::ArenaAllocator testArena = mem::MakeArenaAllocator(2048);
     ASSERT(testArena.region.start);
     ASSERT(testArena.region.capacity == 2048);
     mem::SetContext(&testArena);
@@ -55,7 +55,7 @@ void TestMemory()
     mem::DestroyArenaAllocator(&testArena);
 
     // Heap allocator
-    mem::HeapAllocator testHeap = mem::InitHeapAllocator(2048);
+    mem::HeapAllocator testHeap = mem::MakeHeapAllocator(2048);
     ASSERT(testHeap.region.start);
     ASSERT(testHeap.region.capacity == 2048);
     mem::SetContext(&testHeap);
@@ -121,7 +121,7 @@ void TestArray()
 {
     //mem::AllocatorArena arrayArena;
     //arrayArena.Init(MB(1));
-    mem::ArenaAllocator arrayArena = mem::InitArenaAllocator(MB(1));
+    mem::ArenaAllocator arrayArena = mem::MakeArenaAllocator(MB(1));
     mem::SetContext(&arrayArena);
     //Array<u32> arr = MakeArray<u32>(&arrayArena, 1024);
     Array<u32> arr = MakeArray<u32>(1024);
@@ -152,7 +152,7 @@ void TestArray()
 
 void TestList()
 {
-    mem::HeapAllocator arrayHeap = mem::InitHeapAllocator(MB(1));
+    mem::HeapAllocator arrayHeap = mem::MakeHeapAllocator(MB(1));
     mem::SetContext(&arrayHeap);
 
     List<u32> arr = MakeList<u32>();
@@ -177,7 +177,7 @@ void TestList()
 
 void TestString()
 {
-    mem::ArenaAllocator stringArena = mem::InitArenaAllocator(MB(1));
+    mem::ArenaAllocator stringArena = mem::MakeArenaAllocator(MB(1));
     mem::SetContext(&stringArena);
 
     const char* test1_cstr = "test 1";
@@ -219,7 +219,7 @@ void TestString()
 
 void TestFile()
 {
-    mem::ArenaAllocator fileArena = mem::InitArenaAllocator(MB(32));
+    mem::ArenaAllocator fileArena = mem::MakeArenaAllocator(MB(32));
     mem::SetContext(&fileArena);
 
     const char* filePath = "./resources/test.txt";

@@ -28,10 +28,22 @@ struct Array
         return data[index];
     }
 
+    T& operator[](Handle<T> handle)
+    {
+        ASSERT(handle.IsValid() && handle.value < count);
+        return data[handle.value];
+    }
+
     const T& operator[](u64 index) const
     {
         ASSERT(index < count);
         return data[index];
+    }
+
+    const T& operator[](Handle<T> handle) const
+    {
+        ASSERT(handle.IsValid() && handle.value < count);
+        return data[handle.value];
     }
 
     void Push(const T& value)
@@ -104,10 +116,22 @@ struct List
         return data[index];
     }
 
+    T& operator[](Handle<T> handle)
+    {
+        ASSERT(handle.IsValid() && handle.value < count);
+        return data[handle.value];
+    }
+
     const T& operator[](u64 index) const
     {
         ASSERT(index < count);
         return data[index];
+    }
+
+    const T& operator[](Handle<T> handle) const
+    {
+        ASSERT(handle.IsValid() && handle.value < count);
+        return data[handle.value];
     }
 
     void Push(const T& value)

@@ -28,7 +28,7 @@ namespace asset
 
 void Init()
 {
-    assetHeap = mem::InitHeapAllocator(ASSET_MEMORY);
+    assetHeap = mem::MakeHeapAllocator(ASSET_MEMORY);
     mem::SetContext(&assetHeap);
 
     assetDatabase.loadedAssets = MakeMap<String, u32>(ASSET_MAX_ASSETS);

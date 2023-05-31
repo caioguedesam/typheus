@@ -27,12 +27,16 @@ namespace render
 #define RENDER_CONTEXT_MEMORY MB(1)
 #define RENDER_CONCURRENT_FRAMES 2
 #define RENDER_MAX_RENDER_PASSES 8
+#define RENDER_MAX_VERTEX_LAYOUTS 8
+#define RENDER_MAX_SHADERS 32
 
 enum Format
 {
     FORMAT_INVALID = 0,
     FORMAT_RGBA8_SRGB,
     FORMAT_BGRA8_SRGB,
+    FORMAT_RG32_FLOAT,
+    FORMAT_RGB32_FLOAT,
     FORMAT_D32_FLOAT,
 
     FORMAT_COUNT,
@@ -69,9 +73,19 @@ enum StoreOp
 
 enum VertexAttribute
 {
-    VA_INVALID = 0,
-    VA_V2F,
-    VA_V3F,
+    VERTEX_ATTR_INVALID = 0,
+    VERTEX_ATTR_V2F,
+    VERTEX_ATTR_V3F,
+
+    VERTEX_ATTR_COUNT,
+};
+
+enum ShaderType
+{
+    SHADER_TYPE_VERTEX,
+    SHADER_TYPE_PIXEL,
+    //TODO(caio): Support compute
+    SHADER_TYPE_COUNT,
 };
 
 struct Context
@@ -100,8 +114,8 @@ struct Context
     Array<VkFence> vkRenderFences;
     VkFence vkSingleTimeCommandFence = VK_NULL_HANDLE;
 };
-Context InitContext(Window* window);
-void    DestroyContext(Context* ctx);
+Context MakeContext(Window* window);
+void DestroyContext(Context* ctx);
 
 struct SwapChain
 {
@@ -118,9 +132,9 @@ struct SwapChain
     Array<VkImageView> vkImageViews;
 };
 
-SwapChain   InitSwapChain(Context* ctx, Window* window);
-void        DestroySwapChain(Context* ctx, SwapChain* swapChain);
-void        ResizeSwapChain(Context* ctx, Window* window, SwapChain* swapChain);
+SwapChain MakeSwapChain(Window* window);
+void DestroySwapChain(SwapChain* swapChain);
+void ResizeSwapChain(Window* window, SwapChain* swapChain);
 
 struct RenderPassDesc
 {
@@ -146,19 +160,35 @@ struct RenderPass
     Array<VmaAllocation> vkOutputImageAllocations;
 };
 
-Handle<RenderPass>  InitRenderPass(RenderPassDesc desc, u32 colorImageCount, Format* colorImageFormats, Format depthImageFormat);
-void                DestroyRenderPass(Context* ctx, RenderPass* renderPass);
+Handle<RenderPass> MakeRenderPass(RenderPassDesc desc, u32 colorImageCount, Format* colorImageFormats, Format depthImageFormat);
+void DestroyRenderPass(RenderPass* renderPass);
 
 struct VertexLayout
 {
-
+    VkVertexInputBindingDescription vkBindingDescription = {};
+    Array<VkVertexInputAttributeDescription> vkAttributeDescriptions;
+    Array<VertexAttribute> attributes;
 };
+
+Handle<VertexLayout> MakeVertexLayout(u32 attrCount, VertexAttribute* attributes);
+void DestroyVertexLayout(VertexLayout* vertexLayout);
+
+struct Shader
+{
+    ShaderType type;
+    VkShaderModule vkShaderModule = VK_NULL_HANDLE;
+};
+
+Handle<Shader> MakeShader(ShaderType type, u64 bytecodeSize, u8* bytecode);
+void DestroyShader(Shader* shader);
 
 inline mem::HeapAllocator renderHeap;
 inline Context ctx;
 inline SwapChain swapChain;
 
 inline Array<RenderPass> renderPasses;
+inline Array<VertexLayout> vertexLayouts;
+inline Array<Shader> shaders;
 
 void Init(Window* window);
 void Shutdown();

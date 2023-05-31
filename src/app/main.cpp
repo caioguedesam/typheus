@@ -40,12 +40,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     using namespace ty;
 
     time::Init();
+    asset::Init();
 
     const u32 appWidth = 1280;
     const u32 appHeight = 720;
 
     render::Window window;
-    render::InitWindow(&window, appWidth, appHeight, "Typheus");
+    render::MakeWindow(&window, appWidth, appHeight, "Typheus");
 
     render::Init(&window);
 
@@ -61,7 +62,22 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     {
         render::FORMAT_RGBA8_SRGB,
     };
-    Handle<render::RenderPass> mainRenderPass = render::InitRenderPass(mainRenderPassDesc, 1, mainRenderPassColorFormats, render::FORMAT_D32_FLOAT);
+    Handle<render::RenderPass> mainRenderPass = render::MakeRenderPass(mainRenderPassDesc, 1, mainRenderPassColorFormats, render::FORMAT_D32_FLOAT);
+
+    // Shaders
+    file::Path testShaderPath = file::MakePath(IStr("./resources/shaders/test.spv"));
+    Handle<asset::BinaryData> h_assetTestShader = asset::LoadBinaryFile(testShaderPath);
+    asset::BinaryData& assetTestShader = asset::assetDatabase.binaryDataAssets[h_assetTestShader];
+    Handle<render::Shader> testShader = render::MakeShader(ty::render::SHADER_TYPE_VERTEX, assetTestShader.size, assetTestShader.data);
+
+    // Graphics pipeline 
+    render::VertexAttribute defaultVertexAttributes[] =
+    {
+        render::VERTEX_ATTR_V3F,
+        render::VERTEX_ATTR_V3F,
+        render::VERTEX_ATTR_V2F,
+    };
+    Handle<render::VertexLayout> defaultVertexLayout = render::MakeVertexLayout(ARR_LEN(defaultVertexAttributes), defaultVertexAttributes);
 
     // Program flow:
     // > Render to main render pass

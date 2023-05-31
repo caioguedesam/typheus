@@ -5,7 +5,7 @@ namespace ty
 namespace render
 {
 
-void InitWindow(Window* window, i32 w, i32 h, const char* title)
+void MakeWindow(Window* window, i32 w, i32 h, const char* title)
 {
     ASSERT(window);
     ASSERT(window->state == WINDOW_INVALID);
