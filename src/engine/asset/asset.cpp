@@ -31,16 +31,16 @@ void Init()
     assetHeap = mem::MakeHeapAllocator(ASSET_MEMORY);
     mem::SetContext(&assetHeap);
 
-    assetDatabase.loadedAssets = MakeMap<String, u32>(ASSET_MAX_ASSETS);
-    assetDatabase.binaryDataAssets = MakeList<BinaryData>(ASSET_MAX_BINARY_DATA);
-    assetDatabase.imageAssets = MakeList<Image>(ASSET_MAX_IMAGES);
-    assetDatabase.materialAssets = MakeList<Material>(ASSET_MAX_MATERIALS);
-    assetDatabase.modelAssets = MakeList<Model>(ASSET_MAX_MODELS);
+    loadedAssets = MakeMap<String, u32>(ASSET_MAX_ASSETS);
+    binaryDatas = MakeList<BinaryData>(ASSET_MAX_BINARY_DATA);
+    images = MakeList<Image>(ASSET_MAX_IMAGES);
+    materials = MakeList<Material>(ASSET_MAX_MATERIALS);
+    models = MakeList<Model>(ASSET_MAX_MODELS);
 }
 
 Handle<BinaryData> LoadBinaryFile(file::Path assetPath)
 {
-    if(IsLoaded(assetPath)) return { assetDatabase.loadedAssets[assetPath.str] };
+    if(IsLoaded(assetPath)) return { loadedAssets[assetPath.str] };
     mem::SetContext(&assetHeap);
 
     BinaryData blob = {};
@@ -51,16 +51,16 @@ Handle<BinaryData> LoadBinaryFile(file::Path assetPath)
     blob.data = assetFileData;
     blob.size = assetFileSize;
 
-    assetDatabase.binaryDataAssets.Push(blob);
-    Handle<BinaryData> result = { (u32)assetDatabase.binaryDataAssets.count - 1 };
-    assetDatabase.loadedAssets.Insert(assetPath.str, result.value);
+    binaryDatas.Push(blob);
+    Handle<BinaryData> result = { (u32)binaryDatas.count - 1 };
+    loadedAssets.Insert(assetPath.str, result.value);
 
     return result;
 }
 
 Handle<Image> LoadImageFile(file::Path assetPath, bool flipVertical)
 {
-    if(IsLoaded(assetPath)) return { assetDatabase.loadedAssets[assetPath.str] };
+    if(IsLoaded(assetPath)) return { loadedAssets[assetPath.str] };
     mem::SetContext(&assetHeap);
 
     u64 assetFileSize = 0;
@@ -78,9 +78,9 @@ Handle<Image> LoadImageFile(file::Path assetPath, bool flipVertical)
     image.channels = channels;
     image.data = data;
 
-    assetDatabase.imageAssets.Push(image);
-    Handle<Image> result = { (u32)assetDatabase.imageAssets.count - 1 };
-    assetDatabase.loadedAssets.Insert(assetPath.str, result.value);
+    images.Push(image);
+    Handle<Image> result = { (u32)images.count - 1 };
+    loadedAssets.Insert(assetPath.str, result.value);
 
     mem::Free(assetFileData);
 

@@ -278,8 +278,8 @@ HashMap<String, Handle<Material>> LoadMaterials(u8* mtlData, u64 mtlDataSize)
             String mtlName;
             fp = ConsumeString(fp, &mtlName);
 
-            assetDatabase.materialAssets.Push({});
-            material = { (u32)assetDatabase.materialAssets.count - 1 };
+            materials.Push({});
+            material = { (u32)materials.count - 1 };
             result.Insert(mtlName, material);
 
             ////TODO(caio): Should I be indexing materials via string on loaded assets?
@@ -290,7 +290,7 @@ HashMap<String, Handle<Material>> LoadMaterials(u8* mtlData, u64 mtlDataSize)
         else if(*fp == 'K')     // Colors
         {
             ASSERT(material.IsValid());
-            Material& m = assetDatabase.materialAssets[material.value];
+            Material& m = materials[material];
 
             fp++;
             f32 r = 0, g = 0, b = 0;
@@ -318,7 +318,7 @@ HashMap<String, Handle<Material>> LoadMaterials(u8* mtlData, u64 mtlDataSize)
         else if(*fp == 'N')     // Constants
         {
             ASSERT(material.IsValid());
-            Material& m = assetDatabase.materialAssets[material.value];
+            Material& m = materials[material];
 
             fp++;
             f32 k = 0;
@@ -333,7 +333,7 @@ HashMap<String, Handle<Material>> LoadMaterials(u8* mtlData, u64 mtlDataSize)
         else if(*fp == 'm')     // Maps
         {
             ASSERT(material.IsValid());
-            Material& m = assetDatabase.materialAssets[material.value];
+            Material& m = materials[material];
 
             fp = FindChar(fp, '_');
             fp++;
@@ -398,7 +398,7 @@ HashMap<String, Handle<Material>> LoadMaterials(u8* mtlData, u64 mtlDataSize)
 Handle<Model> LoadModelOBJ(file::Path assetPath, bool flipVerticalTexcoord)
 {
     PROFILE_SCOPE;
-    if(IsLoaded(assetPath)) return { assetDatabase.loadedAssets[assetPath.str] };
+    if(IsLoaded(assetPath)) return { loadedAssets[assetPath.str] };
     mem::SetContext(&assetHeap);
 
     Model model = {};
@@ -529,9 +529,9 @@ Handle<Model> LoadModelOBJ(file::Path assetPath, bool flipVerticalTexcoord)
     mem::Free(mtlData);
     mem::Free(objData);
 
-    assetDatabase.modelAssets.Push(model);
-    Handle<Model> result = { (u32)assetDatabase.modelAssets.count - 1 };
-    assetDatabase.loadedAssets.Insert(assetPath.str, result.value);
+    models.Push(model);
+    Handle<Model> result = { (u32)models.count - 1 };
+    loadedAssets.Insert(assetPath.str, result.value);
     
     return result;
 }

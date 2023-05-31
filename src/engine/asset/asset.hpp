@@ -64,20 +64,16 @@ struct Model
 };
 
 // ========================================================
-// [ASSET TABLE]
-struct AssetDatabase
-{
-    List<BinaryData> binaryDataAssets = {};
-    List<Image> imageAssets = {};
-    List<Material> materialAssets = {};
-    List<Model> modelAssets = {};
+// [ASSET LISTS]
 
-    // Index asset handles by path (from cwd)
-    HashMap<String, u32> loadedAssets;
-};
-
-inline AssetDatabase assetDatabase = {};
 inline mem::HeapAllocator assetHeap;
+inline List<BinaryData> binaryDatas;
+inline List<Image> images;
+inline List<Material> materials;
+inline List<Model> models;
+
+// Index asset handles by path
+inline HashMap<String, u32> loadedAssets;
 
 // TODO(caio): Reimplement async loading
 //inline async::Lock assetDatabaseLock = {};
@@ -91,10 +87,10 @@ Handle<Image>       LoadImageFile(file::Path assetPath, bool flipVertical = true
 Handle<Model>       LoadModelOBJ(file::Path assetPath, bool flipVerticalTexcoord = false);
 // TODO(caio): Load model obj with custom parser
 
-inline bool         IsLoaded(file::Path assetPath) { return assetDatabase.loadedAssets.HasKey(assetPath.str); }
-inline BinaryData*  GetBinaryData(Handle<BinaryData> handle) { return &assetDatabase.binaryDataAssets[handle.value]; }
-inline Image*       GetImage(Handle<Image> handle) { return &assetDatabase.imageAssets[handle.value]; }
-inline Model*       GetModel(Handle<Model> handle) { return &assetDatabase.modelAssets[handle.value]; }
+inline bool         IsLoaded(file::Path assetPath) { return loadedAssets.HasKey(assetPath.str); }
+inline BinaryData*  GetBinaryData(Handle<BinaryData> handle) { return &binaryDatas[handle.value]; }
+inline Image*       GetImage(Handle<Image> handle) { return &images[handle.value]; }
+inline Model*       GetModel(Handle<Model> handle) { return &models[handle.value]; }
 
 // TODO(caio): Reimplement async loading?
 //ASYNC_CALLBACK(LoadBinaryFileAsync);
