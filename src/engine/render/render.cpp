@@ -1,7 +1,10 @@
 #include "engine/render/render.hpp"
+#include "engine/core/base.hpp"
+#include "engine/core/debug.hpp"
 #include "engine/core/ds.hpp"
 #include "engine/core/memory.hpp"
 #include "vulkan/vulkan_core.h"
+#include <vcruntime_string.h>
 
 namespace ty
 {
@@ -75,12 +78,51 @@ u32 vertexAttributeSizes[] =
     3,
 };
 STATIC_ASSERT(ARR_LEN(vertexAttributeSizes) == VERTEX_ATTR_COUNT);
-VkShaderStageFlagBits shaderTypeToVk[] =
+VkFormat vertexAttributeFormats[] =
 {
-    VK_SHADER_STAGE_VERTEX_BIT,
-    VK_SHADER_STAGE_FRAGMENT_BIT,
+    VK_FORMAT_UNDEFINED,
+    VK_FORMAT_R32G32_SFLOAT,
+    VK_FORMAT_R32G32B32_SFLOAT,
 };
-STATIC_ASSERT(ARR_LEN(shaderTypeToVk) == SHADER_TYPE_COUNT);
+STATIC_ASSERT(ARR_LEN(vertexAttributeFormats) == VERTEX_ATTR_COUNT);
+// VkShaderStageFlagBits shaderTypeToVk[] =
+// {
+//     VK_SHADER_STAGE_VERTEX_BIT,
+//     VK_SHADER_STAGE_FRAGMENT_BIT,
+// };
+// STATIC_ASSERT(ARR_LEN(shaderTypeToVk) == SHADER_TYPE_COUNT);
+VkPrimitiveTopology primitiveToVk[] =
+{
+    VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+};
+STATIC_ASSERT(ARR_LEN(primitiveToVk) == PRIMITIVE_COUNT);
+VkPolygonMode fillModeToVk[] =
+{
+    VK_POLYGON_MODE_FILL,
+    VK_POLYGON_MODE_LINE,
+    VK_POLYGON_MODE_POINT,
+};
+STATIC_ASSERT(ARR_LEN(fillModeToVk) == FILL_MODE_COUNT);
+VkCullModeFlagBits cullModeToVk[] =
+{
+    VK_CULL_MODE_NONE,
+    VK_CULL_MODE_FRONT_BIT,
+    VK_CULL_MODE_BACK_BIT,
+    VK_CULL_MODE_FRONT_AND_BACK,
+};
+STATIC_ASSERT(ARR_LEN(cullModeToVk) == CULL_MODE_COUNT);
+VkFrontFace frontFaceToVk[] =
+{
+    VK_FRONT_FACE_CLOCKWISE,
+    VK_FRONT_FACE_COUNTER_CLOCKWISE,
+};
+STATIC_ASSERT(ARR_LEN(frontFaceToVk) == FRONT_FACE_COUNT);
+VkBufferUsageFlagBits bufferTypeToVk[] =
+{
+    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+    VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+};
+STATIC_ASSERT(ARR_LEN(bufferTypeToVk) == BUFFER_TYPE_COUNT);
 
 void Init(Window* window)
 {
@@ -90,15 +132,21 @@ void Init(Window* window)
     ctx = MakeContext(window);
     swapChain = MakeSwapChain(window);
 
+    commandBuffers = MakeArray<CommandBuffer>(RENDER_MAX_COMMAND_BUFFERS);
     renderPasses = MakeArray<RenderPass>(RENDER_MAX_RENDER_PASSES);
     vertexLayouts = MakeArray<VertexLayout>(RENDER_MAX_VERTEX_LAYOUTS);
     shaders = MakeArray<Shader>(RENDER_MAX_SHADERS);
+    buffers = MakeArray<Buffer>(RENDER_MAX_BUFFERS);
+    graphicsPipelines = MakeArray<GraphicsPipeline>(RENDER_MAX_GRAPHICS_PIPELINES);
+
+    MakeCommandBuffers();
 }
 
 void Shutdown()
 {
     mem::SetContext(&renderHeap);
 
+    vkDeviceWaitIdle(ctx.vkDevice);
     for(i32 i = 0; i < renderPasses.count; i++)
     {
         DestroyRenderPass(&renderPasses[i]);
@@ -111,9 +159,20 @@ void Shutdown()
     {
         DestroyShader(&shaders[i]);
     }
+    for(i32 i = 0; i < buffers.count; i++)
+    {
+        DestroyBuffer(&buffers[i]);
+    }
+    for(i32 i = 0; i < graphicsPipelines.count; i++)
+    {
+        DestroyGraphicsPipeline(&graphicsPipelines[i]);
+    }
+    DestroyArray(&commandBuffers);
     DestroyArray(&renderPasses);
     DestroyArray(&vertexLayouts);
     DestroyArray(&shaders);
+    DestroyArray(&buffers);
+    DestroyArray(&graphicsPipelines);
 
     DestroySwapChain(&swapChain);
     DestroyContext(&ctx);
@@ -358,7 +417,7 @@ void MakeContext_CreateAllocator(Context* ctx)
     ctx->vkAllocator = allocator;
 }
 
-void MakeContext_CreateCommandBuffers(Context* ctx)
+void MakeContext_CreateCommandPool(Context* ctx)
 {
     ASSERT(ctx);
 
@@ -370,32 +429,71 @@ void MakeContext_CreateCommandBuffers(Context* ctx)
     VkCommandPool commandPool;
     VkResult ret = vkCreateCommandPool(ctx->vkDevice, &poolInfo, NULL, &commandPool);
     ASSERTVK(ret);
-    VkCommandPool singleTimeCommandPool;
-    ret = vkCreateCommandPool(ctx->vkDevice, &poolInfo, NULL, &singleTimeCommandPool);
-    ASSERTVK(ret);
+    // VkCommandPool singleTimeCommandPool;
+    // ret = vkCreateCommandPool(ctx->vkDevice, &poolInfo, NULL, &singleTimeCommandPool);
+    // ASSERTVK(ret);
 
     ctx->vkCommandPool = commandPool;
-    ctx->vkSingleTimeCommandPool = singleTimeCommandPool;
 
-    // One command buffer for each concurrent frame, and an additional one
-    // for single time commands like buffer copies
-    ctx->vkCommandBuffers = MakeArray<VkCommandBuffer>(RENDER_CONCURRENT_FRAMES);
-    VkCommandBufferAllocateInfo bufferInfo = {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    bufferInfo.commandBufferCount = 1;
-    bufferInfo.commandPool = commandPool;
-    bufferInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    VkCommandBuffer commandBuffer;
-    for(i32 i = 0; i < RENDER_CONCURRENT_FRAMES; i++)
+    // ctx->vkSingleTimeCommandPool = singleTimeCommandPool;
+
+    // // One command buffer for each concurrent frame, and an additional one
+    // // for single time commands like buffer copies
+    // ctx->vkCommandBuffers = MakeArray<VkCommandBuffer>(RENDER_CONCURRENT_FRAMES);
+    // VkCommandBufferAllocateInfo bufferInfo = {};
+    // bufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    // bufferInfo.commandBufferCount = 1;
+    // bufferInfo.commandPool = commandPool;
+    // bufferInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    // VkCommandBuffer commandBuffer;
+    // for(i32 i = 0; i < RENDER_CONCURRENT_FRAMES; i++)
+    // {
+    //     ret = vkAllocateCommandBuffers(ctx->vkDevice, &bufferInfo, &commandBuffer);
+    //     ASSERTVK(ret);
+    //     ctx->vkCommandBuffers.Push(commandBuffer);
+    // }
+    // bufferInfo.commandPool = singleTimeCommandPool;
+    // ret = vkAllocateCommandBuffers(ctx->vkDevice, &bufferInfo, &commandBuffer);
+    // ASSERTVK(ret);
+    // ctx->vkSingleTimeCommandBuffer = commandBuffer;
+}
+
+void MakeCommandBuffers()
+{
+    ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
+    ASSERT(ctx.vkCommandPool != VK_NULL_HANDLE);
+    for(i32 i = 0; i < RENDER_MAX_COMMAND_BUFFERS; i++)
     {
-        ret = vkAllocateCommandBuffers(ctx->vkDevice, &bufferInfo, &commandBuffer);
+        VkCommandBufferAllocateInfo bufferInfo = {};
+        bufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        bufferInfo.commandPool = ctx.vkCommandPool;
+        bufferInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        bufferInfo.commandBufferCount = 1;
+        VkCommandBuffer commandBuffer;
+        VkResult ret = vkAllocateCommandBuffers(ctx.vkDevice, &bufferInfo, &commandBuffer);
         ASSERTVK(ret);
-        ctx->vkCommandBuffers.Push(commandBuffer);
+
+        CommandBuffer result = {};
+        result.vkHandle = commandBuffer;
+        result.isAvailable = true;
+        commandBuffers.Push(result);
     }
-    bufferInfo.commandPool = singleTimeCommandPool;
-    ret = vkAllocateCommandBuffers(ctx->vkDevice, &bufferInfo, &commandBuffer);
-    ASSERTVK(ret);
-    ctx->vkSingleTimeCommandBuffer = commandBuffer;
+}
+
+Handle<CommandBuffer> GetAvailableCommandBuffer()
+{
+    for(i32 i = 0; i < commandBuffers.count; i++)
+    {
+        CommandBuffer& commandBuffer = commandBuffers[i];
+        if(commandBuffer.isAvailable)
+        {
+            VkResult ret = vkResetCommandBuffer(commandBuffer.vkHandle, 0);
+            ASSERTVK(ret);
+            return { (u32)i };
+        }
+    }
+    ASSERT(0);
+    return {};
 }
 
 void MakeContext_CreateSyncPrimitives(Context* ctx)
@@ -433,7 +531,7 @@ void MakeContext_CreateSyncPrimitives(Context* ctx)
     VkFence fence;
     ret = vkCreateFence(ctx->vkDevice, &fenceInfo, NULL, &fence);
     ASSERTVK(ret);
-    ctx->vkSingleTimeCommandFence = fence;
+    ctx->vkImmediateFence = fence;
 }
 
 Context MakeContext(Window *window)
@@ -447,7 +545,7 @@ Context MakeContext(Window *window)
     MakeContext_GetPhysicalDevice(&ctx);
     MakeContext_CreateDeviceAndCommandQueue(&ctx);
     MakeContext_CreateAllocator(&ctx);
-    MakeContext_CreateCommandBuffers(&ctx);
+    MakeContext_CreateCommandPool(&ctx);
     MakeContext_CreateSyncPrimitives(&ctx);
 
     return ctx;
@@ -463,9 +561,9 @@ void DestroyContext(Context *ctx)
         vkDestroySemaphore(ctx->vkDevice, ctx->vkPresentSemaphores[i], NULL);
         vkDestroyFence(ctx->vkDevice, ctx->vkRenderFences[i], NULL);
     }
-    vkDestroyFence(ctx->vkDevice, ctx->vkSingleTimeCommandFence, NULL);
+    vkDestroyFence(ctx->vkDevice, ctx->vkImmediateFence, NULL);
     vkDestroyCommandPool(ctx->vkDevice, ctx->vkCommandPool, NULL);
-    vkDestroyCommandPool(ctx->vkDevice, ctx->vkSingleTimeCommandPool, NULL);
+    //vkDestroyCommandPool(ctx->vkDevice, ctx->vkSingleTimeCommandPool, NULL);
     vmaDestroyAllocator(ctx->vkAllocator);
     vkDestroyDevice(ctx->vkDevice, NULL);
     vkDestroySurfaceKHR(ctx->vkInstance, ctx->vkSurface, NULL);
@@ -475,7 +573,6 @@ void DestroyContext(Context *ctx)
     fn(ctx->vkInstance, ctx->vkDebugMessenger, NULL);
 #endif
     vkDestroyInstance(ctx->vkInstance, NULL);
-    DestroyArray(&ctx->vkCommandBuffers);
     DestroyArray(&ctx->vkRenderSemaphores);
     DestroyArray(&ctx->vkPresentSemaphores);
     DestroyArray(&ctx->vkRenderFences);
@@ -904,7 +1001,7 @@ Handle<VertexLayout> MakeVertexLayout(u32 attrCount, VertexAttribute* attributes
         VkVertexInputAttributeDescription attributeDesc = {};
         attributeDesc.binding = 0;              // Change this if needed later?
         attributeDesc.location = i;
-        attributeDesc.format = formatToVk[attr];
+        attributeDesc.format = vertexAttributeFormats[attr];
         attributeDesc.offset = result.vkBindingDescription.stride;
         
         result.attributes.Push(attr);
@@ -950,6 +1047,328 @@ void DestroyShader(Shader* shader)
     ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
     vkDestroyShaderModule(ctx.vkDevice, shader->vkShaderModule, NULL);
     *shader = {};
+}
+
+Handle<Buffer> MakeBuffer(BufferType type, u64 size, u64 stride, void* data)
+{
+    ASSERT(ctx.vkAllocator != VK_NULL_HANDLE);
+    ASSERT(size >= stride);
+
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = size;
+    bufferInfo.usage = bufferTypeToVk[type];
+    
+    VmaAllocationCreateInfo allocationInfo = {};
+    allocationInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    allocationInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;  // Hardcoded
+
+    VkBuffer buffer;
+    VmaAllocation allocation;
+    VkResult ret = vmaCreateBuffer(ctx.vkAllocator, &bufferInfo, &allocationInfo, &buffer, &allocation, NULL);
+    ASSERTVK(ret);
+
+    Buffer result = {};
+    result.vkHandle = buffer;
+    result.vkAllocation = allocation;
+    result.type = type;
+    result.size = size;
+    result.stride = stride;
+    result.count = size / stride;
+
+    buffers.Push(result);
+
+    Handle<Buffer> hResult = { (u32) buffers.count - 1 };
+    if(data) CopyMemoryToBuffer(hResult, size, data);
+    return hResult;
+}
+
+void DestroyBuffer(Buffer* buffer)
+{
+    ASSERT(buffer);
+    ASSERT(ctx.vkAllocator != VK_NULL_HANDLE);
+    vmaDestroyBuffer(ctx.vkAllocator, buffer->vkHandle, buffer->vkAllocation);
+    *buffer = {};
+}
+
+void CopyMemoryToBuffer(Handle<Buffer> hDstBuffer, u64 size, void* data)
+{
+    ASSERT(hDstBuffer.IsValid());
+    ASSERT(ctx.vkAllocator != VK_NULL_HANDLE);
+    ASSERT(data);
+
+    Buffer& buffer = buffers[hDstBuffer];
+    void* mapping = NULL;
+    VkResult ret = vmaMapMemory(ctx.vkAllocator, buffer.vkAllocation, &mapping);
+    memcpy(mapping, data, size);
+    ASSERTVK(ret);
+    vmaUnmapMemory(ctx.vkAllocator, buffer.vkAllocation);
+}
+
+Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, GraphicsPipelineDesc desc)
+{
+    ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
+
+    RenderPass& renderPass = renderPasses[hRenderPass];
+    VertexLayout& vertexLayout = vertexLayouts[desc.hVertexLayout];
+    Shader& vs = shaders[desc.hShaderVertex];
+    Shader& ps = shaders[desc.hShaderPixel];
+    ASSERT(vs.type == SHADER_TYPE_VERTEX);
+    ASSERT(ps.type == SHADER_TYPE_PIXEL);
+
+    // Shader stages
+    VkPipelineShaderStageCreateInfo vsStageInfo = {};
+    vsStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vsStageInfo.pName = "main";     // Shader entrypoint is always main
+    vsStageInfo.module = vs.vkShaderModule;
+    vsStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    VkPipelineShaderStageCreateInfo psStageInfo = vsStageInfo;
+    psStageInfo.module = ps.vkShaderModule;
+    psStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    VkPipelineShaderStageCreateInfo shaderStageInfos[] =
+    {
+        vsStageInfo, psStageInfo
+    };
+
+    // Input assembly
+    VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = {};
+    inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssemblyInfo.topology = primitiveToVk[desc.primitive];
+    inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
+
+    // Vertex input
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &vertexLayout.vkBindingDescription;
+    vertexInputInfo.vertexAttributeDescriptionCount = vertexLayout.attributes.count;
+    vertexInputInfo.pVertexAttributeDescriptions = vertexLayout.vkAttributeDescriptions.data;
+
+    // Dynamic states
+    VkDynamicState dynamicStates[] =
+    {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR,
+    };
+    VkPipelineDynamicStateCreateInfo dynamicInfo = {};
+    dynamicInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamicInfo.dynamicStateCount = ARR_LEN(dynamicStates);
+    dynamicInfo.pDynamicStates = dynamicStates;
+
+    // Viewport state (dynamic)
+    VkPipelineViewportStateCreateInfo viewportInfo = {};
+    viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportInfo.viewportCount = 1;
+    viewportInfo.scissorCount = 1;
+
+    // Rasterization state
+    VkPipelineRasterizationStateCreateInfo rasterizationInfo = {};
+    rasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizationInfo.polygonMode = fillModeToVk[desc.fillMode];
+    rasterizationInfo.cullMode = cullModeToVk[desc.cullMode];
+    rasterizationInfo.frontFace = frontFaceToVk[desc.frontFace];
+    rasterizationInfo.depthClampEnable = VK_FALSE;
+    rasterizationInfo.lineWidth = 1;
+    rasterizationInfo.depthBiasClamp = VK_FALSE;
+
+    // Blending
+    // //TODO(caio): support other blend modes rather than overwrite
+    VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+    colorBlendAttachment.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT |
+        VK_COLOR_COMPONENT_G_BIT |
+        VK_COLOR_COMPONENT_B_BIT |
+        VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.blendEnable = VK_FALSE;     // No blending, overwrite color
+    VkPipelineColorBlendStateCreateInfo colorBlendInfo = {};
+    colorBlendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlendInfo.logicOpEnable = VK_FALSE;
+    colorBlendInfo.attachmentCount = 1;
+    colorBlendInfo.pAttachments = &colorBlendAttachment;
+
+    // Depth state
+    VkPipelineDepthStencilStateCreateInfo depthStencilInfo = {};
+    depthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencilInfo.depthTestEnable = VK_TRUE;
+    depthStencilInfo.depthWriteEnable = VK_TRUE;
+    depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
+    depthStencilInfo.stencilTestEnable = VK_FALSE;
+
+    //TODO(caio): Push constants
+    //TODO(caio): Descriptor set layouts
+
+    VkPipelineLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    layoutInfo.setLayoutCount = 0;
+    layoutInfo.pSetLayouts = NULL;
+    layoutInfo.pushConstantRangeCount = 0;
+    layoutInfo.pPushConstantRanges = NULL;
+    VkPipelineLayout pipelineLayout;
+    VkResult ret = vkCreatePipelineLayout(ctx.vkDevice, &layoutInfo, NULL, &pipelineLayout);
+    ASSERTVK(ret);
+
+    VkGraphicsPipelineCreateInfo pipelineInfo = {};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineInfo.stageCount = ARR_LEN(shaderStageInfos);
+    pipelineInfo.pStages = shaderStageInfos;
+    pipelineInfo.pVertexInputState = &vertexInputInfo;
+    pipelineInfo.pInputAssemblyState = &inputAssemblyInfo;
+    pipelineInfo.pDynamicState = &dynamicInfo;
+    pipelineInfo.pViewportState = &viewportInfo;
+    pipelineInfo.pRasterizationState = &rasterizationInfo;
+    pipelineInfo.pColorBlendState = &colorBlendInfo;
+    pipelineInfo.pDepthStencilState = &depthStencilInfo;
+    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.renderPass = renderPass.vkHandle;
+    pipelineInfo.subpass = 0;   // Only supports 1 subpass per render pass
+    VkPipeline pipeline;
+    ret = vkCreateGraphicsPipelines(ctx.vkDevice, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pipeline);
+    ASSERTVK(ret);
+
+    GraphicsPipeline result = {};
+    result.vkPipeline = pipeline;
+    result.vkPipelineLayout = pipelineLayout;
+    result.desc = desc;
+
+    graphicsPipelines.Push(result);
+    return { (u32)graphicsPipelines.count - 1 };
+}
+
+void DestroyGraphicsPipeline(GraphicsPipeline* pipeline)
+{
+    ASSERT(pipeline);
+    ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
+    vkDestroyPipelineLayout(ctx.vkDevice, pipeline->vkPipelineLayout, NULL);
+    vkDestroyPipeline(ctx.vkDevice, pipeline->vkPipeline, NULL);
+}
+
+void BeginCommandBuffer(Handle<CommandBuffer> hCmd)
+{
+    ASSERT(hCmd.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    ASSERT(cmd.isAvailable);
+
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    VkResult ret = vkBeginCommandBuffer(cmd.vkHandle, &beginInfo);
+    ASSERTVK(ret);
+
+    cmd.isAvailable = false;
+}
+
+void EndCommandBuffer(Handle<CommandBuffer> hCmd)
+{
+    ASSERT(hCmd.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    ASSERT(!cmd.isAvailable);
+
+    VkResult ret = vkEndCommandBuffer(cmd.vkHandle);
+    ASSERTVK(ret);
+}
+
+void SubmitImmediate(Handle<CommandBuffer> hCmd)
+{
+    ASSERT(hCmd.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    ASSERT(!cmd.isAvailable);
+
+    VkSubmitInfo submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &cmd.vkHandle;
+    
+    VkResult ret = vkQueueSubmit(ctx.vkCommandQueue, 1, &submitInfo, ctx.vkImmediateFence);
+    ASSERTVK(ret);
+
+    ret = vkWaitForFences(ctx.vkDevice, 1, &ctx.vkImmediateFence, VK_TRUE, MAX_U64);
+    ASSERTVK(ret);
+    ret = vkResetFences(ctx.vkDevice, 1, &ctx.vkImmediateFence);
+    ASSERTVK(ret);
+    ret = vkResetCommandPool(ctx.vkDevice, ctx.vkCommandPool, 0);
+    ASSERTVK(ret);
+}
+
+void BeginFrame(u32 frame)
+{
+    u32 inFlightFrame = frame % RENDER_CONCURRENT_FRAMES;
+    
+    // Wait for last occurrence of frame to finish
+    VkFence fence = ctx.vkRenderFences[inFlightFrame];
+    vkWaitForFences(ctx.vkDevice, 1, &fence, VK_TRUE, MAX_U64);
+
+    VkSemaphore presentSemaphore = ctx.vkPresentSemaphores[inFlightFrame];
+    VkResult ret = vkAcquireNextImageKHR(ctx.vkDevice, swapChain.vkHandle, MAX_U64, presentSemaphore, VK_NULL_HANDLE, &swapChain.activeImage);
+    if(ret == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        // TODO(caio): Resize swap chain
+    }
+    else ASSERTVK(ret);
+
+    // Reset fence to start recording work
+    vkResetFences(ctx.vkDevice, 1, &fence);
+
+    // TODO(caio): CONTINUE
+    // - Figure out begin/end frame workflow**
+    // - Figure out how to handle swap chain image with vkAcquireNextImage
+    //      - Maybe something like activeImage in SwapChain and BeginFrame
+    //      updates this value
+    // - Figure out how to handle submit**
+    // - Clear command
+    // - Copy to Swap Chain command
+    // - Present
+    // - Render blue screen
+    // - Resize swap chain on begin and end frame
+}
+
+void EndFrame(u32 frame, Handle<CommandBuffer> hCmd)
+{
+    ASSERT(hCmd.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    ASSERT(!cmd.isAvailable);
+
+    u32 inFlightFrame = frame % RENDER_CONCURRENT_FRAMES;
+
+    VkSubmitInfo submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &cmd.vkHandle;
+
+    VkSemaphore presentSemaphore = ctx.vkPresentSemaphores[inFlightFrame];
+    VkSemaphore renderSemaphore = ctx.vkRenderSemaphores[inFlightFrame];
+    VkFence renderFence = ctx.vkRenderFences[inFlightFrame];
+    
+    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    submitInfo.pWaitDstStageMask = &waitStage;
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = &presentSemaphore;
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &renderSemaphore;
+
+    VkResult ret = vkQueueSubmit(ctx.vkCommandQueue, 1, &submitInfo, renderFence);
+    ASSERTVK(ret);
+}
+
+void Present(u32 frame)
+{
+    ASSERT(ctx.vkCommandQueue != VK_NULL_HANDLE);
+    u32 inFlightFrame = frame % RENDER_CONCURRENT_FRAMES;
+    VkSemaphore presentSemaphore = ctx.vkPresentSemaphores[inFlightFrame];
+
+    VkPresentInfoKHR presentInfo = {};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = &swapChain.vkHandle;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = &presentSemaphore;
+    presentInfo.pImageIndices = &swapChain.activeImage;
+    VkResult ret = vkQueuePresentKHR(ctx.vkCommandQueue, &presentInfo);
+    if(ret == VK_ERROR_OUT_OF_DATE_KHR || ret == VK_SUBOPTIMAL_KHR)
+    {
+        // TODO(caio): Resize swap chain
+    }
+    else ASSERTVK(ret);
 }
 
 };

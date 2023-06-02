@@ -62,13 +62,33 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     {
         render::FORMAT_RGBA8_SRGB,
     };
-    Handle<render::RenderPass> mainRenderPass = render::MakeRenderPass(mainRenderPassDesc, 1, mainRenderPassColorFormats, render::FORMAT_D32_FLOAT);
+    Handle<render::RenderPass> hRenderPassMain = render::MakeRenderPass(mainRenderPassDesc, 1, mainRenderPassColorFormats, render::FORMAT_D32_FLOAT);
 
     // Shaders
-    file::Path testShaderPath = file::MakePath(IStr("./resources/shaders/test.spv"));
-    Handle<asset::BinaryData> h_assetTestShader = asset::LoadBinaryFile(testShaderPath);
-    asset::BinaryData& assetTestShader = asset::binaryDatas[h_assetTestShader];
-    Handle<render::Shader> testShader = render::MakeShader(ty::render::SHADER_TYPE_VERTEX, assetTestShader.size, assetTestShader.data);
+    file::Path vsPath = file::MakePath(IStr("./resources/shaders/bin/default_quad_vert.spv"));
+    file::Path psPath = file::MakePath(IStr("./resources/shaders/bin/default_quad_frag.spv"));
+    Handle<asset::BinaryData> hAssetVs = asset::LoadBinaryFile(vsPath);
+    Handle<asset::BinaryData> hAssetPs = asset::LoadBinaryFile(psPath);
+    asset::BinaryData& assetVs = asset::binaryDatas[hAssetVs];
+    asset::BinaryData& assetPs = asset::binaryDatas[hAssetPs];
+    Handle<render::Shader> hVsDefault = render::MakeShader(render::SHADER_TYPE_VERTEX, assetVs.size, assetVs.data);
+    Handle<render::Shader> hPsDefault = render::MakeShader(render::SHADER_TYPE_PIXEL, assetPs.size, assetPs.data);
+
+    // Buffers
+    f32 quadVertices[] =
+    {
+        -0.5f, -0.5f, 0.5f, 0, 0, 0, 0.f, 1.f,   // BL
+         0.5f, -0.5f, 0.5f, 0, 0, 0, 1.f, 1.f,   // BR
+         0.5f,  0.5f, 0.5f, 0, 0, 0, 1.f, 0.f,   // TR
+        -0.5f,  0.5f, 0.5f, 0, 0, 0, 0.f, 0.f,   // TL
+    };
+    
+    u32 quadIndices[] =
+    {
+        0, 1, 2, 0, 2, 3,
+    };
+    Handle<render::Buffer> hQuadVB = render::MakeBuffer(render::BUFFER_TYPE_VERTEX, sizeof(quadVertices), sizeof(f32), quadVertices);
+    Handle<render::Buffer> hQuadIB = render::MakeBuffer(render::BUFFER_TYPE_INDEX, sizeof(quadIndices), sizeof(u32), quadIndices);
 
     // Graphics pipeline 
     render::VertexAttribute defaultVertexAttributes[] =
@@ -77,7 +97,17 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         render::VERTEX_ATTR_V3F,
         render::VERTEX_ATTR_V2F,
     };
-    Handle<render::VertexLayout> defaultVertexLayout = render::MakeVertexLayout(ARR_LEN(defaultVertexAttributes), defaultVertexAttributes);
+    Handle<render::VertexLayout> hVertexLayoutDefault = render::MakeVertexLayout(ARR_LEN(defaultVertexAttributes), defaultVertexAttributes);
+
+    render::GraphicsPipelineDesc defaultPipelineDesc = {};
+    defaultPipelineDesc.hVertexLayout = hVertexLayoutDefault;
+    defaultPipelineDesc.hShaderVertex = hVsDefault;
+    defaultPipelineDesc.hShaderPixel = hPsDefault;
+    defaultPipelineDesc.frontFace = render::FRONT_FACE_CCW;
+    defaultPipelineDesc.cullMode = render::CULL_MODE_BACK;
+    defaultPipelineDesc.primitive = render::PRIMITIVE_TRIANGLE_LIST;
+    defaultPipelineDesc.fillMode = render::FILL_MODE_SOLID;
+    Handle<render::GraphicsPipeline> hGraphicsPipelineDefault = render::MakeGraphicsPipeline(hRenderPassMain, defaultPipelineDesc);
 
     // Program flow:
     // > Render to main render pass
@@ -94,6 +124,14 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         frameTimer.Start();
 
         window.PollMessages();
+
+        render::BeginFrame(frame);
+        Handle<render::CommandBuffer> cmd = render::GetAvailableCommandBuffer();
+
+        // TODO(caio): Stuff
+
+        render::EndFrame(frame, cmd);
+        //TODO(caio): Present
 
         frameTimer.Stop();
         LOGF("Frame %d: %.4lf ms", frame, (f32)frameTimer.GetElapsedMS());

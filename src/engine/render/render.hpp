@@ -26,9 +26,12 @@ namespace render
 
 #define RENDER_CONTEXT_MEMORY MB(1)
 #define RENDER_CONCURRENT_FRAMES 2
+#define RENDER_MAX_COMMAND_BUFFERS 16
 #define RENDER_MAX_RENDER_PASSES 8
 #define RENDER_MAX_VERTEX_LAYOUTS 8
 #define RENDER_MAX_SHADERS 32
+#define RENDER_MAX_BUFFERS 256
+#define RENDER_MAX_GRAPHICS_PIPELINES 32
 
 enum Format
 {
@@ -88,6 +91,54 @@ enum ShaderType
     SHADER_TYPE_COUNT,
 };
 
+enum BufferType
+{
+    BUFFER_TYPE_VERTEX,
+    BUFFER_TYPE_INDEX,
+    //TODO(caio): Uniform buffers, storage buffers
+    BUFFER_TYPE_COUNT,
+};
+
+enum Primitive
+{
+    PRIMITIVE_TRIANGLE_LIST,
+    //TODO(caio): Support other primitives?
+    PRIMITIVE_COUNT,
+};
+
+enum FillMode
+{
+    FILL_MODE_SOLID,
+    FILL_MODE_LINE,
+    FILL_MODE_POINT,
+
+    FILL_MODE_COUNT,
+};
+
+enum CullMode
+{
+    CULL_MODE_NONE,
+    CULL_MODE_FRONT,
+    CULL_MODE_BACK,
+    CULL_MODE_ALL,
+
+    CULL_MODE_COUNT,
+};
+
+enum FrontFace
+{
+    FRONT_FACE_CW,
+    FRONT_FACE_CCW,
+
+    FRONT_FACE_COUNT,
+};
+
+struct CommandBuffer
+{
+    VkCommandBuffer vkHandle = VK_NULL_HANDLE;
+    bool isAvailable = false;   // Not recording or submitting
+};
+
 struct Context
 {
     VkInstance vkInstance = VK_NULL_HANDLE;
@@ -97,25 +148,28 @@ struct Context
 #ifdef _DEBUG
     VkDebugUtilsMessengerEXT vkDebugMessenger = VK_NULL_HANDLE;
 #endif
-    //TODO(caio): Maybe use more than one allocator for resource types
     VmaAllocator vkAllocator = VK_NULL_HANDLE;
 
     // Command queue/buffer
     i32 vkCommandQueueFamily = -1;
     VkQueue vkCommandQueue = VK_NULL_HANDLE;
     VkCommandPool vkCommandPool = VK_NULL_HANDLE;
-    VkCommandPool vkSingleTimeCommandPool = VK_NULL_HANDLE;
-    Array<VkCommandBuffer> vkCommandBuffers;
-    VkCommandBuffer vkSingleTimeCommandBuffer = VK_NULL_HANDLE;
+    //VkCommandPool vkSingleTimeCommandPool = VK_NULL_HANDLE;
+    //Array<VkCommandBuffer> vkCommandBuffers;
+    //VkCommandBuffer vkSingleTimeCommandBuffer = VK_NULL_HANDLE;
+    //CommandBuffer singleTimeCommandBuffer;
 
     // Sync primitives
     Array<VkSemaphore> vkRenderSemaphores;
     Array<VkSemaphore> vkPresentSemaphores;
     Array<VkFence> vkRenderFences;
-    VkFence vkSingleTimeCommandFence = VK_NULL_HANDLE;
+    VkFence vkImmediateFence = VK_NULL_HANDLE;
 };
 Context MakeContext(Window* window);
 void DestroyContext(Context* ctx);
+
+void MakeCommandBuffers();
+Handle<CommandBuffer> GetAvailableCommandBuffer();
 
 struct SwapChain
 {
@@ -130,6 +184,7 @@ struct SwapChain
     // Present images
     Array<VkImage> vkImages;
     Array<VkImageView> vkImageViews;
+    u32 activeImage = 0;
 };
 
 SwapChain MakeSwapChain(Window* window);
@@ -182,16 +237,73 @@ struct Shader
 Handle<Shader> MakeShader(ShaderType type, u64 bytecodeSize, u8* bytecode);
 void DestroyShader(Shader* shader);
 
+struct Buffer
+{
+    VkBuffer vkHandle = VK_NULL_HANDLE;
+    VmaAllocation vkAllocation = VK_NULL_HANDLE;
+
+    BufferType type;
+    u64 size = 0;
+    u64 stride = 0;
+    u64 count = 0;
+};
+
+Handle<Buffer> MakeBuffer(BufferType type, u64 size, u64 stride, void* data = NULL);
+void DestroyBuffer(Buffer* buffer);
+void CopyMemoryToBuffer(Handle<Buffer> hDstBuffer, u64 size, void* data);
+
+struct GraphicsPipelineDesc
+{
+    // Programmable pipeline
+    Handle<Shader> hShaderVertex;
+    Handle<Shader> hShaderPixel;
+
+    // Fixed pipeline
+    Handle<VertexLayout> hVertexLayout;
+    Primitive primitive = PRIMITIVE_TRIANGLE_LIST;
+    FillMode fillMode = FILL_MODE_SOLID;
+    CullMode cullMode = CULL_MODE_BACK;
+    FrontFace frontFace = FRONT_FACE_CCW;
+    //TODO(caio): Blending modes, depth testing modes...
+};
+
+struct GraphicsPipeline
+{
+    VkPipeline vkPipeline = VK_NULL_HANDLE;
+    VkPipelineLayout vkPipelineLayout = VK_NULL_HANDLE;
+
+    GraphicsPipelineDesc desc = {};
+};
+
+Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, GraphicsPipelineDesc desc);
+void DestroyGraphicsPipeline(GraphicsPipeline* pipeline);
+
 inline mem::HeapAllocator renderHeap;
 inline Context ctx;
 inline SwapChain swapChain;
 
+inline Array<CommandBuffer> commandBuffers;
 inline Array<RenderPass> renderPasses;
 inline Array<VertexLayout> vertexLayouts;
 inline Array<Shader> shaders;
+inline Array<Buffer> buffers;
+inline Array<GraphicsPipeline> graphicsPipelines;
 
 void Init(Window* window);
 void Shutdown();
+
+void BeginCommandBuffer(Handle<CommandBuffer> hCmd);
+void EndCommandBuffer(Handle<CommandBuffer> hCmd);
+void SubmitImmediate(Handle<CommandBuffer> hCmd);
+
+//void BeginRenderPass(Handle<RenderPass> hRenderPass);
+//void EndRenderPass(Handle<RenderPass> hRenderPass);
+
+//void CmdCopyOutputToSwapChain(Handle<CommandBuffer> hCmd, Handle<RenderPass>, u32 srcOutput);
+
+void BeginFrame(u32 frame);
+void EndFrame(u32 frame, Handle<CommandBuffer> hCmd);
+void Present(u32 frame);
 
 };
 };
