@@ -130,6 +130,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         Handle<render::CommandBuffer> cmd = render::GetAvailableCommandBuffer();
         render::BeginCommandBuffer(cmd);
         //render::BeginRenderPass(cmd, hRenderPassMain);
+        ////TODO(caio): CONTINUE I need to reenable render pass, and for that I need to
+        /// figure out subpass dependencies! :D
 
         // Frame commands 
         Handle<render::Texture> hRenderPassMainOutput = render::GetRenderPassOutput(hRenderPassMain, 0);

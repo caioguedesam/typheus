@@ -168,10 +168,21 @@ struct Barrier
     PipelineStage   dstStage    = PIPELINE_STAGE_TOP;
 };
 
+enum CommandBufferState
+{
+    COMMAND_BUFFER_INVALID = 0,
+    COMMAND_BUFFER_IDLE,
+    COMMAND_BUFFER_RECORDING,
+    COMMAND_BUFFER_RECORDED,
+    COMMAND_BUFFER_PENDING,
+};
+
 struct CommandBuffer
 {
     VkCommandBuffer vkHandle = VK_NULL_HANDLE;
-    bool isAvailable = false;   // Not recording or submitting
+    //bool isAvailable = false;   // Not recording or submitting
+    CommandBufferState state = COMMAND_BUFFER_INVALID;
+    VkFence vkFence = VK_NULL_HANDLE;
 };
 
 struct Context

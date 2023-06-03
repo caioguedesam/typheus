@@ -412,24 +412,42 @@ void MakeCommandBuffers()
 
         CommandBuffer result = {};
         result.vkHandle = commandBuffer;
-        result.isAvailable = true;
+        result.state = COMMAND_BUFFER_IDLE;
         commandBuffers.Push(result);
     }
 }
 
 Handle<CommandBuffer> GetAvailableCommandBuffer()
 {
+    // First, update all command buffers from PENDING to IDLE
+    // based on vkGetFenceStatus. Inefficient, but only change if it matters.
     for(i32 i = 0; i < commandBuffers.count; i++)
     {
         CommandBuffer& commandBuffer = commandBuffers[i];
-        if(commandBuffer.isAvailable)
+        if(commandBuffer.state != COMMAND_BUFFER_PENDING) continue;
+
+        ASSERT(commandBuffer.vkFence != VK_NULL_HANDLE);
+        ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
+        VkResult ret = vkGetFenceStatus(ctx.vkDevice, commandBuffer.vkFence);
+        if(ret == VK_SUCCESS)   // Fence signaled, command buffer not pending.
         {
-            VkResult ret = vkResetCommandBuffer(commandBuffer.vkHandle, 0);
-            ASSERTVK(ret);
-            return { (u32)i };
+            commandBuffer.state = COMMAND_BUFFER_IDLE;
+            commandBuffer.vkFence = VK_NULL_HANDLE;
         }
     }
-    ASSERT(0);
+
+    // Then get any command buffer that is IDLE.
+    for(i32 i = 0; i < commandBuffers.count; i++)
+    {
+        CommandBuffer& commandBuffer = commandBuffers[i];
+        if(commandBuffer.state != COMMAND_BUFFER_IDLE) continue;
+
+        VkResult ret = vkResetCommandBuffer(commandBuffer.vkHandle, 0);
+        ASSERTVK(ret);
+
+        return { (u32)i };
+    }
+    ASSERT(0);      // All command buffers occupied. Consider increasing number of buffers.
     return {};
 }
 
@@ -1299,7 +1317,8 @@ void BeginCommandBuffer(Handle<CommandBuffer> hCmd)
 {
     ASSERT(hCmd.IsValid());
     CommandBuffer& cmd = commandBuffers[hCmd];
-    ASSERT(cmd.isAvailable);
+    //ASSERT(cmd.isAvailable);
+    ASSERT(cmd.state == COMMAND_BUFFER_IDLE);
 
     VkCommandBufferBeginInfo beginInfo = {};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1307,24 +1326,26 @@ void BeginCommandBuffer(Handle<CommandBuffer> hCmd)
     VkResult ret = vkBeginCommandBuffer(cmd.vkHandle, &beginInfo);
     ASSERTVK(ret);
 
-    cmd.isAvailable = false;
+    cmd.state = COMMAND_BUFFER_RECORDING;
 }
 
 void EndCommandBuffer(Handle<CommandBuffer> hCmd)
 {
     ASSERT(hCmd.IsValid());
     CommandBuffer& cmd = commandBuffers[hCmd];
-    ASSERT(!cmd.isAvailable);
+    ASSERT(cmd.state == COMMAND_BUFFER_RECORDING);
 
     VkResult ret = vkEndCommandBuffer(cmd.vkHandle);
     ASSERTVK(ret);
+
+    cmd.state = COMMAND_BUFFER_RECORDED;
 }
 
 void SubmitImmediate(Handle<CommandBuffer> hCmd)
 {
     ASSERT(hCmd.IsValid());
     CommandBuffer& cmd = commandBuffers[hCmd];
-    ASSERT(!cmd.isAvailable);
+    ASSERT(cmd.state == COMMAND_BUFFER_RECORDED);
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1338,8 +1359,11 @@ void SubmitImmediate(Handle<CommandBuffer> hCmd)
     ASSERTVK(ret);
     ret = vkResetFences(ctx.vkDevice, 1, &ctx.vkImmediateFence);
     ASSERTVK(ret);
-    ret = vkResetCommandPool(ctx.vkDevice, ctx.vkCommandPool, 0);
-    ASSERTVK(ret);
+    //ret = vkResetCommandPool(ctx.vkDevice, ctx.vkCommandPool, 0);
+    //ASSERTVK(ret);
+
+    cmd.state = COMMAND_BUFFER_PENDING;
+    cmd.vkFence = ctx.vkImmediateFence;
 }
 
 void BeginRenderPass(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass)
@@ -1554,7 +1578,7 @@ void EndFrame(u32 frame, Handle<CommandBuffer> hCmd)
 {
     ASSERT(hCmd.IsValid());
     CommandBuffer& cmd = commandBuffers[hCmd];
-    ASSERT(!cmd.isAvailable);
+    ASSERT(cmd.state == COMMAND_BUFFER_RECORDED);
 
     u32 inFlightFrame = frame % RENDER_CONCURRENT_FRAMES;
 
@@ -1577,7 +1601,8 @@ void EndFrame(u32 frame, Handle<CommandBuffer> hCmd)
     VkResult ret = vkQueueSubmit(ctx.vkCommandQueue, 1, &submitInfo, renderFence);
     ASSERTVK(ret);
 
-    cmd.isAvailable = true;
+    cmd.state = COMMAND_BUFFER_PENDING;
+    cmd.vkFence = renderFence;
 }
 
 void Present(u32 frame)
