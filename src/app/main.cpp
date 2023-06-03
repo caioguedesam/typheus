@@ -125,13 +125,41 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
 
         window.PollMessages();
 
-        //render::BeginFrame(frame);
-        //Handle<render::CommandBuffer> cmd = render::GetAvailableCommandBuffer();
+        // Frame setup
+        render::BeginFrame(frame);
+        Handle<render::CommandBuffer> cmd = render::GetAvailableCommandBuffer();
+        render::BeginCommandBuffer(cmd);
+        //render::BeginRenderPass(cmd, hRenderPassMain);
 
-        // TODO(caio): Stuff
+        // Frame commands 
+        Handle<render::Texture> hRenderPassMainOutput = render::GetRenderPassOutput(hRenderPassMain, 0);
 
-        //render::EndFrame(frame, cmd);
-        //TODO(caio): Present
+        render::Barrier barrier = {};
+        barrier.srcAccess = render::MEMORY_ACCESS_NONE;
+        barrier.dstAccess = render::MEMORY_ACCESS_TRANSFER_WRITE;
+        barrier.srcStage = render::PIPELINE_STAGE_TOP;
+        barrier.dstStage = render::PIPELINE_STAGE_TRANSFER;
+        render::CmdPipelineBarrierTextureLayout(cmd, hRenderPassMainOutput, 
+                ty::render::IMAGE_LAYOUT_TRANSFER_DST,
+                barrier);
+        render::CmdClearColorTexture(cmd, hRenderPassMainOutput, 1, 0, 1, 1);
+
+        barrier.srcAccess = render::MEMORY_ACCESS_TRANSFER_WRITE;
+        barrier.dstAccess = render::MEMORY_ACCESS_TRANSFER_READ;
+        barrier.srcStage = render::PIPELINE_STAGE_TRANSFER;
+        barrier.dstStage = render::PIPELINE_STAGE_TRANSFER;
+        render::CmdPipelineBarrierTextureLayout(cmd, hRenderPassMainOutput, 
+                ty::render::IMAGE_LAYOUT_TRANSFER_SRC,
+                barrier);
+        render::CmdCopyToSwapChain(cmd, hRenderPassMainOutput);
+
+        // Frame teardown
+        //render::EndRenderPass(cmd);
+        render::EndCommandBuffer(cmd);
+        render::EndFrame(frame, cmd);
+
+        // Present
+        render::Present(frame);
 
         frameTimer.Stop();
         LOGF("Frame %d: %.4lf ms", frame, (f32)frameTimer.GetElapsedMS());

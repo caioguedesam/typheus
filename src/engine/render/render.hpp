@@ -36,43 +36,36 @@ namespace render
 
 enum Format
 {
-    FORMAT_INVALID = 0,
-    FORMAT_RGBA8_SRGB,
-    FORMAT_BGRA8_SRGB,
-    FORMAT_RG32_FLOAT,
-    FORMAT_RGB32_FLOAT,
-    FORMAT_D32_FLOAT,
-
-    FORMAT_COUNT,
+    FORMAT_INVALID              = VK_FORMAT_UNDEFINED,
+    FORMAT_RGBA8_SRGB           = VK_FORMAT_R8G8B8A8_SRGB,
+    FORMAT_BGRA8_SRGB           = VK_FORMAT_B8G8R8A8_SRGB,
+    FORMAT_RG32_FLOAT           = VK_FORMAT_R32G32_SFLOAT,
+    FORMAT_RGB32_FLOAT          = VK_FORMAT_R32G32B32_SFLOAT,
+    FORMAT_D32_FLOAT            = VK_FORMAT_D32_SFLOAT,
 };
 
 enum ImageLayout
 {
-    IMAGE_LAYOUT_UNDEFINED = 0,
-    IMAGE_LAYOUT_COLOR_OUTPUT,
-    IMAGE_LAYOUT_PRESENT_SRC,
-    IMAGE_LAYOUT_TRANSFER_SRC,
-    IMAGE_LAYOUT_TRANSFER_DST,
-    IMAGE_LAYOUT_SHADER_READ_ONLY,
-
-    IMAGE_LAYOUT_COUNT,
+    IMAGE_LAYOUT_UNDEFINED                  = VK_IMAGE_LAYOUT_UNDEFINED,
+    IMAGE_LAYOUT_GENERAL                    = VK_IMAGE_LAYOUT_GENERAL,
+    IMAGE_LAYOUT_COLOR_OUTPUT               = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    IMAGE_LAYOUT_PRESENT_SRC                = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+    IMAGE_LAYOUT_TRANSFER_SRC               = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    IMAGE_LAYOUT_TRANSFER_DST               = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    IMAGE_LAYOUT_SHADER_READ_ONLY           = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 };
 
 enum LoadOp
 {
-    LOAD_OP_DONT_CARE = 0,
-    LOAD_OP_LOAD,
-    LOAD_OP_CLEAR,
-
-    LOAD_OP_COUNT,
+    LOAD_OP_DONT_CARE   = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+    LOAD_OP_LOAD        = VK_ATTACHMENT_LOAD_OP_LOAD,
+    LOAD_OP_CLEAR       = VK_ATTACHMENT_LOAD_OP_CLEAR,
 };
 
 enum StoreOp
 {
-    STORE_OP_DONT_CARE = 0,
-    STORE_OP_STORE,
-
-    STORE_OP_COUNT,
+    STORE_OP_DONT_CARE  = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+    STORE_OP_STORE      = VK_ATTACHMENT_STORE_OP_STORE,
 };
 
 enum VertexAttribute
@@ -86,25 +79,26 @@ enum VertexAttribute
 
 enum ShaderType
 {
-    SHADER_TYPE_VERTEX,
-    SHADER_TYPE_PIXEL,
+    SHADER_TYPE_VERTEX  = VK_SHADER_STAGE_VERTEX_BIT,
+    SHADER_TYPE_PIXEL   = VK_SHADER_STAGE_FRAGMENT_BIT,
     //TODO(caio): Support compute
-    SHADER_TYPE_COUNT,
 };
 
 enum BufferType
 {
-    BUFFER_TYPE_VERTEX,
-    BUFFER_TYPE_INDEX,
+    BUFFER_TYPE_VERTEX  = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+    BUFFER_TYPE_INDEX   = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
     //TODO(caio): Uniform buffers, storage buffers
-    BUFFER_TYPE_COUNT,
 };
 
 enum ImageType
 {
-    IMAGE_TYPE_2D,
+    IMAGE_TYPE_2D       = VK_IMAGE_TYPE_2D,
+};
 
-    IMAGE_TYPE_COUNT,
+enum ImageViewType
+{
+    IMAGE_VIEW_TYPE_2D  = VK_IMAGE_VIEW_TYPE_2D,
 };
 
 enum ImageUsageFlags : u32
@@ -112,42 +106,66 @@ enum ImageUsageFlags : u32
     IMAGE_USAGE_COLOR_ATTACHMENT = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
     IMAGE_USAGE_DEPTH_ATTACHMENT = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
     IMAGE_USAGE_TRANSFER_SRC = VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-    IMAGE_USAGE_TRANSFER_DST = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+    IMAGE_USAGE_TRANSFER_DST = VK_IMAGE_USAGE_TRANSFER_DST_BIT,
     IMAGE_USAGE_SAMPLED = VK_IMAGE_USAGE_SAMPLED_BIT,
 };
 
 enum Primitive
 {
-    PRIMITIVE_TRIANGLE_LIST,
+    PRIMITIVE_TRIANGLE_LIST     = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
     //TODO(caio): Support other primitives?
-    PRIMITIVE_COUNT,
 };
 
 enum FillMode
 {
-    FILL_MODE_SOLID,
-    FILL_MODE_LINE,
-    FILL_MODE_POINT,
-
-    FILL_MODE_COUNT,
+    FILL_MODE_SOLID     = VK_POLYGON_MODE_FILL,
+    FILL_MODE_LINE      = VK_POLYGON_MODE_LINE,
+    FILL_MODE_POINT     = VK_POLYGON_MODE_POINT,
 };
 
 enum CullMode
 {
-    CULL_MODE_NONE,
-    CULL_MODE_FRONT,
-    CULL_MODE_BACK,
-    CULL_MODE_ALL,
-
-    CULL_MODE_COUNT,
+    CULL_MODE_NONE      = VK_CULL_MODE_NONE,
+    CULL_MODE_FRONT     = VK_CULL_MODE_FRONT_BIT,
+    CULL_MODE_BACK      = VK_CULL_MODE_BACK_BIT,
+    CULL_MODE_ALL       = VK_CULL_MODE_FRONT_AND_BACK,
 };
 
 enum FrontFace
 {
-    FRONT_FACE_CW,
-    FRONT_FACE_CCW,
+    FRONT_FACE_CW       = VK_FRONT_FACE_CLOCKWISE,
+    FRONT_FACE_CCW      = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+};
 
-    FRONT_FACE_COUNT,
+enum PipelineStage
+{
+    PIPELINE_STAGE_TOP                  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+    PIPELINE_STAGE_VERTEX_INPUT         = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+    PIPELINE_STAGE_VERTEX_SHADER        = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+    PIPELINE_STAGE_FRAGMENT_SHADER      = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+    PIPELINE_STAGE_COMPUTE_SHADER       = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+    PIPELINE_STAGE_COLOR_OUTPUT         = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+    PIPELINE_STAGE_TRANSFER             = VK_PIPELINE_STAGE_TRANSFER_BIT,
+    PIPELINE_STAGE_BOTTOM               = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+};
+
+enum MemoryAccess : u32
+{
+    MEMORY_ACCESS_NONE                  = VK_ACCESS_NONE,
+    MEMORY_ACCESS_SHADER_READ           = VK_ACCESS_SHADER_READ_BIT,
+    MEMORY_ACCESS_SHADER_WRITE          = VK_ACCESS_SHADER_WRITE_BIT,
+    MEMORY_ACCESS_TRANSFER_READ         = VK_ACCESS_TRANSFER_READ_BIT,
+    MEMORY_ACCESS_TRANSFER_WRITE        = VK_ACCESS_TRANSFER_WRITE_BIT,
+    MEMORY_ACCESS_COLOR_OUTPUT_READ     = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
+    MEMORY_ACCESS_COLOR_OUTPUT_WRITE    = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+};
+
+struct Barrier
+{
+    MemoryAccess    srcAccess   = MEMORY_ACCESS_NONE;
+    MemoryAccess    dstAccess   = MEMORY_ACCESS_NONE;
+    PipelineStage   srcStage    = PIPELINE_STAGE_TOP;
+    PipelineStage   dstStage    = PIPELINE_STAGE_TOP;
 };
 
 struct CommandBuffer
@@ -201,6 +219,7 @@ struct SwapChain
     // Present images
     Array<VkImage> vkImages;
     Array<VkImageView> vkImageViews;
+    Array<ImageLayout> imageLayouts;
     u32 activeImage = 0;
 };
 
@@ -249,6 +268,7 @@ struct TextureDesc
     u32 depth = 1;
     ImageUsageFlags usageFlags;
     ImageType type = IMAGE_TYPE_2D;
+    ImageViewType viewType = IMAGE_VIEW_TYPE_2D;
     Format format = FORMAT_INVALID;
     ImageLayout layout = IMAGE_LAYOUT_UNDEFINED;
 };
@@ -265,7 +285,6 @@ struct Texture
 Handle<Texture> MakeTexture(TextureDesc desc);
 void DestroyTexture(Texture* texture);
 //TODO(caio): Copy Memory to Texture from CPU (after command buffer stuff works)
-//TODO(caio): Transition Texture Layout (after command buffer stuff works)
 
 struct RenderPassDesc
 {
@@ -294,6 +313,7 @@ struct RenderPass
 
 Handle<RenderPass> MakeRenderPass(RenderPassDesc desc, u32 colorImageCount, Format* colorImageFormats, Format depthImageFormat);
 void DestroyRenderPass(RenderPass* renderPass);
+Handle<Texture> GetRenderPassOutput(Handle<RenderPass> hRenderPass, u32 outputIndex);
 
 struct GraphicsPipelineDesc
 {
@@ -340,14 +360,18 @@ void BeginCommandBuffer(Handle<CommandBuffer> hCmd);
 void EndCommandBuffer(Handle<CommandBuffer> hCmd);
 void SubmitImmediate(Handle<CommandBuffer> hCmd);
 
-//void BeginRenderPass(Handle<RenderPass> hRenderPass);
-//void EndRenderPass(Handle<RenderPass> hRenderPass);
-
-//void CmdCopyOutputToSwapChain(Handle<CommandBuffer> hCmd, Handle<RenderPass>, u32 srcOutput);
+void BeginRenderPass(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass);
+void EndRenderPass(Handle<CommandBuffer> hCmd);
 
 void BeginFrame(u32 frame);
 void EndFrame(u32 frame, Handle<CommandBuffer> hCmd);
 void Present(u32 frame);
+
+void CmdPipelineBarrierTextureLayout(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, ImageLayout newLayout, Barrier barrier);
+//TODO(caio): Add a CmdPipelineBarrier that issues a global memory barrier if needed later.
+// maybe I will need for more general compute syncs.
+void CmdClearColorTexture(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, f32 r, f32 g, f32 b, f32 a);
+void CmdCopyToSwapChain(Handle<CommandBuffer> hCmd, Handle<Texture> hSrc);
 
 };
 };

@@ -38,39 +38,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL ValidationLayerDebugCallback(
     return VK_FALSE;
 }
 
-VkFormat formatToVk[] =
-{
-    VK_FORMAT_UNDEFINED,
-    VK_FORMAT_R8G8B8A8_SRGB,
-    VK_FORMAT_B8G8R8A8_SRGB,
-    VK_FORMAT_R32G32_SFLOAT,
-    VK_FORMAT_R32G32B32_SFLOAT,
-    VK_FORMAT_D32_SFLOAT,
-};
-STATIC_ASSERT(ARR_LEN(formatToVk) == FORMAT_COUNT);
-VkImageLayout imageLayoutToVk[] =
-{
-    VK_IMAGE_LAYOUT_UNDEFINED,
-    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-};
-STATIC_ASSERT(ARR_LEN(imageLayoutToVk) == IMAGE_LAYOUT_COUNT);
-VkAttachmentLoadOp loadOpToVk[] =
-{
-    VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-    VK_ATTACHMENT_LOAD_OP_LOAD,
-    VK_ATTACHMENT_LOAD_OP_CLEAR,
-};
-STATIC_ASSERT(ARR_LEN(loadOpToVk) == LOAD_OP_COUNT);
-VkAttachmentStoreOp storeOpToVk[] =
-{
-    VK_ATTACHMENT_STORE_OP_DONT_CARE,
-    VK_ATTACHMENT_STORE_OP_STORE,
-};
-STATIC_ASSERT(ARR_LEN(storeOpToVk) == STORE_OP_COUNT);
 u32 vertexAttributeSizes[] =
 {
     0,
@@ -85,54 +52,6 @@ VkFormat vertexAttributeFormats[] =
     VK_FORMAT_R32G32B32_SFLOAT,
 };
 STATIC_ASSERT(ARR_LEN(vertexAttributeFormats) == VERTEX_ATTR_COUNT);
-// VkShaderStageFlagBits shaderTypeToVk[] =
-// {
-//     VK_SHADER_STAGE_VERTEX_BIT,
-//     VK_SHADER_STAGE_FRAGMENT_BIT,
-// };
-// STATIC_ASSERT(ARR_LEN(shaderTypeToVk) == SHADER_TYPE_COUNT);
-VkPrimitiveTopology primitiveToVk[] =
-{
-    VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-};
-STATIC_ASSERT(ARR_LEN(primitiveToVk) == PRIMITIVE_COUNT);
-VkPolygonMode fillModeToVk[] =
-{
-    VK_POLYGON_MODE_FILL,
-    VK_POLYGON_MODE_LINE,
-    VK_POLYGON_MODE_POINT,
-};
-STATIC_ASSERT(ARR_LEN(fillModeToVk) == FILL_MODE_COUNT);
-VkCullModeFlagBits cullModeToVk[] =
-{
-    VK_CULL_MODE_NONE,
-    VK_CULL_MODE_FRONT_BIT,
-    VK_CULL_MODE_BACK_BIT,
-    VK_CULL_MODE_FRONT_AND_BACK,
-};
-STATIC_ASSERT(ARR_LEN(cullModeToVk) == CULL_MODE_COUNT);
-VkFrontFace frontFaceToVk[] =
-{
-    VK_FRONT_FACE_CLOCKWISE,
-    VK_FRONT_FACE_COUNTER_CLOCKWISE,
-};
-STATIC_ASSERT(ARR_LEN(frontFaceToVk) == FRONT_FACE_COUNT);
-VkBufferUsageFlagBits bufferTypeToVk[] =
-{
-    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-    VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-};
-STATIC_ASSERT(ARR_LEN(bufferTypeToVk) == BUFFER_TYPE_COUNT);
-VkImageType imageTypeToVk[] =
-{
-    VK_IMAGE_TYPE_2D,
-};
-STATIC_ASSERT(ARR_LEN(imageTypeToVk) == IMAGE_TYPE_COUNT);
-VkImageViewType imageViewTypeToVk[] =
-{
-    VK_IMAGE_VIEW_TYPE_2D,
-};
-STATIC_ASSERT(ARR_LEN(imageViewTypeToVk) == IMAGE_TYPE_COUNT);
 
 void Init(Window* window)
 {
@@ -151,6 +70,8 @@ void Init(Window* window)
     graphicsPipelines = MakeArray<GraphicsPipeline>(RENDER_MAX_GRAPHICS_PIPELINES);
 
     MakeCommandBuffers();
+
+    // Prepare swap chain images for presentation
 }
 
 void Shutdown()
@@ -699,6 +620,7 @@ void MakeSwapChain_CreateImages(Context* ctx, SwapChain* swapChain)
 
     swapChain->vkImages = MakeArray<VkImage>(imageCount);
     swapChain->vkImageViews = MakeArray<VkImageView>(imageCount);
+    swapChain->imageLayouts = MakeArray<ImageLayout>(imageCount);
 
     // Color images (already created in vkCreateSwapchainKHR)
     for(i32 i = 0; i < imageCount; i++)
@@ -723,6 +645,7 @@ void MakeSwapChain_CreateImages(Context* ctx, SwapChain* swapChain)
 
         swapChain->vkImages.Push(images[i]);
         swapChain->vkImageViews.Push(imageView);
+        swapChain->imageLayouts.Push(IMAGE_LAYOUT_UNDEFINED);
     }
 }
 
@@ -772,11 +695,11 @@ void MakeRenderPass_CreateRenderPass(Context* ctx, RenderPassDesc desc, u32 colo
     for(i32 i = 0; i < colorImageCount; i++)
     {
         colorAttachments[i] = {};
-        colorAttachments[i].format = formatToVk[colorImageFormats[i]];
-        colorAttachments[i].initialLayout = imageLayoutToVk[desc.initialLayout];
-        colorAttachments[i].finalLayout = imageLayoutToVk[desc.finalLayout];
-        colorAttachments[i].loadOp = loadOpToVk[desc.loadOp];
-        colorAttachments[i].storeOp = storeOpToVk[desc.storeOp];
+        colorAttachments[i].format = (VkFormat)colorImageFormats[i];
+        colorAttachments[i].initialLayout = (VkImageLayout)desc.initialLayout;
+        colorAttachments[i].finalLayout = (VkImageLayout)desc.finalLayout;
+        colorAttachments[i].loadOp = (VkAttachmentLoadOp)desc.loadOp;
+        colorAttachments[i].storeOp = (VkAttachmentStoreOp)desc.storeOp;
         colorAttachments[i].samples = VK_SAMPLE_COUNT_1_BIT;    // TODO(caio): Support multisampling
         colorAttachments[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         colorAttachments[i].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -789,7 +712,7 @@ void MakeRenderPass_CreateRenderPass(Context* ctx, RenderPassDesc desc, u32 colo
     // Depth attachment
     VkAttachmentDescription depthAttachment = {};
     VkAttachmentReference depthAttachmentRef = {};
-    depthAttachment.format = formatToVk[depthImageFormat];
+    depthAttachment.format = (VkFormat)depthImageFormat;
     depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -860,9 +783,12 @@ void MakeRenderPass_CreateOutputImages(Context* ctx, Format* colorImageFormats, 
         colorOutputDesc.width = renderPass->desc.width;
         colorOutputDesc.height = renderPass->desc.height;
         colorOutputDesc.depth = 1;
+        colorOutputDesc.type = IMAGE_TYPE_2D;
+        colorOutputDesc.viewType = IMAGE_VIEW_TYPE_2D;
         colorOutputDesc.usageFlags = ENUM_FLAGS(ImageUsageFlags, 
                 IMAGE_USAGE_COLOR_ATTACHMENT
                 | IMAGE_USAGE_TRANSFER_SRC
+                | IMAGE_USAGE_TRANSFER_DST
                 | IMAGE_USAGE_SAMPLED);
         colorOutputDesc.format = colorImageFormats[i];
         colorOutputDesc.layout = IMAGE_LAYOUT_UNDEFINED;
@@ -958,16 +884,18 @@ void MakeRenderPass_CreateOutputImages(Context* ctx, Format* colorImageFormats, 
     // renderPass->vkOutputImageViews.Push(imageView);
     // renderPass->vkOutputImageAllocations.Push(imageAllocation);
 
-    TextureDesc colorOutputDesc = {};
-    colorOutputDesc.width = renderPass->desc.width;
-    colorOutputDesc.height = renderPass->desc.height;
-    colorOutputDesc.depth = 1;
-    colorOutputDesc.usageFlags = ENUM_FLAGS(ImageUsageFlags, IMAGE_USAGE_DEPTH_ATTACHMENT);
-    colorOutputDesc.format = depthImageFormat;
-    colorOutputDesc.layout = IMAGE_LAYOUT_UNDEFINED;
-    Handle<Texture> hColorOutput = MakeTexture(colorOutputDesc);
+    TextureDesc depthOutputDesc = {};
+    depthOutputDesc.width = renderPass->desc.width;
+    depthOutputDesc.height = renderPass->desc.height;
+    depthOutputDesc.depth = 1;
+    depthOutputDesc.type = IMAGE_TYPE_2D;
+    depthOutputDesc.viewType = IMAGE_VIEW_TYPE_2D;
+    depthOutputDesc.usageFlags = ENUM_FLAGS(ImageUsageFlags, IMAGE_USAGE_DEPTH_ATTACHMENT);
+    depthOutputDesc.format = depthImageFormat;
+    depthOutputDesc.layout = IMAGE_LAYOUT_UNDEFINED;
+    Handle<Texture> hDepthOutput = MakeTexture(depthOutputDesc);
 
-    renderPass->outputs.Push(hColorOutput);
+    renderPass->outputs.Push(hDepthOutput);
 }
 
 void MakeRenderPass_CreateFramebuffer(Context* ctx, RenderPass* renderPass)
@@ -1030,6 +958,14 @@ void DestroyRenderPass(RenderPass *renderPass)
     DestroyArray(&renderPass->outputs);
 
     *renderPass = {};
+}
+
+Handle<Texture> GetRenderPassOutput(Handle<RenderPass> hRenderPass, u32 i)
+{
+    ASSERT(hRenderPass.IsValid());
+    RenderPass& renderPass = renderPasses[hRenderPass];
+    ASSERT(i <= renderPass.colorImageCount);
+    return renderPass.outputs[i];
 }
 
 Handle<VertexLayout> MakeVertexLayout(u32 attrCount, VertexAttribute* attributes)
@@ -1107,7 +1043,7 @@ Handle<Buffer> MakeBuffer(BufferType type, u64 size, u64 stride, void* data)
     VkBufferCreateInfo bufferInfo = {};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = size;
-    bufferInfo.usage = bufferTypeToVk[type];
+    bufferInfo.usage = (VkBufferUsageFlags)type;
     
     VmaAllocationCreateInfo allocationInfo = {};
     allocationInfo.usage = VMA_MEMORY_USAGE_AUTO;
@@ -1162,9 +1098,9 @@ Handle<Texture> MakeTexture(TextureDesc desc)
     VkImageCreateInfo imageInfo = {};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.usage = desc.usageFlags;
-    imageInfo.format = formatToVk[desc.format];
-    imageInfo.initialLayout = imageLayoutToVk[desc.layout];
-    imageInfo.imageType = imageTypeToVk[desc.type];
+    imageInfo.format = (VkFormat)desc.format;
+    imageInfo.initialLayout = (VkImageLayout)desc.layout;
+    imageInfo.imageType = (VkImageType)desc.type;
     imageInfo.extent.width = desc.width;
     imageInfo.extent.height = desc.height;
     imageInfo.extent.depth = desc.depth;
@@ -1188,8 +1124,8 @@ Handle<Texture> MakeTexture(TextureDesc desc)
     VkImageViewCreateInfo imageViewInfo = {};
     imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     imageViewInfo.image = image;
-    imageViewInfo.viewType = imageViewTypeToVk[desc.type];
-    imageViewInfo.format = formatToVk[desc.format];
+    imageViewInfo.viewType = (VkImageViewType)desc.viewType;
+    imageViewInfo.format = (VkFormat)desc.format;
     imageViewInfo.subresourceRange.aspectMask = ENUM_HAS_FLAG(desc.usageFlags, IMAGE_USAGE_DEPTH_ATTACHMENT)
         ? VK_IMAGE_ASPECT_DEPTH_BIT
         : VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1249,7 +1185,7 @@ Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, Gr
     // Input assembly
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = {};
     inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssemblyInfo.topology = primitiveToVk[desc.primitive];
+    inputAssemblyInfo.topology = (VkPrimitiveTopology)desc.primitive;
     inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
 
     // Vertex input
@@ -1280,9 +1216,9 @@ Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, Gr
     // Rasterization state
     VkPipelineRasterizationStateCreateInfo rasterizationInfo = {};
     rasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterizationInfo.polygonMode = fillModeToVk[desc.fillMode];
-    rasterizationInfo.cullMode = cullModeToVk[desc.cullMode];
-    rasterizationInfo.frontFace = frontFaceToVk[desc.frontFace];
+    rasterizationInfo.polygonMode = (VkPolygonMode)desc.fillMode;
+    rasterizationInfo.cullMode = (VkCullModeFlags)desc.cullMode;
+    rasterizationInfo.frontFace = (VkFrontFace)desc.frontFace;
     rasterizationInfo.depthClampEnable = VK_FALSE;
     rasterizationInfo.lineWidth = 1;
     rasterizationInfo.depthBiasClamp = VK_FALSE;
@@ -1406,6 +1342,178 @@ void SubmitImmediate(Handle<CommandBuffer> hCmd)
     ASSERTVK(ret);
 }
 
+void BeginRenderPass(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass)
+{
+    ASSERT(hCmd.IsValid() && hRenderPass.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    RenderPass& renderPass = renderPasses[hRenderPass];
+
+    VkRenderPassBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    beginInfo.renderPass = renderPass.vkHandle;
+    beginInfo.framebuffer = renderPass.vkFramebuffer;
+    beginInfo.renderArea.offset.x = 0;
+    beginInfo.renderArea.offset.y = 0;
+    beginInfo.renderArea.extent =
+    {
+        renderPass.desc.width,
+        renderPass.desc.height,
+    };
+    VkClearValue clearValues[2];
+    clearValues[0].color = {0, 0, 0, 1};
+    clearValues[1].depthStencil = {1, 0};
+    beginInfo.clearValueCount = ARR_LEN(clearValues);
+    beginInfo.pClearValues = clearValues;
+
+    vkCmdBeginRenderPass(cmd.vkHandle, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+void EndRenderPass(Handle<CommandBuffer> hCmd)
+{
+    ASSERT(hCmd.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+
+    vkCmdEndRenderPass(cmd.vkHandle);
+}
+
+
+void CmdPipelineBarrierTextureLayout(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, ImageLayout newLayout, Barrier barrier)
+{
+    ASSERT(hCmd.IsValid() && hTexture.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    Texture& texture = textures[hTexture];
+
+    if(texture.desc.layout == newLayout) return;
+    VkImageLayout vkOldLayout = (VkImageLayout)texture.desc.layout;
+    VkImageLayout vkNewLayout = (VkImageLayout)newLayout;
+    VkImageMemoryBarrier vkBarrier = {};
+    vkBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    vkBarrier.oldLayout = vkOldLayout;
+    vkBarrier.newLayout = vkNewLayout;
+    vkBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    vkBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    vkBarrier.image = texture.vkHandle;
+    vkBarrier.subresourceRange.aspectMask = ENUM_HAS_FLAG(texture.desc.usageFlags, IMAGE_USAGE_DEPTH_ATTACHMENT)
+        ? VK_IMAGE_ASPECT_DEPTH_BIT
+        : VK_IMAGE_ASPECT_COLOR_BIT;
+    vkBarrier.subresourceRange.baseMipLevel = 0;
+    vkBarrier.subresourceRange.levelCount = 1;
+    vkBarrier.subresourceRange.baseArrayLayer = 0;
+    vkBarrier.subresourceRange.layerCount = 1;
+    vkBarrier.srcAccessMask = (VkAccessFlags)barrier.srcAccess;
+    vkBarrier.dstAccessMask = (VkAccessFlags)barrier.dstAccess;
+
+    vkCmdPipelineBarrier(cmd.vkHandle, (VkPipelineStageFlags)barrier.srcStage, (VkPipelineStageFlags)barrier.dstStage, 0, 0, NULL, 0, NULL, 1, &vkBarrier);
+
+    texture.desc.layout = newLayout;
+}
+
+void CmdClearColorTexture(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, f32 r, f32 g, f32 b, f32 a)
+{
+    ASSERT(hCmd.IsValid() && hTexture.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    Texture& texture = textures[hTexture];
+    ASSERT(texture.desc.layout == IMAGE_LAYOUT_GENERAL || texture.desc.layout == IMAGE_LAYOUT_TRANSFER_DST);
+
+    VkClearColorValue clearValue = {r, g, b, a};
+    VkImageSubresourceRange imageRange = {};
+    imageRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageRange.levelCount = 1;
+    imageRange.baseMipLevel = 0;
+    imageRange.layerCount = 1;
+    imageRange.baseArrayLayer = 0;
+
+    vkCmdClearColorImage(cmd.vkHandle, texture.vkHandle, (VkImageLayout)texture.desc.layout, &clearValue, 1, &imageRange);
+}
+
+void CmdCopyToSwapChain(Handle<CommandBuffer> hCmd, Handle<Texture> hSrc)
+{
+    ASSERT(hCmd.IsValid() && hSrc.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    Texture& src = textures[hSrc];
+    ASSERT(src.desc.layout == IMAGE_LAYOUT_GENERAL || src.desc.layout == IMAGE_LAYOUT_TRANSFER_SRC);
+
+    VkImage swapChainImage = swapChain.vkImages[swapChain.activeImage];
+    
+
+    // Transition swap chain dst image to transfer dst (manually)
+    VkImageMemoryBarrier vkBarrier = {};
+    vkBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    vkBarrier.oldLayout = (VkImageLayout)swapChain.imageLayouts[swapChain.activeImage];
+    vkBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    vkBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    vkBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    vkBarrier.image = swapChainImage;
+    vkBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    vkBarrier.subresourceRange.baseMipLevel = 0;
+    vkBarrier.subresourceRange.levelCount = 1;
+    vkBarrier.subresourceRange.baseArrayLayer = 0;
+    vkBarrier.subresourceRange.layerCount = 1;
+    vkBarrier.srcAccessMask = VK_ACCESS_NONE;
+    vkBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    vkCmdPipelineBarrier(cmd.vkHandle,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0,
+            0,
+            NULL,
+            0,
+            NULL,
+            1,
+            &vkBarrier);
+
+    // Blit src to swap chain image
+    VkOffset3D blitSize = {};
+    blitSize.x = swapChain.vkExtents.width;
+    blitSize.y = swapChain.vkExtents.height;
+    blitSize.z = 1;
+    VkImageBlit blitRegion = {};
+    blitRegion.srcSubresource.aspectMask = ENUM_HAS_FLAG(src.desc.usageFlags, IMAGE_USAGE_DEPTH_ATTACHMENT)
+        ? VK_IMAGE_ASPECT_DEPTH_BIT
+        : VK_IMAGE_ASPECT_COLOR_BIT;
+    blitRegion.srcSubresource.layerCount = 1;
+    blitRegion.srcSubresource.baseArrayLayer = 0;
+    blitRegion.srcOffsets[1] = blitSize;
+    blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    blitRegion.dstSubresource.layerCount = 1;
+    blitRegion.dstOffsets[1] = blitSize;
+
+    vkCmdBlitImage(cmd.vkHandle,
+            src.vkHandle,
+            (VkImageLayout)src.desc.layout,
+            swapChainImage,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1,
+            &blitRegion,
+            VK_FILTER_NEAREST);
+
+    // Transition swap chain dst image to present src (manually)
+    vkBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    vkBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    vkBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    vkBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    vkBarrier.image = swapChainImage;
+    vkBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    vkBarrier.subresourceRange.baseMipLevel = 0;
+    vkBarrier.subresourceRange.levelCount = 1;
+    vkBarrier.subresourceRange.baseArrayLayer = 0;
+    vkBarrier.subresourceRange.layerCount = 1;
+    vkBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    vkBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    vkCmdPipelineBarrier(cmd.vkHandle,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            //VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            0,
+            0,
+            NULL,
+            0,
+            NULL,
+            1,
+            &vkBarrier);
+    swapChain.imageLayouts[swapChain.activeImage] = IMAGE_LAYOUT_PRESENT_SRC;
+}
+
 void BeginFrame(u32 frame)
 {
     u32 inFlightFrame = frame % RENDER_CONCURRENT_FRAMES;
@@ -1426,14 +1534,18 @@ void BeginFrame(u32 frame)
     vkResetFences(ctx.vkDevice, 1, &fence);
 
     // TODO(caio): CONTINUE
-    // - Figure out begin/end frame workflow**
-    // - Figure out how to handle swap chain image with vkAcquireNextImage
-    //      - Maybe something like activeImage in SwapChain and BeginFrame
-    //      updates this value
-    // - Figure out how to handle submit**
-    // - Clear command
-    // - Copy to Swap Chain command
-    // - Present
+    // - Implement transition layout command for texture**
+    //      - If already on layout, don't do anything
+    //      - If not on layout, issue command from old layout (in Texture) to desired layout
+    //      - Probably won't be used in swap chain copy, but I can do that transition command manually
+    // - Clear command**
+    //      - Transition image to transfer dst
+    //      - vkClearColorImage
+    // - Copy to Swap Chain command*
+    //      - Transition src to transfer src
+    //      - Transition swap chain to transfer dst
+    //      - vkCmdBlitImage
+    //      - Transition swap chain to present src
     // - Render blue screen
     // - Resize swap chain on begin and end frame
 }
@@ -1464,20 +1576,22 @@ void EndFrame(u32 frame, Handle<CommandBuffer> hCmd)
 
     VkResult ret = vkQueueSubmit(ctx.vkCommandQueue, 1, &submitInfo, renderFence);
     ASSERTVK(ret);
+
+    cmd.isAvailable = true;
 }
 
 void Present(u32 frame)
 {
     ASSERT(ctx.vkCommandQueue != VK_NULL_HANDLE);
     u32 inFlightFrame = frame % RENDER_CONCURRENT_FRAMES;
-    VkSemaphore presentSemaphore = ctx.vkPresentSemaphores[inFlightFrame];
+    VkSemaphore renderSemaphore = ctx.vkRenderSemaphores[inFlightFrame];
 
     VkPresentInfoKHR presentInfo = {};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &swapChain.vkHandle;
     presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = &presentSemaphore;
+    presentInfo.pWaitSemaphores = &renderSemaphore;
     presentInfo.pImageIndices = &swapChain.activeImage;
     VkResult ret = vkQueuePresentKHR(ctx.vkCommandQueue, &presentInfo);
     if(ret == VK_ERROR_OUT_OF_DATE_KHR || ret == VK_SUBOPTIMAL_KHR)
