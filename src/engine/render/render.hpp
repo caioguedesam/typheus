@@ -31,6 +31,7 @@ namespace render
 #define RENDER_MAX_VERTEX_LAYOUTS 8
 #define RENDER_MAX_SHADERS 32
 #define RENDER_MAX_BUFFERS 256
+#define RENDER_MAX_TEXTURES 1024
 #define RENDER_MAX_GRAPHICS_PIPELINES 32
 
 enum Format
@@ -97,6 +98,22 @@ enum BufferType
     BUFFER_TYPE_INDEX,
     //TODO(caio): Uniform buffers, storage buffers
     BUFFER_TYPE_COUNT,
+};
+
+enum ImageType
+{
+    IMAGE_TYPE_2D,
+
+    IMAGE_TYPE_COUNT,
+};
+
+enum ImageUsageFlags : u32
+{
+    IMAGE_USAGE_COLOR_ATTACHMENT = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+    IMAGE_USAGE_DEPTH_ATTACHMENT = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+    IMAGE_USAGE_TRANSFER_SRC = VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+    IMAGE_USAGE_TRANSFER_DST = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+    IMAGE_USAGE_SAMPLED = VK_IMAGE_USAGE_SAMPLED_BIT,
 };
 
 enum Primitive
@@ -191,33 +208,6 @@ SwapChain MakeSwapChain(Window* window);
 void DestroySwapChain(SwapChain* swapChain);
 void ResizeSwapChain(Window* window, SwapChain* swapChain);
 
-struct RenderPassDesc
-{
-    u32         width           = 0;
-    u32         height          = 0;
-    LoadOp      loadOp          = LOAD_OP_DONT_CARE;
-    StoreOp     storeOp         = STORE_OP_DONT_CARE;
-    ImageLayout initialLayout   = IMAGE_LAYOUT_UNDEFINED;
-    ImageLayout finalLayout     = IMAGE_LAYOUT_UNDEFINED;
-};
-
-struct RenderPass
-{
-    VkRenderPass vkHandle = VK_NULL_HANDLE;
-    VkFramebuffer vkFramebuffer = VK_NULL_HANDLE;
-
-    RenderPassDesc desc = {};
-
-    u32 colorImageCount = 0;
-    Array<Format> outputImageFormats;
-    Array<VkImage> vkOutputImages;
-    Array<VkImageView> vkOutputImageViews;
-    Array<VmaAllocation> vkOutputImageAllocations;
-};
-
-Handle<RenderPass> MakeRenderPass(RenderPassDesc desc, u32 colorImageCount, Format* colorImageFormats, Format depthImageFormat);
-void DestroyRenderPass(RenderPass* renderPass);
-
 struct VertexLayout
 {
     VkVertexInputBindingDescription vkBindingDescription = {};
@@ -251,6 +241,59 @@ struct Buffer
 Handle<Buffer> MakeBuffer(BufferType type, u64 size, u64 stride, void* data = NULL);
 void DestroyBuffer(Buffer* buffer);
 void CopyMemoryToBuffer(Handle<Buffer> hDstBuffer, u64 size, void* data);
+
+struct TextureDesc
+{
+    u32 width = 0;
+    u32 height = 0;
+    u32 depth = 1;
+    ImageUsageFlags usageFlags;
+    ImageType type = IMAGE_TYPE_2D;
+    Format format = FORMAT_INVALID;
+    ImageLayout layout = IMAGE_LAYOUT_UNDEFINED;
+};
+
+struct Texture
+{
+    VkImage vkHandle = VK_NULL_HANDLE;
+    VkImageView vkImageView = VK_NULL_HANDLE;   // TODO(caio): This will bite me in the ass later
+    VmaAllocation vkAllocation = VK_NULL_HANDLE;
+
+    TextureDesc desc = {};
+};
+
+Handle<Texture> MakeTexture(TextureDesc desc);
+void DestroyTexture(Texture* texture);
+//TODO(caio): Copy Memory to Texture from CPU (after command buffer stuff works)
+//TODO(caio): Transition Texture Layout (after command buffer stuff works)
+
+struct RenderPassDesc
+{
+    u32         width           = 0;
+    u32         height          = 0;
+    LoadOp      loadOp          = LOAD_OP_DONT_CARE;
+    StoreOp     storeOp         = STORE_OP_DONT_CARE;
+    ImageLayout initialLayout   = IMAGE_LAYOUT_UNDEFINED;
+    ImageLayout finalLayout     = IMAGE_LAYOUT_UNDEFINED;
+};
+
+struct RenderPass
+{
+    VkRenderPass vkHandle = VK_NULL_HANDLE;
+    VkFramebuffer vkFramebuffer = VK_NULL_HANDLE;
+
+    RenderPassDesc desc = {};
+
+    u32 colorImageCount = 0;
+    // Array<Format> outputImageFormats;
+    // Array<VkImage> vkOutputImages;
+    // Array<VkImageView> vkOutputImageViews;
+    // Array<VmaAllocation> vkOutputImageAllocations;
+    Array<Handle<Texture>> outputs;
+};
+
+Handle<RenderPass> MakeRenderPass(RenderPassDesc desc, u32 colorImageCount, Format* colorImageFormats, Format depthImageFormat);
+void DestroyRenderPass(RenderPass* renderPass);
 
 struct GraphicsPipelineDesc
 {
@@ -287,6 +330,7 @@ inline Array<RenderPass> renderPasses;
 inline Array<VertexLayout> vertexLayouts;
 inline Array<Shader> shaders;
 inline Array<Buffer> buffers;
+inline Array<Texture> textures;
 inline Array<GraphicsPipeline> graphicsPipelines;
 
 void Init(Window* window);

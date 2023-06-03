@@ -123,6 +123,16 @@ VkBufferUsageFlagBits bufferTypeToVk[] =
     VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
 };
 STATIC_ASSERT(ARR_LEN(bufferTypeToVk) == BUFFER_TYPE_COUNT);
+VkImageType imageTypeToVk[] =
+{
+    VK_IMAGE_TYPE_2D,
+};
+STATIC_ASSERT(ARR_LEN(imageTypeToVk) == IMAGE_TYPE_COUNT);
+VkImageViewType imageViewTypeToVk[] =
+{
+    VK_IMAGE_VIEW_TYPE_2D,
+};
+STATIC_ASSERT(ARR_LEN(imageViewTypeToVk) == IMAGE_TYPE_COUNT);
 
 void Init(Window* window)
 {
@@ -137,6 +147,7 @@ void Init(Window* window)
     vertexLayouts = MakeArray<VertexLayout>(RENDER_MAX_VERTEX_LAYOUTS);
     shaders = MakeArray<Shader>(RENDER_MAX_SHADERS);
     buffers = MakeArray<Buffer>(RENDER_MAX_BUFFERS);
+    textures = MakeArray<Texture>(RENDER_MAX_TEXTURES);
     graphicsPipelines = MakeArray<GraphicsPipeline>(RENDER_MAX_GRAPHICS_PIPELINES);
 
     MakeCommandBuffers();
@@ -163,6 +174,10 @@ void Shutdown()
     {
         DestroyBuffer(&buffers[i]);
     }
+    for(i32 i = 0; i < textures.count; i++)
+    {
+        DestroyTexture(&textures[i]);
+    }
     for(i32 i = 0; i < graphicsPipelines.count; i++)
     {
         DestroyGraphicsPipeline(&graphicsPipelines[i]);
@@ -172,6 +187,7 @@ void Shutdown()
     DestroyArray(&vertexLayouts);
     DestroyArray(&shaders);
     DestroyArray(&buffers);
+    DestroyArray(&textures);
     DestroyArray(&graphicsPipelines);
 
     DestroySwapChain(&swapChain);
@@ -821,111 +837,137 @@ void MakeRenderPass_CreateRenderPass(Context* ctx, RenderPassDesc desc, u32 colo
     renderPass->vkHandle = handle;
     renderPass->desc = desc;
     renderPass->colorImageCount = colorImageCount;
-    renderPass->outputImageFormats = MakeArray<Format>(colorImageCount + 1);
-    for(i32 i = 0; i < colorImageCount; i++)
-    {
-        renderPass->outputImageFormats.Push(colorImageFormats[i]);
-    }
-    renderPass->outputImageFormats.Push(depthImageFormat);
+    // renderPass->outputImageFormats = MakeArray<Format>(colorImageCount + 1);
+    // for(i32 i = 0; i < colorImageCount; i++)
+    // {
+    //     renderPass->outputImageFormats.Push(colorImageFormats[i]);
+    // }
+    // renderPass->outputImageFormats.Push(depthImageFormat);
 }
 
-void MakeRenderPass_CreateOutputImages(Context* ctx, RenderPass* renderPass)
+void MakeRenderPass_CreateOutputImages(Context* ctx, Format* colorImageFormats, Format depthImageFormat, RenderPass* renderPass)
 {
     ASSERT(ctx && renderPass);
-    renderPass->vkOutputImages = MakeArray<VkImage>(renderPass->colorImageCount + 1);
-    renderPass->vkOutputImageViews = MakeArray<VkImageView>(renderPass->colorImageCount + 1);
-    renderPass->vkOutputImageAllocations = MakeArray<VmaAllocation>(renderPass->colorImageCount + 1);
+    // renderPass->vkOutputImages = MakeArray<VkImage>(renderPass->colorImageCount + 1);
+    // renderPass->vkOutputImageViews = MakeArray<VkImageView>(renderPass->colorImageCount + 1);
+    // renderPass->vkOutputImageAllocations = MakeArray<VmaAllocation>(renderPass->colorImageCount + 1);
+    renderPass->outputs = MakeArray<Handle<Texture>>(renderPass->colorImageCount + 1);
 
     // Create images for color attachments
     for(i32 i = 0; i < renderPass->colorImageCount; i++)
     {
-        VkImageCreateInfo imageInfo = {};
-        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        imageInfo.imageType = VK_IMAGE_TYPE_2D;
-        imageInfo.extent.width = renderPass->desc.width;
-        imageInfo.extent.height = renderPass->desc.height;
-        imageInfo.extent.depth = 1;
-        imageInfo.mipLevels = 1;
-        imageInfo.arrayLayers = 1;
-        imageInfo.format = formatToVk[renderPass->outputImageFormats[i]];
-        imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-            | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
-            | VK_IMAGE_USAGE_SAMPLED_BIT;
-        imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;      // TODO(caio): Support multisampling
-        imageInfo.flags = 0;
-        VmaAllocationCreateInfo allocationInfo = {};
-        allocationInfo.usage = VMA_MEMORY_USAGE_AUTO;
-        
-        VkImage image;
-        VmaAllocation imageAllocation;
-        VkResult ret = vmaCreateImage(ctx->vkAllocator, &imageInfo, &allocationInfo, &image, &imageAllocation, NULL);
-        ASSERTVK(ret);
+        TextureDesc colorOutputDesc = {};
+        colorOutputDesc.width = renderPass->desc.width;
+        colorOutputDesc.height = renderPass->desc.height;
+        colorOutputDesc.depth = 1;
+        colorOutputDesc.usageFlags = ENUM_FLAGS(ImageUsageFlags, 
+                IMAGE_USAGE_COLOR_ATTACHMENT
+                | IMAGE_USAGE_TRANSFER_SRC
+                | IMAGE_USAGE_SAMPLED);
+        colorOutputDesc.format = colorImageFormats[i];
+        colorOutputDesc.layout = IMAGE_LAYOUT_UNDEFINED;
+        Handle<Texture> hColorOutput = MakeTexture(colorOutputDesc);
 
-        VkImageViewCreateInfo imageViewInfo = {};
-        imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        imageViewInfo.image = image;
-        imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        imageViewInfo.format = formatToVk[renderPass->outputImageFormats[i]];
-        imageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        imageViewInfo.subresourceRange.baseMipLevel = 0;
-        imageViewInfo.subresourceRange.levelCount = 1;
-        imageViewInfo.subresourceRange.baseArrayLayer = 0;
-        imageViewInfo.subresourceRange.layerCount = 1;
+        renderPass->outputs.Push(hColorOutput);
 
-        VkImageView imageView;
-        ret = vkCreateImageView(ctx->vkDevice, &imageViewInfo, NULL, &imageView);
-        ASSERTVK(ret);
+        // VkImageCreateInfo imageInfo = {};
+        // imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        // imageInfo.imageType = VK_IMAGE_TYPE_2D;
+        // imageInfo.extent.width = renderPass->desc.width;
+        // imageInfo.extent.height = renderPass->desc.height;
+        // imageInfo.extent.depth = 1;
+        // imageInfo.mipLevels = 1;
+        // imageInfo.arrayLayers = 1;
+        // imageInfo.format = formatToVk[renderPass->outputImageFormats[i]];
+        // imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+        // imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        // imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+        //     | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+        //     | VK_IMAGE_USAGE_SAMPLED_BIT;
+        // imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        // imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;      // TODO(caio): Support multisampling
+        // imageInfo.flags = 0;
+        // VmaAllocationCreateInfo allocationInfo = {};
+        // allocationInfo.usage = VMA_MEMORY_USAGE_AUTO;
+        // 
+        // VkImage image;
+        // VmaAllocation imageAllocation;
+        // VkResult ret = vmaCreateImage(ctx->vkAllocator, &imageInfo, &allocationInfo, &image, &imageAllocation, NULL);
+        // ASSERTVK(ret);
 
-        renderPass->vkOutputImages.Push(image);
-        renderPass->vkOutputImageViews.Push(imageView);
-        renderPass->vkOutputImageAllocations.Push(imageAllocation);
+        // VkImageViewCreateInfo imageViewInfo = {};
+        // imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        // imageViewInfo.image = image;
+        // imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        // imageViewInfo.format = formatToVk[renderPass->outputImageFormats[i]];
+        // imageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        // imageViewInfo.subresourceRange.baseMipLevel = 0;
+        // imageViewInfo.subresourceRange.levelCount = 1;
+        // imageViewInfo.subresourceRange.baseArrayLayer = 0;
+        // imageViewInfo.subresourceRange.layerCount = 1;
+
+        // VkImageView imageView;
+        // ret = vkCreateImageView(ctx->vkDevice, &imageViewInfo, NULL, &imageView);
+        // ASSERTVK(ret);
+
+        // renderPass->vkOutputImages.Push(image);
+        // renderPass->vkOutputImageViews.Push(imageView);
+        // renderPass->vkOutputImageAllocations.Push(imageAllocation);
     }
 
     // Create image for depth attachment
-    VkImageCreateInfo imageInfo = {};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width = renderPass->desc.width;
-    imageInfo.extent.height = renderPass->desc.height;
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 1;
-    imageInfo.format = formatToVk[renderPass->outputImageFormats[renderPass->colorImageCount]];
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;     // Maybe expose this later
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;      // TODO(caio): Support multisampling
-    imageInfo.flags = 0;
-    VmaAllocationCreateInfo allocationInfo = {};
-    allocationInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    
-    VkImage image;
-    VmaAllocation imageAllocation;
-    VkResult ret = vmaCreateImage(ctx->vkAllocator, &imageInfo, &allocationInfo, &image, &imageAllocation, NULL);
-    ASSERTVK(ret);
+    // VkImageCreateInfo imageInfo = {};
+    // imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    // imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    // imageInfo.extent.width = renderPass->desc.width;
+    // imageInfo.extent.height = renderPass->desc.height;
+    // imageInfo.extent.depth = 1;
+    // imageInfo.mipLevels = 1;
+    // imageInfo.arrayLayers = 1;
+    // imageInfo.format = formatToVk[renderPass->outputImageFormats[renderPass->colorImageCount]];
+    // imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    // imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    // imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;     // Maybe expose this later
+    // imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    // imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;      // TODO(caio): Support multisampling
+    // imageInfo.flags = 0;
+    // VmaAllocationCreateInfo allocationInfo = {};
+    // allocationInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    // 
+    // VkImage image;
+    // VmaAllocation imageAllocation;
+    // VkResult ret = vmaCreateImage(ctx->vkAllocator, &imageInfo, &allocationInfo, &image, &imageAllocation, NULL);
+    // ASSERTVK(ret);
 
-    VkImageViewCreateInfo imageViewInfo = {};
-    imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    imageViewInfo.image = image;
-    imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    imageViewInfo.format = formatToVk[renderPass->outputImageFormats[renderPass->colorImageCount]];
-    imageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-    imageViewInfo.subresourceRange.baseMipLevel = 0;
-    imageViewInfo.subresourceRange.levelCount = 1;
-    imageViewInfo.subresourceRange.baseArrayLayer = 0;
-    imageViewInfo.subresourceRange.layerCount = 1;
+    // VkImageViewCreateInfo imageViewInfo = {};
+    // imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    // imageViewInfo.image = image;
+    // imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    // imageViewInfo.format = formatToVk[renderPass->outputImageFormats[renderPass->colorImageCount]];
+    // imageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    // imageViewInfo.subresourceRange.baseMipLevel = 0;
+    // imageViewInfo.subresourceRange.levelCount = 1;
+    // imageViewInfo.subresourceRange.baseArrayLayer = 0;
+    // imageViewInfo.subresourceRange.layerCount = 1;
 
-    VkImageView imageView;
-    ret = vkCreateImageView(ctx->vkDevice, &imageViewInfo, NULL, &imageView);
-    ASSERTVK(ret);
+    // VkImageView imageView;
+    // ret = vkCreateImageView(ctx->vkDevice, &imageViewInfo, NULL, &imageView);
+    // ASSERTVK(ret);
 
-    renderPass->vkOutputImages.Push(image);
-    renderPass->vkOutputImageViews.Push(imageView);
-    renderPass->vkOutputImageAllocations.Push(imageAllocation);
+    // renderPass->vkOutputImages.Push(image);
+    // renderPass->vkOutputImageViews.Push(imageView);
+    // renderPass->vkOutputImageAllocations.Push(imageAllocation);
+
+    TextureDesc colorOutputDesc = {};
+    colorOutputDesc.width = renderPass->desc.width;
+    colorOutputDesc.height = renderPass->desc.height;
+    colorOutputDesc.depth = 1;
+    colorOutputDesc.usageFlags = ENUM_FLAGS(ImageUsageFlags, IMAGE_USAGE_DEPTH_ATTACHMENT);
+    colorOutputDesc.format = depthImageFormat;
+    colorOutputDesc.layout = IMAGE_LAYOUT_UNDEFINED;
+    Handle<Texture> hColorOutput = MakeTexture(colorOutputDesc);
+
+    renderPass->outputs.Push(hColorOutput);
 }
 
 void MakeRenderPass_CreateFramebuffer(Context* ctx, RenderPass* renderPass)
@@ -938,7 +980,13 @@ void MakeRenderPass_CreateFramebuffer(Context* ctx, RenderPass* renderPass)
     framebufferInfo.height = renderPass->desc.height;
     framebufferInfo.layers = 1;
     framebufferInfo.attachmentCount = renderPass->colorImageCount + 1;
-    framebufferInfo.pAttachments = renderPass->vkOutputImageViews.data;
+    VkImageView attachmentViews[renderPass->colorImageCount + 1];
+    for(i32 i = 0; i < renderPass->colorImageCount + 1; i++)
+    {
+        Texture& texture = textures[renderPass->outputs[i]];
+        attachmentViews[i] = texture.vkImageView;
+    }
+    framebufferInfo.pAttachments = attachmentViews;
 
     VkFramebuffer framebuffer;
     VkResult ret = vkCreateFramebuffer(ctx->vkDevice, &framebufferInfo, NULL, &framebuffer);
@@ -955,7 +1003,7 @@ Handle<RenderPass> MakeRenderPass(RenderPassDesc desc, u32 colorImageCount, Form
     RenderPass result = {};
 
     MakeRenderPass_CreateRenderPass(&ctx, desc, colorImageCount, colorImageFormats, depthImageFormat, &result);
-    MakeRenderPass_CreateOutputImages(&ctx, &result);
+    MakeRenderPass_CreateOutputImages(&ctx, colorImageFormats, depthImageFormat, &result);
     MakeRenderPass_CreateFramebuffer(&ctx, &result);
 
     renderPasses.Push(result);
@@ -966,18 +1014,20 @@ void DestroyRenderPass(RenderPass *renderPass)
 {
     ASSERT(renderPass);
     ASSERT(ctx.vkDevice != VK_NULL_HANDLE && renderPass->vkHandle != VK_NULL_HANDLE);
-    for(i32 i = 0; i < renderPass->colorImageCount + 1; i++)
-    {
-        vkDestroyImageView(ctx.vkDevice, renderPass->vkOutputImageViews[i], NULL);
-        vmaDestroyImage(ctx.vkAllocator, renderPass->vkOutputImages[i], renderPass->vkOutputImageAllocations[i]);
-    }
+    // for(i32 i = 0; i < renderPass->colorImageCount + 1; i++)
+    // {
+    //     vkDestroyImageView(ctx.vkDevice, renderPass->vkOutputImageViews[i], NULL);
+    //     vmaDestroyImage(ctx.vkAllocator, renderPass->vkOutputImages[i], renderPass->vkOutputImageAllocations[i]);
+    // }
+    // No need to destroy these anymore, since they're destroyed along with all other textures
     vkDestroyFramebuffer(ctx.vkDevice, renderPass->vkFramebuffer, NULL);
     vkDestroyRenderPass(ctx.vkDevice, renderPass->vkHandle, NULL);
 
-    DestroyArray(&renderPass->outputImageFormats);
-    DestroyArray(&renderPass->vkOutputImages);
-    DestroyArray(&renderPass->vkOutputImageViews);
-    DestroyArray(&renderPass->vkOutputImageAllocations);
+    // DestroyArray(&renderPass->outputImageFormats);
+    // DestroyArray(&renderPass->vkOutputImages);
+    // DestroyArray(&renderPass->vkOutputImageViews);
+    // DestroyArray(&renderPass->vkOutputImageAllocations);
+    DestroyArray(&renderPass->outputs);
 
     *renderPass = {};
 }
@@ -1103,6 +1153,72 @@ void CopyMemoryToBuffer(Handle<Buffer> hDstBuffer, u64 size, void* data)
     memcpy(mapping, data, size);
     ASSERTVK(ret);
     vmaUnmapMemory(ctx.vkAllocator, buffer.vkAllocation);
+}
+
+Handle<Texture> MakeTexture(TextureDesc desc)
+{
+    ASSERT(ctx.vkDevice != VK_NULL_HANDLE && ctx.vkAllocator != VK_NULL_HANDLE);
+
+    VkImageCreateInfo imageInfo = {};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.usage = desc.usageFlags;
+    imageInfo.format = formatToVk[desc.format];
+    imageInfo.initialLayout = imageLayoutToVk[desc.layout];
+    imageInfo.imageType = imageTypeToVk[desc.type];
+    imageInfo.extent.width = desc.width;
+    imageInfo.extent.height = desc.height;
+    imageInfo.extent.depth = desc.depth;
+    imageInfo.mipLevels = 1;                        // TODO(caio): Support mipmapping
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;      // TODO(caio): Support multisampling
+    imageInfo.arrayLayers = 1;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.flags = 0;
+
+    VmaAllocationCreateInfo allocationInfo = {};
+    allocationInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+    VkImage image;
+    VmaAllocation allocation;
+    VkResult ret = vmaCreateImage(ctx.vkAllocator, &imageInfo, &allocationInfo, &image, &allocation, NULL);
+    ASSERTVK(ret);
+
+    // Each image has one image view. This could change in the future,
+    // then figure out where image view should fit in outside Texture
+    VkImageViewCreateInfo imageViewInfo = {};
+    imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    imageViewInfo.image = image;
+    imageViewInfo.viewType = imageViewTypeToVk[desc.type];
+    imageViewInfo.format = formatToVk[desc.format];
+    imageViewInfo.subresourceRange.aspectMask = ENUM_HAS_FLAG(desc.usageFlags, IMAGE_USAGE_DEPTH_ATTACHMENT)
+        ? VK_IMAGE_ASPECT_DEPTH_BIT
+        : VK_IMAGE_ASPECT_COLOR_BIT;
+    imageViewInfo.subresourceRange.baseMipLevel = 0;
+    imageViewInfo.subresourceRange.levelCount = 1;
+    imageViewInfo.subresourceRange.baseArrayLayer = 0;
+    imageViewInfo.subresourceRange.layerCount = 1;
+    
+    VkImageView imageView;
+    ret = vkCreateImageView(ctx.vkDevice, &imageViewInfo, NULL, &imageView);
+    ASSERTVK(ret);
+
+    Texture result = {};
+    result.vkHandle = image;
+    result.vkImageView = imageView;
+    result.vkAllocation = allocation;
+    result.desc = desc;
+
+    textures.Push(result);
+    return { (u32)textures.count - 1 };
+}
+
+void DestroyTexture(Texture* texture)
+{
+    ASSERT(texture);
+    ASSERT(ctx.vkAllocator != VK_NULL_HANDLE);
+    vkDestroyImageView(ctx.vkDevice, texture->vkImageView, NULL);
+    vmaDestroyImage(ctx.vkAllocator, texture->vkHandle, texture->vkAllocation);
+    *texture = {};
 }
 
 Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, GraphicsPipelineDesc desc)

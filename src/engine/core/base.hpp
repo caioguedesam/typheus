@@ -71,6 +71,9 @@ typedef double      f64;
 #define TOGGLE_BIT(x, pos) ((x) ^= (1UL << (pos)))
 #define CHECK_BIT(x, pos) ((x) & (1UL << (pos)))
 
+#define ENUM_FLAGS(TYPE, FLAGS) ((TYPE)(FLAGS))
+#define ENUM_HAS_FLAG(FLAGS, F) ((FLAGS) & (F))
+
 // ========================================================
 // [HANDLES]
 // These are useful for any system that needs type-specific simple handles.

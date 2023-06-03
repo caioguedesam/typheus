@@ -125,12 +125,12 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
 
         window.PollMessages();
 
-        render::BeginFrame(frame);
-        Handle<render::CommandBuffer> cmd = render::GetAvailableCommandBuffer();
+        //render::BeginFrame(frame);
+        //Handle<render::CommandBuffer> cmd = render::GetAvailableCommandBuffer();
 
         // TODO(caio): Stuff
 
-        render::EndFrame(frame, cmd);
+        //render::EndFrame(frame, cmd);
         //TODO(caio): Present
 
         frameTimer.Stop();
