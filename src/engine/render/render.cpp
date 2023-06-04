@@ -366,33 +366,8 @@ void MakeContext_CreateCommandPool(Context* ctx)
     VkCommandPool commandPool;
     VkResult ret = vkCreateCommandPool(ctx->vkDevice, &poolInfo, NULL, &commandPool);
     ASSERTVK(ret);
-    // VkCommandPool singleTimeCommandPool;
-    // ret = vkCreateCommandPool(ctx->vkDevice, &poolInfo, NULL, &singleTimeCommandPool);
-    // ASSERTVK(ret);
 
     ctx->vkCommandPool = commandPool;
-
-    // ctx->vkSingleTimeCommandPool = singleTimeCommandPool;
-
-    // // One command buffer for each concurrent frame, and an additional one
-    // // for single time commands like buffer copies
-    // ctx->vkCommandBuffers = MakeArray<VkCommandBuffer>(RENDER_CONCURRENT_FRAMES);
-    // VkCommandBufferAllocateInfo bufferInfo = {};
-    // bufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    // bufferInfo.commandBufferCount = 1;
-    // bufferInfo.commandPool = commandPool;
-    // bufferInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    // VkCommandBuffer commandBuffer;
-    // for(i32 i = 0; i < RENDER_CONCURRENT_FRAMES; i++)
-    // {
-    //     ret = vkAllocateCommandBuffers(ctx->vkDevice, &bufferInfo, &commandBuffer);
-    //     ASSERTVK(ret);
-    //     ctx->vkCommandBuffers.Push(commandBuffer);
-    // }
-    // bufferInfo.commandPool = singleTimeCommandPool;
-    // ret = vkAllocateCommandBuffers(ctx->vkDevice, &bufferInfo, &commandBuffer);
-    // ASSERTVK(ret);
-    // ctx->vkSingleTimeCommandBuffer = commandBuffer;
 }
 
 void MakeCommandBuffers()
@@ -778,20 +753,11 @@ void MakeRenderPass_CreateRenderPass(Context* ctx, RenderPassDesc desc, u32 colo
     renderPass->vkHandle = handle;
     renderPass->desc = desc;
     renderPass->colorImageCount = colorImageCount;
-    // renderPass->outputImageFormats = MakeArray<Format>(colorImageCount + 1);
-    // for(i32 i = 0; i < colorImageCount; i++)
-    // {
-    //     renderPass->outputImageFormats.Push(colorImageFormats[i]);
-    // }
-    // renderPass->outputImageFormats.Push(depthImageFormat);
 }
 
 void MakeRenderPass_CreateOutputImages(Context* ctx, Format* colorImageFormats, Format depthImageFormat, RenderPass* renderPass)
 {
     ASSERT(ctx && renderPass);
-    // renderPass->vkOutputImages = MakeArray<VkImage>(renderPass->colorImageCount + 1);
-    // renderPass->vkOutputImageViews = MakeArray<VkImageView>(renderPass->colorImageCount + 1);
-    // renderPass->vkOutputImageAllocations = MakeArray<VmaAllocation>(renderPass->colorImageCount + 1);
     renderPass->outputs = MakeArray<Handle<Texture>>(renderPass->colorImageCount + 1);
 
     // Create images for color attachments
@@ -813,94 +779,7 @@ void MakeRenderPass_CreateOutputImages(Context* ctx, Format* colorImageFormats, 
         Handle<Texture> hColorOutput = MakeTexture(colorOutputDesc);
 
         renderPass->outputs.Push(hColorOutput);
-
-        // VkImageCreateInfo imageInfo = {};
-        // imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        // imageInfo.imageType = VK_IMAGE_TYPE_2D;
-        // imageInfo.extent.width = renderPass->desc.width;
-        // imageInfo.extent.height = renderPass->desc.height;
-        // imageInfo.extent.depth = 1;
-        // imageInfo.mipLevels = 1;
-        // imageInfo.arrayLayers = 1;
-        // imageInfo.format = formatToVk[renderPass->outputImageFormats[i]];
-        // imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-        // imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        // imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-        //     | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
-        //     | VK_IMAGE_USAGE_SAMPLED_BIT;
-        // imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        // imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;      // TODO(caio): Support multisampling
-        // imageInfo.flags = 0;
-        // VmaAllocationCreateInfo allocationInfo = {};
-        // allocationInfo.usage = VMA_MEMORY_USAGE_AUTO;
-        // 
-        // VkImage image;
-        // VmaAllocation imageAllocation;
-        // VkResult ret = vmaCreateImage(ctx->vkAllocator, &imageInfo, &allocationInfo, &image, &imageAllocation, NULL);
-        // ASSERTVK(ret);
-
-        // VkImageViewCreateInfo imageViewInfo = {};
-        // imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        // imageViewInfo.image = image;
-        // imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        // imageViewInfo.format = formatToVk[renderPass->outputImageFormats[i]];
-        // imageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        // imageViewInfo.subresourceRange.baseMipLevel = 0;
-        // imageViewInfo.subresourceRange.levelCount = 1;
-        // imageViewInfo.subresourceRange.baseArrayLayer = 0;
-        // imageViewInfo.subresourceRange.layerCount = 1;
-
-        // VkImageView imageView;
-        // ret = vkCreateImageView(ctx->vkDevice, &imageViewInfo, NULL, &imageView);
-        // ASSERTVK(ret);
-
-        // renderPass->vkOutputImages.Push(image);
-        // renderPass->vkOutputImageViews.Push(imageView);
-        // renderPass->vkOutputImageAllocations.Push(imageAllocation);
     }
-
-    // Create image for depth attachment
-    // VkImageCreateInfo imageInfo = {};
-    // imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    // imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    // imageInfo.extent.width = renderPass->desc.width;
-    // imageInfo.extent.height = renderPass->desc.height;
-    // imageInfo.extent.depth = 1;
-    // imageInfo.mipLevels = 1;
-    // imageInfo.arrayLayers = 1;
-    // imageInfo.format = formatToVk[renderPass->outputImageFormats[renderPass->colorImageCount]];
-    // imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    // imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    // imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;     // Maybe expose this later
-    // imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    // imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;      // TODO(caio): Support multisampling
-    // imageInfo.flags = 0;
-    // VmaAllocationCreateInfo allocationInfo = {};
-    // allocationInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    // 
-    // VkImage image;
-    // VmaAllocation imageAllocation;
-    // VkResult ret = vmaCreateImage(ctx->vkAllocator, &imageInfo, &allocationInfo, &image, &imageAllocation, NULL);
-    // ASSERTVK(ret);
-
-    // VkImageViewCreateInfo imageViewInfo = {};
-    // imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    // imageViewInfo.image = image;
-    // imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    // imageViewInfo.format = formatToVk[renderPass->outputImageFormats[renderPass->colorImageCount]];
-    // imageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-    // imageViewInfo.subresourceRange.baseMipLevel = 0;
-    // imageViewInfo.subresourceRange.levelCount = 1;
-    // imageViewInfo.subresourceRange.baseArrayLayer = 0;
-    // imageViewInfo.subresourceRange.layerCount = 1;
-
-    // VkImageView imageView;
-    // ret = vkCreateImageView(ctx->vkDevice, &imageViewInfo, NULL, &imageView);
-    // ASSERTVK(ret);
-
-    // renderPass->vkOutputImages.Push(image);
-    // renderPass->vkOutputImageViews.Push(imageView);
-    // renderPass->vkOutputImageAllocations.Push(imageAllocation);
 
     TextureDesc depthOutputDesc = {};
     depthOutputDesc.width = renderPass->desc.width;
@@ -960,19 +839,9 @@ void DestroyRenderPass(RenderPass *renderPass)
 {
     ASSERT(renderPass);
     ASSERT(ctx.vkDevice != VK_NULL_HANDLE && renderPass->vkHandle != VK_NULL_HANDLE);
-    // for(i32 i = 0; i < renderPass->colorImageCount + 1; i++)
-    // {
-    //     vkDestroyImageView(ctx.vkDevice, renderPass->vkOutputImageViews[i], NULL);
-    //     vmaDestroyImage(ctx.vkAllocator, renderPass->vkOutputImages[i], renderPass->vkOutputImageAllocations[i]);
-    // }
-    // No need to destroy these anymore, since they're destroyed along with all other textures
     vkDestroyFramebuffer(ctx.vkDevice, renderPass->vkFramebuffer, NULL);
     vkDestroyRenderPass(ctx.vkDevice, renderPass->vkHandle, NULL);
 
-    // DestroyArray(&renderPass->outputImageFormats);
-    // DestroyArray(&renderPass->vkOutputImages);
-    // DestroyArray(&renderPass->vkOutputImageViews);
-    // DestroyArray(&renderPass->vkOutputImageAllocations);
     DestroyArray(&renderPass->outputs);
 
     *renderPass = {};
@@ -1359,8 +1228,6 @@ void SubmitImmediate(Handle<CommandBuffer> hCmd)
     ASSERTVK(ret);
     ret = vkResetFences(ctx.vkDevice, 1, &ctx.vkImmediateFence);
     ASSERTVK(ret);
-    //ret = vkResetCommandPool(ctx.vkDevice, ctx.vkCommandPool, 0);
-    //ASSERTVK(ret);
 
     cmd.state = COMMAND_BUFFER_PENDING;
     cmd.vkFence = ctx.vkImmediateFence;
@@ -1390,14 +1257,46 @@ void BeginRenderPass(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass)
     beginInfo.pClearValues = clearValues;
 
     vkCmdBeginRenderPass(cmd.vkHandle, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    // Color image layouts are automatically transitioned within render passes.
+    // When vkCmdBeginRenderPass is called, color outputs transition to initial layout,
+    // then subpass 0 starts and they transition to COLOR_OUTPUT.
+    for(i32 i = 0; i < renderPass.colorImageCount; i++)
+    {
+        ASSERT(renderPass.outputs[i].IsValid());
+        Texture& colorOutput = textures[renderPass.outputs[i]];
+        //colorOutput.desc.layout = renderPass.desc.initialLayout;
+        colorOutput.desc.layout = IMAGE_LAYOUT_COLOR_OUTPUT;
+    }
+    // Depth image layouts are hardcoded in render passes. Initial is always
+    // UNDEFINED, then subpass 0 sets it to DEPTH_STENCIL_OUTPUT.
+    ASSERT(renderPass.outputs[renderPass.colorImageCount].IsValid());
+    Texture& depthOutput = textures[renderPass.outputs[renderPass.colorImageCount]];
+    depthOutput.desc.layout = IMAGE_LAYOUT_DEPTH_STENCIL_OUTPUT;
 }
 
-void EndRenderPass(Handle<CommandBuffer> hCmd)
+void EndRenderPass(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass)
 {
-    ASSERT(hCmd.IsValid());
+    ASSERT(hCmd.IsValid() && hRenderPass.IsValid());
     CommandBuffer& cmd = commandBuffers[hCmd];
+    RenderPass& renderPass = renderPasses[hRenderPass];
 
     vkCmdEndRenderPass(cmd.vkHandle);
+
+    // Color image layouts are automatically transitioned within render passes.
+    // When vkCmdEndRenderPass is called, color outputs transition to final layout.
+    for(i32 i = 0; i < renderPass.colorImageCount; i++)
+    {
+        ASSERT(renderPass.outputs[i].IsValid());
+        Texture& colorOutput = textures[renderPass.outputs[i]];
+        colorOutput.desc.layout = renderPass.desc.finalLayout;
+    }
+
+    // Depth image layouts are hardcoded in render passes.
+    // Final layout is always DEPTH_STENCIL_OUTPUT.
+    ASSERT(renderPass.outputs[renderPass.colorImageCount].IsValid());
+    Texture& depthOutput = textures[renderPass.outputs[renderPass.colorImageCount]];
+    depthOutput.desc.layout = IMAGE_LAYOUT_DEPTH_STENCIL_OUTPUT;
 }
 
 
@@ -1407,7 +1306,11 @@ void CmdPipelineBarrierTextureLayout(Handle<CommandBuffer> hCmd, Handle<Texture>
     CommandBuffer& cmd = commandBuffers[hCmd];
     Texture& texture = textures[hTexture];
 
-    if(texture.desc.layout == newLayout) return;
+    //if(texture.desc.layout == newLayout) return;
+    // I believe I can't just skip the transition in the above case,
+    // since memory access between pipeline stages still need to synchronize.
+    // I might be wrong.
+
     VkImageLayout vkOldLayout = (VkImageLayout)texture.desc.layout;
     VkImageLayout vkNewLayout = (VkImageLayout)newLayout;
     VkImageMemoryBarrier vkBarrier = {};
@@ -1556,22 +1459,6 @@ void BeginFrame(u32 frame)
 
     // Reset fence to start recording work
     vkResetFences(ctx.vkDevice, 1, &fence);
-
-    // TODO(caio): CONTINUE
-    // - Implement transition layout command for texture**
-    //      - If already on layout, don't do anything
-    //      - If not on layout, issue command from old layout (in Texture) to desired layout
-    //      - Probably won't be used in swap chain copy, but I can do that transition command manually
-    // - Clear command**
-    //      - Transition image to transfer dst
-    //      - vkClearColorImage
-    // - Copy to Swap Chain command*
-    //      - Transition src to transfer src
-    //      - Transition swap chain to transfer dst
-    //      - vkCmdBlitImage
-    //      - Transition swap chain to present src
-    // - Render blue screen
-    // - Resize swap chain on begin and end frame
 }
 
 void EndFrame(u32 frame, Handle<CommandBuffer> hCmd)

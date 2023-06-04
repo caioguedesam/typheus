@@ -54,9 +54,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     render::RenderPassDesc mainRenderPassDesc = {};
     mainRenderPassDesc.width = appWidth;
     mainRenderPassDesc.height = appHeight;
-    mainRenderPassDesc.loadOp = render::LOAD_OP_CLEAR;
+    mainRenderPassDesc.loadOp = render::LOAD_OP_LOAD;
     mainRenderPassDesc.storeOp = render::STORE_OP_STORE;
-    mainRenderPassDesc.initialLayout = render::IMAGE_LAYOUT_UNDEFINED;
+    mainRenderPassDesc.initialLayout = render::IMAGE_LAYOUT_TRANSFER_DST;
     mainRenderPassDesc.finalLayout = render::IMAGE_LAYOUT_TRANSFER_SRC;
     render::Format mainRenderPassColorFormats[] =
     {
@@ -109,13 +109,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     defaultPipelineDesc.fillMode = render::FILL_MODE_SOLID;
     Handle<render::GraphicsPipeline> hGraphicsPipelineDefault = render::MakeGraphicsPipeline(hRenderPassMain, defaultPipelineDesc);
 
-    // Program flow:
-    // > Render to main render pass
-    // > Transition swap chain image to transfer dst
-    // > Copy main render pass output image to swap chain image
-    // > Transition swap chain image to present src
-    // > Present
-
     i32 frame = 0;
     time::Timer frameTimer;
     while(window.state != render::WINDOW_CLOSED)
@@ -129,9 +122,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         render::BeginFrame(frame);
         Handle<render::CommandBuffer> cmd = render::GetAvailableCommandBuffer();
         render::BeginCommandBuffer(cmd);
-        //render::BeginRenderPass(cmd, hRenderPassMain);
-        ////TODO(caio): CONTINUE I need to reenable render pass, and for that I need to
-        /// figure out subpass dependencies! :D
 
         // Frame commands 
         Handle<render::Texture> hRenderPassMainOutput = render::GetRenderPassOutput(hRenderPassMain, 0);
@@ -144,7 +134,17 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         render::CmdPipelineBarrierTextureLayout(cmd, hRenderPassMainOutput, 
                 ty::render::IMAGE_LAYOUT_TRANSFER_DST,
                 barrier);
-        render::CmdClearColorTexture(cmd, hRenderPassMainOutput, 1, 0, 1, 1);
+        math::v3f clearColor =
+        {
+            math::Lerp(1, 0, (f32)(frame % 5000)/5000.f),
+            math::Lerp(0, 1, (f32)(frame % 5000)/5000.f),
+            1,
+        };
+        render::CmdClearColorTexture(cmd, hRenderPassMainOutput, clearColor.r, clearColor.g, clearColor.b, 1);
+
+        render::BeginRenderPass(cmd, hRenderPassMain);
+        //TODO(caio): Rendering commands here
+        render::EndRenderPass(cmd, hRenderPassMain);
 
         barrier.srcAccess = render::MEMORY_ACCESS_TRANSFER_WRITE;
         barrier.dstAccess = render::MEMORY_ACCESS_TRANSFER_READ;
@@ -156,7 +156,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         render::CmdCopyToSwapChain(cmd, hRenderPassMainOutput);
 
         // Frame teardown
-        //render::EndRenderPass(cmd);
         render::EndCommandBuffer(cmd);
         render::EndFrame(frame, cmd);
 

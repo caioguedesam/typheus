@@ -53,6 +53,7 @@ enum ImageLayout
     IMAGE_LAYOUT_TRANSFER_SRC               = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     IMAGE_LAYOUT_TRANSFER_DST               = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
     IMAGE_LAYOUT_SHADER_READ_ONLY           = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    IMAGE_LAYOUT_DEPTH_STENCIL_OUTPUT       = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 };
 
 enum LoadOp
@@ -372,7 +373,7 @@ void EndCommandBuffer(Handle<CommandBuffer> hCmd);
 void SubmitImmediate(Handle<CommandBuffer> hCmd);
 
 void BeginRenderPass(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass);
-void EndRenderPass(Handle<CommandBuffer> hCmd);
+void EndRenderPass(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass);
 
 void BeginFrame(u32 frame);
 void EndFrame(u32 frame, Handle<CommandBuffer> hCmd);
