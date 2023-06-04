@@ -77,10 +77,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     // Buffers
     f32 quadVertices[] =
     {
-        -0.5f, -0.5f, 0.5f, 0, 0, 0, 0.f, 1.f,   // BL
-         0.5f, -0.5f, 0.5f, 0, 0, 0, 1.f, 1.f,   // BR
-         0.5f,  0.5f, 0.5f, 0, 0, 0, 1.f, 0.f,   // TR
-        -0.5f,  0.5f, 0.5f, 0, 0, 0, 0.f, 0.f,   // TL
+        -0.5f,  0.5f, 0.5f, 0, 0, 0, 0.f, 1.f,   // BL
+         0.5f,  0.5f, 0.5f, 0, 0, 0, 1.f, 1.f,   // BR
+         0.5f, -0.5f, 0.5f, 0, 0, 0, 1.f, 0.f,   // TR
+        -0.5f, -0.5f, 0.5f, 0, 0, 0, 0.f, 0.f,   // TL
     };
     
     u32 quadIndices[] =
@@ -143,7 +143,12 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         render::CmdClearColorTexture(cmd, hRenderPassMainOutput, clearColor.r, clearColor.g, clearColor.b, 1);
 
         render::BeginRenderPass(cmd, hRenderPassMain);
-        //TODO(caio): Rendering commands here
+        render::CmdBindPipeline(cmd, hGraphicsPipelineDefault);
+        render::CmdSetViewport(cmd, hRenderPassMain);
+        render::CmdSetScissor(cmd, hRenderPassMain);
+        render::CmdBindVertexBuffer(cmd, hQuadVB);
+        render::CmdBindIndexBuffer(cmd, hQuadIB);
+        render::CmdDrawIndexed(cmd, hQuadIB);
         render::EndRenderPass(cmd, hRenderPassMain);
 
         barrier.srcAccess = render::MEMORY_ACCESS_TRANSFER_WRITE;

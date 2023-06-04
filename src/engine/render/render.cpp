@@ -41,8 +41,8 @@ VKAPI_ATTR VkBool32 VKAPI_CALL ValidationLayerDebugCallback(
 u32 vertexAttributeSizes[] =
 {
     0,
-    2,
-    3,
+    2 * sizeof(f32),
+    3 * sizeof(f32),
 };
 STATIC_ASSERT(ARR_LEN(vertexAttributeSizes) == VERTEX_ATTR_COUNT);
 VkFormat vertexAttributeFormats[] =
@@ -870,12 +870,14 @@ Handle<VertexLayout> MakeVertexLayout(u32 attrCount, VertexAttribute* attributes
     for(i32 i = 0; i < attrCount; i++)
     {
         VertexAttribute attr = attributes[i];
-        result.vkBindingDescription.stride += vertexAttributeSizes[attr];
+
         VkVertexInputAttributeDescription attributeDesc = {};
         attributeDesc.binding = 0;              // Change this if needed later?
         attributeDesc.location = i;
         attributeDesc.format = vertexAttributeFormats[attr];
         attributeDesc.offset = result.vkBindingDescription.stride;
+
+        result.vkBindingDescription.stride += vertexAttributeSizes[attr];
         
         result.attributes.Push(attr);
         result.vkAttributeDescriptions.Push(attributeDesc);
@@ -1439,6 +1441,85 @@ void CmdCopyToSwapChain(Handle<CommandBuffer> hCmd, Handle<Texture> hSrc)
             1,
             &vkBarrier);
     swapChain.imageLayouts[swapChain.activeImage] = IMAGE_LAYOUT_PRESENT_SRC;
+}
+
+void CmdBindPipeline(Handle<CommandBuffer> hCmd, Handle<GraphicsPipeline> hPipeline)
+{
+    ASSERT(hCmd.IsValid() && hPipeline.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    GraphicsPipeline& pipeline = graphicsPipelines[hPipeline];
+    vkCmdBindPipeline(cmd.vkHandle, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.vkPipeline);
+}
+
+void CmdSetViewport(Handle<CommandBuffer> hCmd, f32 offsetX, f32 offsetY, f32 width, f32 height, f32 minDepth, f32 maxDepth)
+{
+    ASSERT(hCmd.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    VkViewport viewport = {};
+    viewport.x = offsetX;
+    viewport.y = offsetY;
+    viewport.width = width;
+    viewport.height = height;
+    viewport.minDepth = minDepth;
+    viewport.maxDepth = maxDepth;
+    vkCmdSetViewport(cmd.vkHandle, 0, 1, &viewport);
+}
+
+void CmdSetViewport(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass)
+{
+    ASSERT(hRenderPass.IsValid());
+    RenderPass& renderPass = renderPasses[hRenderPass];
+    CmdSetViewport(hCmd, 0, 0, renderPass.desc.width, renderPass.desc.height);
+}
+
+void CmdSetScissor(Handle<CommandBuffer> hCmd, i32 offsetX, i32 offsetY, i32 width, i32 height)
+{
+    ASSERT(hCmd.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    VkRect2D rect = {};
+    rect.offset.x = offsetX;
+    rect.offset.y = offsetY;
+    rect.extent.width = width;
+    rect.extent.height = height;
+    vkCmdSetScissor(cmd.vkHandle, 0, 1, &rect);
+}
+
+void CmdSetScissor(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass)
+{
+    ASSERT(hRenderPass.IsValid());
+    RenderPass& renderPass = renderPasses[hRenderPass];
+    CmdSetScissor(hCmd, 0, 0, renderPass.desc.width, renderPass.desc.height);
+}
+
+void CmdBindVertexBuffer(Handle<CommandBuffer> hCmd, Handle<Buffer> hVB)
+{
+    ASSERT(hCmd.IsValid() && hVB.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    Buffer& vb = buffers[hVB];
+    ASSERT(vb.type == BUFFER_TYPE_VERTEX);
+
+    VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(cmd.vkHandle, 0, 1, &vb.vkHandle, &offset);
+}
+
+void CmdBindIndexBuffer(Handle<CommandBuffer> hCmd, Handle<Buffer> hIB)
+{
+    ASSERT(hCmd.IsValid() && hIB.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    Buffer& ib = buffers[hIB];
+    ASSERT(ib.type == BUFFER_TYPE_INDEX);
+
+    vkCmdBindIndexBuffer(cmd.vkHandle, ib.vkHandle, 0, VK_INDEX_TYPE_UINT32);
+}
+
+void CmdDrawIndexed(Handle<CommandBuffer> hCmd, Handle<Buffer> hIB)
+{
+    ASSERT(hCmd.IsValid() && hIB.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    Buffer& ib = buffers[hIB];
+    ASSERT(ib.type == BUFFER_TYPE_INDEX);
+
+    vkCmdDrawIndexed(cmd.vkHandle, ib.count, 1, 0, 0, 0); //TODO(caio): Support instancing
 }
 
 void BeginFrame(u32 frame)
