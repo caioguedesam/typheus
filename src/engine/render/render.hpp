@@ -32,6 +32,7 @@ namespace render
 #define RENDER_MAX_SHADERS 32
 #define RENDER_MAX_BUFFERS 256
 #define RENDER_MAX_TEXTURES 1024
+#define RENDER_MAX_RESOURCE_BINDING_SETS 256
 #define RENDER_MAX_GRAPHICS_PIPELINES 32
 
 enum Format
@@ -78,7 +79,7 @@ enum VertexAttribute
     VERTEX_ATTR_COUNT,
 };
 
-enum ShaderType
+enum ShaderType : u32
 {
     SHADER_TYPE_VERTEX  = VK_SHADER_STAGE_VERTEX_BIT,
     SHADER_TYPE_PIXEL   = VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -89,7 +90,8 @@ enum BufferType
 {
     BUFFER_TYPE_VERTEX  = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
     BUFFER_TYPE_INDEX   = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-    //TODO(caio): Uniform buffers, storage buffers
+    BUFFER_TYPE_UNIFORM = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+    //TODO(caio): Storage buffers
 };
 
 enum ImageType
@@ -109,6 +111,19 @@ enum ImageUsageFlags : u32
     IMAGE_USAGE_TRANSFER_SRC = VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
     IMAGE_USAGE_TRANSFER_DST = VK_IMAGE_USAGE_TRANSFER_DST_BIT,
     IMAGE_USAGE_SAMPLED = VK_IMAGE_USAGE_SAMPLED_BIT,
+};
+
+enum ResourceType
+{
+    RESOURCE_UNIFORM_BUFFER             = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    RESOURCE_SAMPLED_TEXTURE            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+    //TODO(caio): Support storage buffers
+};
+
+enum ResourceBindingType
+{
+    RESOURCE_BINDING_STATIC,
+    RESOURCE_BINDING_DYNAMIC,
 };
 
 enum Primitive
@@ -201,10 +216,8 @@ struct Context
     i32 vkCommandQueueFamily = -1;
     VkQueue vkCommandQueue = VK_NULL_HANDLE;
     VkCommandPool vkCommandPool = VK_NULL_HANDLE;
-    //VkCommandPool vkSingleTimeCommandPool = VK_NULL_HANDLE;
-    //Array<VkCommandBuffer> vkCommandBuffers;
-    //VkCommandBuffer vkSingleTimeCommandBuffer = VK_NULL_HANDLE;
-    //CommandBuffer singleTimeCommandBuffer;
+
+    VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
 
     // Sync primitives
     Array<VkSemaphore> vkRenderSemaphores;
@@ -298,6 +311,31 @@ Handle<Texture> MakeTexture(TextureDesc desc);
 void DestroyTexture(Texture* texture);
 //TODO(caio): Copy Memory to Texture from CPU (after command buffer stuff works)
 
+// Each resource binding represents one of the resources bundled
+// in a BindGroup (descriptor set). The binding indices for
+// shader access are in order of appeareance in the bound BindGroup.
+struct ResourceBinding
+{
+    ResourceType resourceType;
+    ShaderType stages;
+    u32 hResource = HANDLE_INVALID;
+};
+
+// Each resource bind group has a single descriptor set/layout.
+// The set is addressed by layout (set = n) when binding using
+// CmdBindResources with set n.
+struct BindGroup
+{
+    VkDescriptorSet vkDescriptorSet = VK_NULL_HANDLE;
+    VkDescriptorSetLayout vkDescriptorSetLayout = VK_NULL_HANDLE;
+
+    ResourceBindingType bindingType;
+    Array<ResourceBinding> bindings;
+};
+
+Handle<BindGroup> MakeBindGroup(ResourceBindingType type, u32 bindingCount, ResourceBinding* bindings);
+void DestroyBindGroup(BindGroup* set);
+
 struct RenderPassDesc
 {
     u32         width           = 0;
@@ -316,10 +354,6 @@ struct RenderPass
     RenderPassDesc desc = {};
 
     u32 colorImageCount = 0;
-    // Array<Format> outputImageFormats;
-    // Array<VkImage> vkOutputImages;
-    // Array<VkImageView> vkOutputImageViews;
-    // Array<VmaAllocation> vkOutputImageAllocations;
     Array<Handle<Texture>> outputs;
 };
 
@@ -350,7 +384,7 @@ struct GraphicsPipeline
     GraphicsPipelineDesc desc = {};
 };
 
-Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, GraphicsPipelineDesc desc);
+Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, GraphicsPipelineDesc desc, u32 bindGroupCount, Handle<BindGroup>* hBindGroups);
 void DestroyGraphicsPipeline(GraphicsPipeline* pipeline);
 
 inline mem::HeapAllocator renderHeap;
@@ -363,6 +397,7 @@ inline Array<VertexLayout> vertexLayouts;
 inline Array<Shader> shaders;
 inline Array<Buffer> buffers;
 inline Array<Texture> textures;
+inline Array<BindGroup> bindGroups;
 inline Array<GraphicsPipeline> graphicsPipelines;
 
 void Init(Window* window);
@@ -384,6 +419,7 @@ void CmdPipelineBarrierTextureLayout(Handle<CommandBuffer> hCmd, Handle<Texture>
 // maybe I will need for more general compute syncs.
 void CmdClearColorTexture(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, f32 r, f32 g, f32 b, f32 a);
 void CmdBindPipeline(Handle<CommandBuffer> hCmd, Handle<GraphicsPipeline> hPipeline);
+void CmdBindResources(Handle<CommandBuffer> hCmd, Handle<BindGroup> hBindGroup, u32 setIndex, Handle<GraphicsPipeline> hPipeline);
 void CmdSetViewport(Handle<CommandBuffer> hCmd, f32 offsetX, f32 offsetY, f32 width, f32 height, f32 minDepth = 0, f32 maxDepth = 1);
 void CmdSetViewport(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass);
 void CmdSetScissor(Handle<CommandBuffer> hCmd, i32 offsetX, i32 offsetY, i32 width, i32 height);

@@ -50,6 +50,101 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
 
     render::Init(&window);
 
+    // Shaders
+    file::Path vsPath = file::MakePath(IStr("./resources/shaders/bin/default_quad_vert.spv"));
+    file::Path psPath = file::MakePath(IStr("./resources/shaders/bin/default_quad_frag.spv"));
+    Handle<asset::BinaryData> hAssetVs = asset::LoadBinaryFile(vsPath);
+    Handle<asset::BinaryData> hAssetPs = asset::LoadBinaryFile(psPath);
+    asset::BinaryData& assetVs = asset::binaryDatas[hAssetVs];
+    asset::BinaryData& assetPs = asset::binaryDatas[hAssetPs];
+    Handle<render::Shader> hVsDefault = render::MakeShader(render::SHADER_TYPE_VERTEX, assetVs.size, assetVs.data);
+    Handle<render::Shader> hPsDefault = render::MakeShader(render::SHADER_TYPE_PIXEL, assetPs.size, assetPs.data);
+
+    f32 cubeVertices[] =
+    {
+        // Front face
+        -1.f, -1.f, 1.f, 1, 0, 0, 0.f, 1.f,   // BL
+         1.f, -1.f, 1.f, 0, 1, 0, 1.f, 1.f,   // BR
+         1.f,  1.f, 1.f, 1, 1, 1, 1.f, 0.f,   // TR
+        -1.f,  1.f, 1.f, 0, 0, 1, 0.f, 0.f,   // TL
+
+        // Back face
+         1.f, -1.f, -1.f, 1, 0, 0, 0.f, 1.f,   // BL
+        -1.f, -1.f, -1.f, 0, 1, 0, 1.f, 1.f,   // BR
+        -1.f,  1.f, -1.f, 1, 1, 1, 1.f, 0.f,   // TR
+         1.f,  1.f, -1.f, 0, 0, 1, 0.f, 0.f,   // TL
+
+        // Top face
+        -1.f,  1.f,  1.f, 1, 0, 0, 0.f, 1.f,   // BL
+         1.f,  1.f,  1.f, 0, 1, 0, 1.f, 1.f,   // BR
+         1.f,  1.f, -1.f, 1, 1, 1, 1.f, 0.f,   // TR
+        -1.f,  1.f, -1.f, 0, 0, 1, 0.f, 0.f,   // TL
+
+        // Bottom face
+        -1.f, -1.f, -1.f, 1, 0, 0, 0.f, 1.f,   // BL
+         1.f, -1.f, -1.f, 0, 1, 0, 1.f, 1.f,   // BR
+         1.f, -1.f,  1.f, 1, 1, 1, 1.f, 0.f,   // TR
+        -1.f, -1.f,  1.f, 0, 0, 1, 0.f, 0.f,   // TL
+
+        // Left face
+        -1.f, -1.f, -1.f, 1, 0, 0, 0.f, 1.f,   // BL
+        -1.f, -1.f,  1.f, 0, 1, 0, 1.f, 1.f,   // BR
+        -1.f,  1.f,  1.f, 1, 1, 1, 1.f, 0.f,   // TR
+        -1.f,  1.f, -1.f, 0, 0, 1, 0.f, 0.f,   // TL
+
+        // Right face
+         1.f, -1.f,  1.f, 1, 0, 0, 0.f, 1.f,   // BL
+         1.f, -1.f, -1.f, 0, 1, 0, 1.f, 1.f,   // BR
+         1.f,  1.f, -1.f, 1, 1, 1, 1.f, 0.f,   // TR
+         1.f,  1.f,  1.f, 0, 0, 1, 0.f, 0.f,   // TL
+    };
+
+    u32 cubeIndices[] =
+    {
+        0, 1, 2, 0, 2, 3,
+        4, 5, 6, 4, 6, 7,
+        8, 9, 10, 8, 10, 11,
+        12, 13, 14, 12, 14, 15,
+        16, 17, 18, 16, 18, 19,
+        20, 21, 22, 20, 22, 23,
+    };
+
+    Handle<render::Buffer> hCubeVB = render::MakeBuffer(render::BUFFER_TYPE_VERTEX, sizeof(cubeVertices), sizeof(f32), cubeVertices);
+    Handle<render::Buffer> hCubeIB = render::MakeBuffer(render::BUFFER_TYPE_INDEX, sizeof(cubeIndices), sizeof(u32), cubeIndices);
+
+    struct SceneData
+    {
+        math::m4f view = {};
+        math::m4f proj = {};
+    };
+    SceneData sceneData;
+    sceneData.view = math::Transpose(math::LookAt({2, 2, 5}, {0, 0, 0}, {0, 1, 0}));
+    sceneData.proj = math::Transpose(math::Perspective(TO_RAD(45.f), (f32)appWidth/(f32)appHeight, 0.1f, 1000.f));
+    struct ObjectData
+    {
+        math::m4f world = {};
+    };
+    ObjectData cube1Data;
+    ObjectData cube2Data;
+    cube1Data.world = math::Identity();
+    cube2Data.world = math::Transpose(math::TranslationMatrix({-1, 1, 1}) * math::Identity());
+    Handle<render::Buffer> hSceneDataBuffer = render::MakeBuffer(render::BUFFER_TYPE_UNIFORM, sizeof(SceneData), sizeof(SceneData), &sceneData);
+    Handle<render::Buffer> hCube1DataBuffer = render::MakeBuffer(render::BUFFER_TYPE_UNIFORM, sizeof(ObjectData), sizeof(ObjectData), &cube1Data);
+    Handle<render::Buffer> hCube2DataBuffer = render::MakeBuffer(render::BUFFER_TYPE_UNIFORM, sizeof(ObjectData), sizeof(ObjectData), &cube2Data);
+
+    // Resource bindings
+    render::ResourceBinding bindings[1];
+    bindings[0].resourceType = render::RESOURCE_UNIFORM_BUFFER;
+    bindings[0].stages = render::SHADER_TYPE_VERTEX;
+    //bindings[0].hResource = hUniformBuffer.value;
+    bindings[0].hResource = hSceneDataBuffer.value;
+    Handle<render::BindGroup> hSceneDataBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, ARR_LEN(bindings), bindings);
+
+    bindings[0].hResource = hCube1DataBuffer.value;
+    Handle<render::BindGroup> hCube1DataBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, ARR_LEN(bindings), bindings);
+    bindings[0].hResource = hCube2DataBuffer.value;
+    Handle<render::BindGroup> hCube2DataBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, ARR_LEN(bindings), bindings);
+
     // Main render pass (output will be copied to swap chain image)
     render::RenderPassDesc mainRenderPassDesc = {};
     mainRenderPassDesc.width = appWidth;
@@ -63,32 +158,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         render::FORMAT_RGBA8_SRGB,
     };
     Handle<render::RenderPass> hRenderPassMain = render::MakeRenderPass(mainRenderPassDesc, 1, mainRenderPassColorFormats, render::FORMAT_D32_FLOAT);
-
-    // Shaders
-    file::Path vsPath = file::MakePath(IStr("./resources/shaders/bin/default_quad_vert.spv"));
-    file::Path psPath = file::MakePath(IStr("./resources/shaders/bin/default_quad_frag.spv"));
-    Handle<asset::BinaryData> hAssetVs = asset::LoadBinaryFile(vsPath);
-    Handle<asset::BinaryData> hAssetPs = asset::LoadBinaryFile(psPath);
-    asset::BinaryData& assetVs = asset::binaryDatas[hAssetVs];
-    asset::BinaryData& assetPs = asset::binaryDatas[hAssetPs];
-    Handle<render::Shader> hVsDefault = render::MakeShader(render::SHADER_TYPE_VERTEX, assetVs.size, assetVs.data);
-    Handle<render::Shader> hPsDefault = render::MakeShader(render::SHADER_TYPE_PIXEL, assetPs.size, assetPs.data);
-
-    // Buffers
-    f32 quadVertices[] =
-    {
-        -0.5f,  0.5f, 0.5f, 0, 0, 0, 0.f, 1.f,   // BL
-         0.5f,  0.5f, 0.5f, 0, 0, 0, 1.f, 1.f,   // BR
-         0.5f, -0.5f, 0.5f, 0, 0, 0, 1.f, 0.f,   // TR
-        -0.5f, -0.5f, 0.5f, 0, 0, 0, 0.f, 0.f,   // TL
-    };
-    
-    u32 quadIndices[] =
-    {
-        0, 1, 2, 0, 2, 3,
-    };
-    Handle<render::Buffer> hQuadVB = render::MakeBuffer(render::BUFFER_TYPE_VERTEX, sizeof(quadVertices), sizeof(f32), quadVertices);
-    Handle<render::Buffer> hQuadIB = render::MakeBuffer(render::BUFFER_TYPE_INDEX, sizeof(quadIndices), sizeof(u32), quadIndices);
 
     // Graphics pipeline 
     render::VertexAttribute defaultVertexAttributes[] =
@@ -107,7 +176,17 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     defaultPipelineDesc.cullMode = render::CULL_MODE_BACK;
     defaultPipelineDesc.primitive = render::PRIMITIVE_TRIANGLE_LIST;
     defaultPipelineDesc.fillMode = render::FILL_MODE_SOLID;
-    Handle<render::GraphicsPipeline> hGraphicsPipelineDefault = render::MakeGraphicsPipeline(hRenderPassMain, defaultPipelineDesc);
+    Handle<render::BindGroup> hGraphicsPipelineBindGroups[] =
+    {
+        //TODO(caio): I feel there might be a better way to set "compatible"
+        //bind group layouts instead of passing bind groups directly
+        //(hCube1DataBindGroup is compatible with hCube2DataBindGroup)
+        hSceneDataBindGroup, hCube1DataBindGroup,
+    };
+    Handle<render::GraphicsPipeline> hGraphicsPipelineDefault = render::MakeGraphicsPipeline(hRenderPassMain,
+            defaultPipelineDesc,
+            ARR_LEN(hGraphicsPipelineBindGroups),
+            hGraphicsPipelineBindGroups);
 
     i32 frame = 0;
     time::Timer frameTimer;
@@ -146,9 +225,16 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         render::CmdBindPipeline(cmd, hGraphicsPipelineDefault);
         render::CmdSetViewport(cmd, hRenderPassMain);
         render::CmdSetScissor(cmd, hRenderPassMain);
-        render::CmdBindVertexBuffer(cmd, hQuadVB);
-        render::CmdBindIndexBuffer(cmd, hQuadIB);
-        render::CmdDrawIndexed(cmd, hQuadIB);
+        //render::CmdBindResources(cmd, hBindGroup, 0, hGraphicsPipelineDefault);
+        render::CmdBindResources(cmd, hSceneDataBindGroup, 0, hGraphicsPipelineDefault);
+        // Draw cube 1
+        render::CmdBindVertexBuffer(cmd, hCubeVB);
+        render::CmdBindIndexBuffer(cmd, hCubeIB);
+        render::CmdBindResources(cmd, hCube1DataBindGroup, 1, hGraphicsPipelineDefault);
+        render::CmdDrawIndexed(cmd, hCubeIB);
+        // Draw cube 2
+        render::CmdBindResources(cmd, hCube2DataBindGroup, 1, hGraphicsPipelineDefault);
+        render::CmdDrawIndexed(cmd, hCubeIB);
         render::EndRenderPass(cmd, hRenderPassMain);
 
         barrier.srcAccess = render::MEMORY_ACCESS_TRANSFER_WRITE;
