@@ -35,7 +35,6 @@ struct Window
 
 void MakeWindow(Window* window, i32 w, i32 h, const char* title);
 void DestroyWindow(Window* window);
-void ResizeWindow(Window* window);
 
 };
 };

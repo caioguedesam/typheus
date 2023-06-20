@@ -45,11 +45,6 @@ void DestroyWindow(Window* window)
     DestroyWindow(window->winHandle);
 }
 
-void ResizeWindow(Window* window)
-{
-    //TODO(caio): Implement me!
-}
-
 void Window::PollMessages()
 {
     MSG msg = {};
@@ -104,7 +99,15 @@ LRESULT CALLBACK Win32WndProc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam
                 window->state = WINDOW_CLOSED;
                 return FALSE;
             } break;
-        //TODO(caio): Implement more messages
+        case WM_SIZE:
+            {
+                ASSERT(window->state != WINDOW_INVALID);
+                window->w = LOWORD(lparam);
+                window->h = HIWORD(lparam);
+                // Resize needs to be consumed by renderer,
+                // which sets window state back to IDLE
+                window->state = WINDOW_RESIZING;
+            }; break;
         default: break;
     }
 

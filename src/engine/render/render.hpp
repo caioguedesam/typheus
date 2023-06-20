@@ -218,6 +218,7 @@ struct CommandBuffer
 
 struct Context
 {
+    Window* window = NULL;
     VkInstance vkInstance = VK_NULL_HANDLE;
     VkSurfaceKHR vkSurface = VK_NULL_HANDLE;
     VkPhysicalDevice vkPhysicalDevice = VK_NULL_HANDLE;

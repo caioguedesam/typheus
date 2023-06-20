@@ -497,6 +497,7 @@ Context MakeContext(Window *window)
     mem::SetContext(&renderHeap);
 
     Context ctx = {};
+    ctx.window = window;
     MakeContext_CreateInstance(&ctx);
     MakeContext_SetupValidation(&ctx);
     MakeContext_CreateSurface(&ctx, window);
@@ -702,9 +703,16 @@ void ResizeSwapChain(Window* window, SwapChain* swapChain)
     // Destroys and recreates swap chain
     ASSERT(swapChain);
     ASSERT(ctx.vkDevice != VK_NULL_HANDLE && swapChain->vkHandle != VK_NULL_HANDLE);
+    ASSERT(window->state == WINDOW_RESIZING);
+
+    while(window->w == 0 || window->h == 0)
+    {
+        window->PollMessages();
+    }
 
     DestroySwapChain(swapChain);
     *swapChain = MakeSwapChain(window);
+    window->state = WINDOW_IDLE;
 }
 
 void MakeRenderPass_CreateRenderPass(Context* ctx, RenderPassDesc desc, u32 colorImageCount, Format* colorImageFormats, Format depthImageFormat, RenderPass* renderPass)
@@ -1764,7 +1772,8 @@ void BeginFrame(u32 frame)
     VkResult ret = vkAcquireNextImageKHR(ctx.vkDevice, swapChain.vkHandle, MAX_U64, presentSemaphore, VK_NULL_HANDLE, &swapChain.activeImage);
     if(ret == VK_ERROR_OUT_OF_DATE_KHR)
     {
-        // TODO(caio): Resize swap chain
+        vkDeviceWaitIdle(ctx.vkDevice);
+        ResizeSwapChain(ctx.window, &swapChain);
     }
     else ASSERTVK(ret);
 
@@ -1817,9 +1826,10 @@ void Present(u32 frame)
     presentInfo.pWaitSemaphores = &renderSemaphore;
     presentInfo.pImageIndices = &swapChain.activeImage;
     VkResult ret = vkQueuePresentKHR(ctx.vkCommandQueue, &presentInfo);
-    if(ret == VK_ERROR_OUT_OF_DATE_KHR || ret == VK_SUBOPTIMAL_KHR)
+    if(ret == VK_ERROR_OUT_OF_DATE_KHR || ret == VK_SUBOPTIMAL_KHR || ctx.window->state == WINDOW_RESIZING)
     {
-        // TODO(caio): Resize swap chain
+        vkDeviceWaitIdle(ctx.vkDevice);
+        ResizeSwapChain(ctx.window, &swapChain);
     }
     else ASSERTVK(ret);
 }

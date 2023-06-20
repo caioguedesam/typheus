@@ -63,7 +63,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     Handle<render::Shader> hPsDefault = render::MakeShader(render::SHADER_TYPE_PIXEL, assetPs.size, assetPs.data);
 
     // Checker texture
-    file::Path checkersPath = file::MakePath(IStr("./resources/textures/checkers1.png"));
+    file::Path checkersPath = file::MakePath(IStr("./resources/textures/checkers.png"));
     Handle<asset::Image> hAssetCheckersTexture = asset::LoadImageFile(checkersPath, false);
     asset::Image& assetCheckersTexture = asset::images[hAssetCheckersTexture];
     u64 assetCheckersTextureSize = assetCheckersTexture.width * assetCheckersTexture.height * 4;
@@ -354,7 +354,6 @@ int main()
 }
 
 // TODO(caio): CONTINUE
-// - OBJ model render
 // - Mipmaps
 // - Multisampling?
 // - Window resizing
