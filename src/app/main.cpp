@@ -50,6 +50,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
 
     render::Init(&window);
 
+    mem::HeapAllocator generalHeap = mem::MakeHeapAllocator(MB(1));
+
     // Shaders
     file::Path vsPath = file::MakePath(IStr("./resources/shaders/bin/default_quad_vert.spv"));
     file::Path psPath = file::MakePath(IStr("./resources/shaders/bin/default_quad_frag.spv"));
@@ -60,6 +62,64 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     Handle<render::Shader> hVsDefault = render::MakeShader(render::SHADER_TYPE_VERTEX, assetVs.size, assetVs.data);
     Handle<render::Shader> hPsDefault = render::MakeShader(render::SHADER_TYPE_PIXEL, assetPs.size, assetPs.data);
 
+    // Checker texture
+    file::Path checkersPath = file::MakePath(IStr("./resources/textures/checkers1.png"));
+    Handle<asset::Image> hAssetCheckersTexture = asset::LoadImageFile(checkersPath, false);
+    asset::Image& assetCheckersTexture = asset::images[hAssetCheckersTexture];
+    u64 assetCheckersTextureSize = assetCheckersTexture.width * assetCheckersTexture.height * 4;
+
+    //  Create staging buffer to store image memory from CPU
+    Handle<render::Buffer> hCheckersTextureStagingBuffer = render::MakeBuffer(
+            render::BUFFER_TYPE_STAGING,
+            assetCheckersTextureSize,
+            assetCheckersTextureSize,
+            assetCheckersTexture.data);
+    render::CopyMemoryToBuffer(hCheckersTextureStagingBuffer, assetCheckersTextureSize, assetCheckersTexture.data);
+
+    //  Create GPU texture
+    render::TextureDesc checkersTextureDesc = {};
+    checkersTextureDesc.type = render::IMAGE_TYPE_2D;
+    checkersTextureDesc.width = assetCheckersTexture.width;
+    checkersTextureDesc.height = assetCheckersTexture.height;
+    checkersTextureDesc.format = render::FORMAT_RGBA8_SRGB;
+    checkersTextureDesc.viewType = render::IMAGE_VIEW_TYPE_2D;
+    checkersTextureDesc.layout = render::IMAGE_LAYOUT_UNDEFINED;
+    checkersTextureDesc.usageFlags = ENUM_FLAGS(render::ImageUsageFlags,
+            render::IMAGE_USAGE_SAMPLED
+            | render::IMAGE_USAGE_TRANSFER_DST);
+    Handle<render::Texture> hCheckersTexture = render::MakeTexture(checkersTextureDesc);
+
+    //  Copy texture memory from CPU on staging buffer to GPU texture
+    Handle<render::CommandBuffer> hCmd = render::GetAvailableCommandBuffer();
+    render::BeginCommandBuffer(hCmd);
+    render::Barrier barrier = {};
+    barrier.srcAccess = render::MEMORY_ACCESS_NONE;
+    barrier.dstAccess = render::MEMORY_ACCESS_TRANSFER_WRITE;
+    barrier.srcStage = render::PIPELINE_STAGE_TOP;
+    barrier.dstStage = render::PIPELINE_STAGE_TRANSFER;
+    render::CmdPipelineBarrierTextureLayout(
+            hCmd,
+            hCheckersTexture, 
+            ty::render::IMAGE_LAYOUT_TRANSFER_DST,
+            barrier);
+    render::CmdCopyBufferToTexture(hCmd, hCheckersTextureStagingBuffer, hCheckersTexture);
+    barrier.srcAccess = render::MEMORY_ACCESS_TRANSFER_WRITE;
+    barrier.dstAccess = render::MEMORY_ACCESS_SHADER_READ;
+    barrier.srcStage = render::PIPELINE_STAGE_TRANSFER;
+    barrier.dstStage = render::PIPELINE_STAGE_FRAGMENT_SHADER;
+    render::CmdPipelineBarrierTextureLayout(
+            hCmd,
+            hCheckersTexture, 
+            ty::render::IMAGE_LAYOUT_SHADER_READ_ONLY,
+            barrier);
+    render::EndCommandBuffer(hCmd);
+    render::SubmitImmediate(hCmd);
+
+    // Default sampler
+    render::SamplerDesc defaultSamplerDesc = {};
+    Handle<render::Sampler> hDefaultSampler = MakeSampler(defaultSamplerDesc);
+
+    // Cube buffers
     f32 cubeVertices[] =
     {
         // Front face
@@ -112,6 +172,20 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     Handle<render::Buffer> hCubeVB = render::MakeBuffer(render::BUFFER_TYPE_VERTEX, sizeof(cubeVertices), sizeof(f32), cubeVertices);
     Handle<render::Buffer> hCubeIB = render::MakeBuffer(render::BUFFER_TYPE_INDEX, sizeof(cubeIndices), sizeof(u32), cubeIndices);
 
+    file::Path bunnyPath = file::MakePath(IStr("./resources/models/bunny/bunny.obj"));
+    Handle<asset::Model> hAssetBunnyModel = asset::LoadModelOBJ(bunnyPath);
+    asset::Model& assetBunnyModel = asset::models[hAssetBunnyModel];
+    Handle<render::Buffer> hBunnyVB = render::MakeBuffer(
+            render::BUFFER_TYPE_VERTEX,
+            assetBunnyModel.vertices.count * sizeof(f32),
+            sizeof(f32),
+            assetBunnyModel.vertices.data);
+    Handle<render::Buffer> hBunnyIB = render::MakeBuffer(
+            render::BUFFER_TYPE_INDEX,
+            assetBunnyModel.groups[0].indices.count * sizeof(u32),
+            sizeof(u32),
+            assetBunnyModel.groups[0].indices.data);
+
     struct SceneData
     {
         math::m4f view = {};
@@ -120,30 +194,34 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     SceneData sceneData;
     sceneData.view = math::Transpose(math::LookAt({2, 2, 5}, {0, 0, 0}, {0, 1, 0}));
     sceneData.proj = math::Transpose(math::Perspective(TO_RAD(45.f), (f32)appWidth/(f32)appHeight, 0.1f, 1000.f));
+
     struct ObjectData
     {
         math::m4f world = {};
     };
     ObjectData cube1Data;
     ObjectData cube2Data;
-    cube1Data.world = math::Identity();
-    cube2Data.world = math::Transpose(math::TranslationMatrix({-1, 1, 1}) * math::Identity());
+    cube2Data.world = math::Identity();
+    cube1Data.world = math::Transpose(math::TranslationMatrix({-5, 5, 5}) * math::Identity());
     Handle<render::Buffer> hSceneDataBuffer = render::MakeBuffer(render::BUFFER_TYPE_UNIFORM, sizeof(SceneData), sizeof(SceneData), &sceneData);
     Handle<render::Buffer> hCube1DataBuffer = render::MakeBuffer(render::BUFFER_TYPE_UNIFORM, sizeof(ObjectData), sizeof(ObjectData), &cube1Data);
     Handle<render::Buffer> hCube2DataBuffer = render::MakeBuffer(render::BUFFER_TYPE_UNIFORM, sizeof(ObjectData), sizeof(ObjectData), &cube2Data);
 
     // Resource bindings
-    render::ResourceBinding bindings[1];
+    render::ResourceBinding bindings[2];
     bindings[0].resourceType = render::RESOURCE_UNIFORM_BUFFER;
     bindings[0].stages = render::SHADER_TYPE_VERTEX;
-    //bindings[0].hResource = hUniformBuffer.value;
-    bindings[0].hResource = hSceneDataBuffer.value;
-    Handle<render::BindGroup> hSceneDataBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, ARR_LEN(bindings), bindings);
+    bindings[0].hBuffer = hSceneDataBuffer;
+    bindings[1].resourceType = render::RESOURCE_SAMPLED_TEXTURE;
+    bindings[1].stages = render::SHADER_TYPE_PIXEL;
+    bindings[1].hTexture = hCheckersTexture;
+    bindings[1].hSampler = hDefaultSampler;
+    Handle<render::BindGroup> hSceneDataBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, 2, bindings);
 
-    bindings[0].hResource = hCube1DataBuffer.value;
-    Handle<render::BindGroup> hCube1DataBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, ARR_LEN(bindings), bindings);
-    bindings[0].hResource = hCube2DataBuffer.value;
-    Handle<render::BindGroup> hCube2DataBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, ARR_LEN(bindings), bindings);
+    bindings[0].hBuffer = hCube1DataBuffer;
+    Handle<render::BindGroup> hCube1DataBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, 1, bindings);
+    bindings[0].hBuffer = hCube2DataBuffer;
+    Handle<render::BindGroup> hCube2DataBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, 1, bindings);
 
     // Main render pass (output will be copied to swap chain image)
     render::RenderPassDesc mainRenderPassDesc = {};
@@ -234,7 +312,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         render::CmdDrawIndexed(cmd, hCubeIB);
         // Draw cube 2
         render::CmdBindResources(cmd, hCube2DataBindGroup, 1, hGraphicsPipelineDefault);
-        render::CmdDrawIndexed(cmd, hCubeIB);
+        render::CmdBindVertexBuffer(cmd, hBunnyVB);
+        render::CmdBindIndexBuffer(cmd, hBunnyIB);
+        render::CmdDrawIndexed(cmd, hBunnyIB);
         render::EndRenderPass(cmd, hRenderPassMain);
 
         barrier.srcAccess = render::MEMORY_ACCESS_TRANSFER_WRITE;
@@ -261,6 +341,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     render::Shutdown();
     render::DestroyWindow(&window);
 
+    mem::DestroyHeapAllocator(&generalHeap);
+
     PROFILE_END;
     return 0;
 }
@@ -270,3 +352,12 @@ int main()
     // TODO(caio)#PLATFORM: Hack to show console along with window app.
     return wWinMain(GetModuleHandle(NULL), NULL, GetCommandLineW(), SW_SHOWNORMAL);
 }
+
+// TODO(caio): CONTINUE
+// - OBJ model render
+// - Mipmaps
+// - Multisampling?
+// - Window resizing
+// - Compute
+// - Dynamic uniform buffers with offsets?
+// - Improving resource binding somehow?

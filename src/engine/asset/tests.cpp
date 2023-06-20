@@ -19,12 +19,11 @@ void TestAssets()
     LOGLF("ASSET", "Asset memory after loading: %llu bytes", asset::assetHeap.used);
 
     ASSERT(h_checkerImage.IsValid());
-    asset::Image* checkerImage = asset::GetImage(h_checkerImage);
-    ASSERT(checkerImage);
-    ASSERT(checkerImage->data);
-    ASSERT(checkerImage->width == 1024);
-    ASSERT(checkerImage->height == 1024);
-    ASSERT(checkerImage->channels == 3);
+    asset::Image& checkerImage = asset::images[h_checkerImage];
+    ASSERT(checkerImage.data);
+    ASSERT(checkerImage.width == 1024);
+    ASSERT(checkerImage.height == 1024);
+    ASSERT(checkerImage.channels == 3);
 
     Handle<asset::Image> h_checkerImage2 = asset::LoadImageFile(assetPath);
     ASSERT(h_checkerImage2 == h_checkerImage);
@@ -39,10 +38,9 @@ void TestAssets()
     LOGLF("ASSET", "Asset memory after loading: %llu bytes", asset::assetHeap.used);
 
     ASSERT(h_shaderBytecode.IsValid());
-    asset::BinaryData* shaderBytecode = asset::GetBinaryData(h_shaderBytecode);
-    ASSERT(shaderBytecode);
-    ASSERT(shaderBytecode->size);
-    ASSERT(shaderBytecode->data);
+    asset::BinaryData& shaderBytecode = asset::binaryDatas[h_shaderBytecode];
+    ASSERT(shaderBytecode.size);
+    ASSERT(shaderBytecode.data);
 
     Handle<asset::BinaryData> h_shaderBytecode2 = asset::LoadBinaryFile(assetPath);
     ASSERT(h_shaderBytecode2 == h_shaderBytecode);

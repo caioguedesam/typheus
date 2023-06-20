@@ -88,9 +88,9 @@ Handle<Model>       LoadModelOBJ(file::Path assetPath, bool flipVerticalTexcoord
 // TODO(caio): Load model obj with custom parser
 
 inline bool         IsLoaded(file::Path assetPath) { return loadedAssets.HasKey(assetPath.str); }
-inline BinaryData*  GetBinaryData(Handle<BinaryData> handle) { return &binaryDatas[handle.value]; }
-inline Image*       GetImage(Handle<Image> handle) { return &images[handle.value]; }
-inline Model*       GetModel(Handle<Model> handle) { return &models[handle.value]; }
+// inline BinaryData*  GetBinaryData(Handle<BinaryData> handle) { return &binaryDatas[handle.value]; }
+// inline Image*       GetImage(Handle<Image> handle) { return &images[handle.value]; }
+// inline Model*       GetModel(Handle<Model> handle) { return &models[handle.value]; }
 
 // TODO(caio): Reimplement async loading?
 //ASYNC_CALLBACK(LoadBinaryFileAsync);

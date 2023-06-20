@@ -11,6 +11,7 @@
 #include "engine/core/memory.hpp"
 #include "engine/core/ds.hpp"
 #include "engine/render/window.hpp"
+#include "vulkan/vulkan_core.h"
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #include "vulkan/vulkan.h"
@@ -32,6 +33,7 @@ namespace render
 #define RENDER_MAX_SHADERS 32
 #define RENDER_MAX_BUFFERS 256
 #define RENDER_MAX_TEXTURES 1024
+#define RENDER_MAX_SAMPLERS 16
 #define RENDER_MAX_RESOURCE_BINDING_SETS 256
 #define RENDER_MAX_GRAPHICS_PIPELINES 32
 
@@ -92,6 +94,7 @@ enum BufferType
     BUFFER_TYPE_INDEX   = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
     BUFFER_TYPE_UNIFORM = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
     //TODO(caio): Storage buffers
+    BUFFER_TYPE_STAGING = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 };
 
 enum ImageType
@@ -111,6 +114,18 @@ enum ImageUsageFlags : u32
     IMAGE_USAGE_TRANSFER_SRC = VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
     IMAGE_USAGE_TRANSFER_DST = VK_IMAGE_USAGE_TRANSFER_DST_BIT,
     IMAGE_USAGE_SAMPLED = VK_IMAGE_USAGE_SAMPLED_BIT,
+};
+
+enum SamplerFilter
+{
+    SAMPLER_FILTER_LINEAR = VK_FILTER_LINEAR,
+    SAMPLER_FILTER_NEAREST = VK_FILTER_NEAREST,
+};
+
+enum SamplerAddressMode
+{
+    SAMPLER_ADDRESS_REPEAT = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+    SAMPLER_ADDRESS_CLAMP = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
 };
 
 enum ResourceType
@@ -311,6 +326,25 @@ Handle<Texture> MakeTexture(TextureDesc desc);
 void DestroyTexture(Texture* texture);
 //TODO(caio): Copy Memory to Texture from CPU (after command buffer stuff works)
 
+struct SamplerDesc
+{
+    SamplerFilter minFilter = SAMPLER_FILTER_LINEAR;
+    SamplerFilter magFilter = SAMPLER_FILTER_LINEAR;
+    SamplerAddressMode addressModeU = SAMPLER_ADDRESS_REPEAT;
+    SamplerAddressMode addressModeV = SAMPLER_ADDRESS_REPEAT;
+    SamplerAddressMode addressModeW = SAMPLER_ADDRESS_REPEAT;
+};
+
+struct Sampler
+{
+    VkSampler vkHandle = VK_NULL_HANDLE;
+
+    SamplerDesc desc = {};
+};
+
+Handle<Sampler> MakeSampler(SamplerDesc desc);
+void DestroySampler(Sampler* sampler);
+
 // Each resource binding represents one of the resources bundled
 // in a BindGroup (descriptor set). The binding indices for
 // shader access are in order of appeareance in the bound BindGroup.
@@ -318,7 +352,12 @@ struct ResourceBinding
 {
     ResourceType resourceType;
     ShaderType stages;
-    u32 hResource = HANDLE_INVALID;
+
+    // Relevant handles according to resource type will be valid,
+    // others not.
+    Handle<Buffer>  hBuffer;
+    Handle<Texture> hTexture;
+    Handle<Sampler> hSampler;
 };
 
 // Each resource bind group has a single descriptor set/layout.
@@ -334,7 +373,7 @@ struct BindGroup
 };
 
 Handle<BindGroup> MakeBindGroup(ResourceBindingType type, u32 bindingCount, ResourceBinding* bindings);
-void DestroyBindGroup(BindGroup* set);
+void DestroyBindGroup(BindGroup* bindGroup);
 
 struct RenderPassDesc
 {
@@ -397,6 +436,7 @@ inline Array<VertexLayout> vertexLayouts;
 inline Array<Shader> shaders;
 inline Array<Buffer> buffers;
 inline Array<Texture> textures;
+inline Array<Sampler> samplers;
 inline Array<BindGroup> bindGroups;
 inline Array<GraphicsPipeline> graphicsPipelines;
 
@@ -417,6 +457,7 @@ void Present(u32 frame);
 void CmdPipelineBarrierTextureLayout(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, ImageLayout newLayout, Barrier barrier);
 //TODO(caio): Add a CmdPipelineBarrier that issues a global memory barrier if needed later.
 // maybe I will need for more general compute syncs.
+void CmdCopyBufferToTexture(Handle<CommandBuffer> hCmd, Handle<Buffer> hSrc, Handle<Texture> hDst);
 void CmdClearColorTexture(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, f32 r, f32 g, f32 b, f32 a);
 void CmdBindPipeline(Handle<CommandBuffer> hCmd, Handle<GraphicsPipeline> hPipeline);
 void CmdBindResources(Handle<CommandBuffer> hCmd, Handle<BindGroup> hBindGroup, u32 setIndex, Handle<GraphicsPipeline> hPipeline);
@@ -431,132 +472,3 @@ void CmdCopyToSwapChain(Handle<CommandBuffer> hCmd, Handle<Texture> hSrc);
 
 };
 };
-
-// Renderer API draft v3 (for Vulkan backend)
-//
-//  [1. RENDER N TEXTURED TRIANGLES ON SCREEN WITH DIFFERENT WORLD MATRICES]
-//
-//  [1.1. INIT]
-//  concurrentFrames = 3;
-//  Init(concurrentFrames, windowRect)                          // Initializes render context, swap chain, command queues, buffers and sync primitives for each concurrent frame
-//
-//  // Assets
-//  ShaderAsset assetTriangleVS = LoadShaderAsset("triangleVS.vert");
-//  ShaderAsset assetTrianglePS = LoadShaderAsset("trianglePS.frag");
-//  TextureAsset assetCheckerTexture = LoadTextureAsset("checker.png");
-//  f32 triangleVertices[] = {...};
-//  u32 triangleIndices[] = {...};
-//
-//  struct SceneData
-//  {
-//      m4f view;
-//      m4f proj;
-//  } sceneData;
-//
-//  int triangleCount = 2;
-//  struct ObjectData
-//  {
-//      m4f model;
-//  } objectData[triangleCount];
-//
-//  // Render resources
-//  Shader triangleVS = CreateShaderResource(SHADER_TYPE_VERTEX, assetTriangleVS);
-//  Shader trianglePS = CreateShaderResource(SHADER_TYPE_PIXEL, assetTrianglePS);
-//  
-//  TextureDesc checkerTextureDesc = {};
-//  checkerTextureDesc.type = TEXTURE_TYPE_2D;
-//  checkerTextureDesc.format = FORMAT_RGBA8_SRGB;
-//  checkerTextureDesc.width = assetCheckerTexture.width;
-//  checkerTextureDesc.height = assetCheckerTexture.height;
-//  checkerTextureDesc.mipCount = 1;
-//  Texture checkerTexture = CreateTextureResource(checkerTextureDesc, assetCheckerTexture.data);
-//
-//  SamplerDesc defaultSamplerDesc = {};
-//  defaultSamplerDesc.minFilter = SAMPLER_FILTER_LINEAR;
-//  defaultSamplerDesc.magFilter = SAMPLER_FILTER_LINEAR;
-//  defaultSamplerDesc.wrapU = SAMPLER_WRAP_REPEAT;
-//  defaultSamplerDesc.wrapV = SAMPLER_WRAP_REPEAT;
-//  defaultSamplerDesc.enableAnisotropy = true;
-//  Sampler defaultSampler = CreateSamplerResource(defaultSamplerDesc);
-//
-//  VertexAttribute triangleVBAttributes[] =
-//  {
-//      VERTEX_ATTRIB_V3F, VERTEX_ATTRIB_V3F, VERTEX_ATTRIB_V2F,
-//  };
-//  VertexLayout triangleVBLayout = CreateVertexLayout(triangleVBAttributes);
-//  Buffer triangleVB = CreateVertexBufferResource(triangleVBLayout, triangleVertices);
-//  Buffer triangleIB = CreateIndexBufferResource(triangleIndices);
-//
-//  Buffer sceneDataUB = CreateUniformBuffer(sceneData);
-//  Buffer objectDataUB = CreateDynamicUniformBuffer(objectData);
-//
-//  // Render pass
-//  RenderPassDesc mainPassDesc = {};
-//  mainPassDesc.outputCount = 1;
-//  mainPassDesc.outputFormats = { FORMAT_RGBA8_SRGB };
-//  mainPassDesc.hasDepthOutput = true;
-//  mainPassDesc.depthFormats = { FORMAT_D32_FLOAT };
-//  mainPassDesc.outputWidth = windowRect.width;
-//  mainPassDesc.outputHeight = windowRect.height;
-//  RenderPass mainPass = CreateRenderPass(mainPassDesc, concurrentFrames);
-//
-//  // Resource binding
-//  // ResourceBindLayout --> VkDescriptorSetLayout
-//  // ResourceBindSet --> multiple VkDescriptorSets (one per frame, matching layout)
-//  //                 --> STATIC: VkDescriptorSet contains fixed offsets. DYNAMIC: Offset is set on bind time (such as for dynamic UBOs)
-//  ResourceBindLayout globalResourceBindLayout[] =
-//  {
-//      { RESOURCE_TYPE_UNIFORM_BUFFER, SHADER_TYPE_VERTEX | SHADER_TYPE_PIXEL },           // (set = 0, binding = 0)
-//      { RESOURCE_TYPE_SAMPLED_TEXTURE, SHADER_TYPE_PIXEL },                               // (set = 0, binding = 1)
-//  };
-//  ResourceBindLayout objectResourceBindLayout[] =
-//  {
-//      { RESOURCE_TYPE_DYNAMIC_UNIFORM_BUFFER, SHADER_TYPE_VERTEX | SHADER_TYPE_PIXEL },   // (set = 1, binding = 0)
-//  };
-//
-//  ResourceBindSet globalResourceBindSet = CreateResourceBindSet(RESOURCE_BIND_STATIC, globalResourceBindLayout, { sceneDataUB, checkerTexture });
-//  ResourceBindSet objectResourceBindSet = CreateResourceBindSet(RESOURCE_BIND_DYNAMIC, objectResourceBindLayout, { objectDataUB });
-//
-//  // Graphics pipeline
-//  GraphicsPipelineDesc pipelineDesc = {};
-//  pipelineDesc.renderPass = mainPass;
-//  pipelineDesc.vertexLayout = triangleVBLayout;
-//  pipelineDesc.vertexShader = triangleVS;
-//  pipelineDesc.pixelShader = trianglePS;
-//  pipelineDesc.resourceBindSetCount = 2;
-//  pipelineDesc.resourceBindLayouts = { globalResourceBindLayout, objectResourceBindLayout };
-//  pipelineDesc.primitive = PRIMITIVE_TRIANGLE_LIST;
-//  pipelineDesc.fillMode = FILL_MODE_SOLID;
-//  pipelineDesc.cullMode = CULL_MODE_BACK;
-//  pipelineDesc.frontFace = FRONT_FACE_CCW;
-//  GraphicsPipeline mainPassPipeline = CreateGraphicsPipeline(pipelineDesc);
-//
-//
-//  [1.2. RENDER LOOP]
-//  
-//  BeginFrame(frameIndex);                                     // Updates sync primitives and swap chain image to match the current frame
-//  CommandBuffer cmd = GetCommandBuffer(frameIndex);           // Gets the command buffer allocated for working in the given frame (commands can also be immediate)
-//  BeginRenderPass(cmd, mainPass);
-//  
-//  // Update uniform buffer resources (CPU -> GPU)
-//  UploadUniformBufferData(sceneDataUB, ...);      // View data
-//  UploadUniformBufferData(objectDataUB, ...);     // World matrices for each scene object
-//
-//  BindGraphicsPipeline(cmd, mainPassPipeline);
-//  SetViewport(cmd, ...);
-//  SetScissorRect(cmd, ...);
-//
-//  BindResourceSet(cmd, globalResourceBindSet);            // Binds with no offset/static offset
-//  BindVertexBuffer(cmd, triangleVB);
-//  BindIndexBuffer(cmd, triangleIB);
-//
-//  for(int i = 0; i < triangleCount; i++)
-//  {
-//      BindResourceSet(cmd, objectResourceBindSet, i);     // Binds with dynamic offset
-//      DrawIndexed(cmd, triangleIB.count);
-//  }
-//
-//  EndRenderPass(cmd, mainPass);
-//  
-//  SubmitCommandBuffer(cmd);
-//  frameIndex = EndFrame(frameIndex);                          // When frame ends, frame index is incremented to the next concurrent frame id

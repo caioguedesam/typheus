@@ -67,6 +67,7 @@ void Init(Window* window)
     shaders = MakeArray<Shader>(RENDER_MAX_SHADERS);
     buffers = MakeArray<Buffer>(RENDER_MAX_BUFFERS);
     textures = MakeArray<Texture>(RENDER_MAX_TEXTURES);
+    samplers = MakeArray<Sampler>(RENDER_MAX_SAMPLERS);
     bindGroups = MakeArray<BindGroup>(RENDER_MAX_RESOURCE_BINDING_SETS);
     graphicsPipelines = MakeArray<GraphicsPipeline>(RENDER_MAX_GRAPHICS_PIPELINES);
 
@@ -97,6 +98,10 @@ void Shutdown()
     for(i32 i = 0; i < textures.count; i++)
     {
         DestroyTexture(&textures[i]);
+    }
+    for(i32 i = 0; i < samplers.count; i++)
+    {
+        DestroySampler(&samplers[i]);
     }
     for(i32 i = 0; i < bindGroups.count; i++)
     {
@@ -1069,6 +1074,51 @@ void DestroyTexture(Texture* texture)
     *texture = {};
 }
 
+Handle<Sampler> MakeSampler(SamplerDesc desc)
+{
+    ASSERT(ctx.vkPhysicalDevice != VK_NULL_HANDLE);
+    ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
+    VkSamplerCreateInfo samplerInfo = {};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.minFilter = (VkFilter)desc.minFilter;
+    samplerInfo.magFilter = (VkFilter)desc.magFilter;
+    samplerInfo.addressModeU = (VkSamplerAddressMode)desc.addressModeU;
+    samplerInfo.addressModeV = (VkSamplerAddressMode)desc.addressModeV;
+    samplerInfo.addressModeW = (VkSamplerAddressMode)desc.addressModeW;
+    samplerInfo.anisotropyEnable = VK_TRUE;     // Anisotropy hardcoded
+    VkPhysicalDeviceProperties vkPhysicalDeviceProperties;
+    vkGetPhysicalDeviceProperties(ctx.vkPhysicalDevice, &vkPhysicalDeviceProperties);
+    samplerInfo.maxAnisotropy = vkPhysicalDeviceProperties.limits.maxSamplerAnisotropy;
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    //TODO(caio): Support mipmapping
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.mipLodBias = 0.f;
+    samplerInfo.minLod = 0.f;
+    samplerInfo.maxLod = 0.f;
+    
+    VkSampler sampler;
+    VkResult ret = vkCreateSampler(ctx.vkDevice, &samplerInfo, NULL, &sampler);
+    ASSERTVK(ret);
+
+    Sampler result = {};
+    result.vkHandle = sampler;
+    result.desc = desc;
+
+    samplers.Push(result);
+    return { (u32)samplers.count - 1 };
+}
+
+void DestroySampler(Sampler* sampler)
+{
+    ASSERT(sampler);
+    ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
+    vkDestroySampler(ctx.vkDevice, sampler->vkHandle, NULL);
+    *sampler = {};
+}
+
 Handle<BindGroup> MakeBindGroup(ResourceBindingType type, u32 bindingCount, ResourceBinding* bindings)
 {
     ASSERT(ctx.vkDevice != VK_NULL_HANDLE && ctx.vkDescriptorPool != VK_NULL_HANDLE);
@@ -1113,9 +1163,9 @@ Handle<BindGroup> MakeBindGroup(ResourceBindingType type, u32 bindingCount, Reso
         ResourceBinding binding = bindings[i];
         if(binding.resourceType == RESOURCE_UNIFORM_BUFFER)
         {
-            Handle<Buffer> hResource = { binding.hResource };
-            ASSERT(hResource.IsValid());
-            Buffer& resource = buffers[hResource];
+            Handle<Buffer> hBuffer = binding.hBuffer;
+            ASSERT(hBuffer.IsValid());
+            Buffer& resource = buffers[hBuffer];
 
             VkDescriptorBufferInfo resourceInfo = {};
             resourceInfo.buffer = resource.vkHandle;
@@ -1132,14 +1182,16 @@ Handle<BindGroup> MakeBindGroup(ResourceBindingType type, u32 bindingCount, Reso
         }
         else if(binding.resourceType == RESOURCE_SAMPLED_TEXTURE)
         {
-            Handle<Texture> hResource = { binding.hResource };
-            ASSERT(hResource.IsValid());
-            Texture& resource = textures[hResource];
+            Handle<Texture> hTexture = binding.hTexture;
+            ASSERT(hTexture.IsValid());
+            Handle<Sampler> hSampler = binding.hSampler;
+            ASSERT(hSampler.IsValid());
+            Texture& resource = textures[hTexture];
+            Sampler& sampler = samplers[hSampler];
 
             VkDescriptorImageInfo resourceInfo = {};
             resourceInfo.imageView = resource.vkImageView;
-            ASSERT(0); // vvvvvvvvvvvvvvvvvv
-            resourceInfo.sampler = VK_NULL_HANDLE; //TODO(caio): Add samplers to images
+            resourceInfo.sampler = sampler.vkHandle;
             resourceInfo.imageLayout = (VkImageLayout)resource.desc.layout;
 
             vkDescriptorSetWrites[i] = {};
@@ -1176,6 +1228,9 @@ void DestroyBindGroup(BindGroup* set)
     *set = {};
 }
 
+// TODO(caio): I don't like passing bind groups to here, since it just uses layouts,
+// so pipeline can be compatible with different bind groups at appropriate slots.
+// Figure something out.
 Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, GraphicsPipelineDesc desc, u32 bindGroupCount, Handle<BindGroup>* hBindGroups)
 {
     ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
@@ -1276,10 +1331,6 @@ Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, Gr
 
     VkPipelineLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    // TODO(caio): CONTINUE:
-    // - Pass all resource binding sets when creating graphics pipeline
-    // - When binding resource sets, pass pipeline layout as well
-    // - GOAL: Draw cube with WVP matrix applied in shader
     layoutInfo.setLayoutCount = bindGroupCount;
     layoutInfo.pSetLayouts = descriptorSetLayouts;
     layoutInfo.pushConstantRangeCount = 0;
@@ -1474,6 +1525,30 @@ void CmdPipelineBarrierTextureLayout(Handle<CommandBuffer> hCmd, Handle<Texture>
     vkCmdPipelineBarrier(cmd.vkHandle, (VkPipelineStageFlags)barrier.srcStage, (VkPipelineStageFlags)barrier.dstStage, 0, 0, NULL, 0, NULL, 1, &vkBarrier);
 
     texture.desc.layout = newLayout;
+}
+
+void CmdCopyBufferToTexture(Handle<CommandBuffer> hCmd, Handle<Buffer> hSrc, Handle<Texture> hDst)
+{
+    ASSERT(hCmd.IsValid() && hSrc.IsValid() && hDst.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    Buffer& src = buffers[hSrc];
+    Texture& dst = textures[hDst];
+    ASSERT(dst.desc.layout == IMAGE_LAYOUT_TRANSFER_DST);
+
+    VkBufferImageCopy region = {};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;   // TODO(caio): Support mipmaps
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent =
+    {
+        dst.desc.width, dst.desc.height, dst.desc.depth,
+    };
+    vkCmdCopyBufferToImage(cmd.vkHandle, src.vkHandle, dst.vkHandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 }
 
 void CmdClearColorTexture(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, f32 r, f32 g, f32 b, f32 a)
