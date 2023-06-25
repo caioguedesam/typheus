@@ -1,4 +1,7 @@
 #include "engine/render/window.hpp"
+#include "backends/imgui_impl_win32.h"
+
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 
 namespace ty
 {
@@ -76,6 +79,9 @@ void Win32WndProcSetWindow(HWND hwnd, LPARAM lparam)
 
 LRESULT CALLBACK Win32WndProc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam)
 {
+    // For EGUI input handling
+    if(ImGui_ImplWin32_WndProcHandler(hwnd, umsg, wparam, lparam)) return true;
+
     using namespace ty;
     using namespace render;
     if(umsg == WM_NCCREATE)

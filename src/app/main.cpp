@@ -15,6 +15,7 @@
 #include "engine/asset/asset.hpp"
 #include "engine/render/window.hpp"
 #include "engine/render/render.hpp"
+#include "engine/render/egui.hpp"
 
 // ===============================================================
 // [SOURCE FILES]
@@ -32,6 +33,7 @@
 #include "engine/asset/tests.cpp"
 #include "engine/render/window.cpp"
 #include "engine/render/render.cpp"
+#include "engine/render/egui.cpp"
 
 // ===============================================================
 
@@ -272,6 +274,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
             ARR_LEN(hGraphicsPipelineBindGroups),
             hGraphicsPipelineBindGroups);
 
+    egui::Init(hRenderPassMain);
+
     i32 frame = 0;
     time::Timer frameTimer;
     while(window.state != render::WINDOW_CLOSED)
@@ -285,6 +289,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         render::BeginFrame(frame);
         Handle<render::CommandBuffer> cmd = render::GetAvailableCommandBuffer();
         render::BeginCommandBuffer(cmd);
+
+        egui::BeginFrame();
 
         // Frame commands 
         Handle<render::Texture> hRenderPassMainOutput = render::GetRenderPassOutput(hRenderPassMain, 0);
@@ -321,6 +327,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         render::CmdBindVertexBuffer(cmd, hBunnyVB);
         render::CmdBindIndexBuffer(cmd, hBunnyIB);
         render::CmdDrawIndexed(cmd, hBunnyIB);
+        egui::ShowDemo();
+        egui::DrawFrame(cmd);
         render::EndRenderPass(cmd, hRenderPassMain);
 
         barrier.srcAccess = render::MEMORY_ACCESS_TRANSFER_WRITE;
@@ -344,6 +352,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         frame++;
     }
 
+    egui::Shutdown();
     render::Shutdown();
     render::DestroyWindow(&window);
 

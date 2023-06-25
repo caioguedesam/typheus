@@ -13,3 +13,4 @@ resources/fonts/
 resources/scripts/
 src/engine/old/
 resources/shaders/old/
+imgui.ini
