@@ -53,8 +53,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     mem::HeapAllocator generalHeap = mem::MakeHeapAllocator(MB(1));
 
     // Shaders
-    file::Path vsPath = file::MakePath(IStr("./resources/shaders/bin/default_quad_vert.spv"));
-    file::Path psPath = file::MakePath(IStr("./resources/shaders/bin/default_quad_frag.spv"));
+    file::Path vsPath = file::MakePath(IStr("./build/default_quad_vert.spv"));
+    file::Path psPath = file::MakePath(IStr("./build/default_quad_frag.spv"));
     Handle<asset::BinaryData> hAssetVs = asset::LoadBinaryFile(vsPath);
     Handle<asset::BinaryData> hAssetPs = asset::LoadBinaryFile(psPath);
     asset::BinaryData& assetVs = asset::binaryDatas[hAssetVs];
@@ -360,7 +360,6 @@ int main()
 }
 
 // TODO(caio): CONTINUE
-// - Mipmaps*
 // - Shader compilation on build.py
 // - ImGui
 // - Shader hot reload

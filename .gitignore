@@ -6,6 +6,7 @@ build/lib/
 build/profile/
 build/release/
 build/stdafx.pch
+build/*
 resources/textures/
 resources/models/
 resources/fonts/
