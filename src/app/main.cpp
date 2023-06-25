@@ -360,7 +360,6 @@ int main()
 }
 
 // TODO(caio): CONTINUE
-// - Shader compilation on build.py
 // - ImGui
 // - Shader hot reload
 // - Instancing
