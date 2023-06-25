@@ -10,5 +10,5 @@ layout (set = 0, binding = 1) uniform sampler2D u_diffuse;
 void main()
 {
     // pOut_color = vec4(vOut_color, 1);
-    pOut_color = texture(u_diffuse, vOut_texcoord) * vec4(vOut_color, 1);
+    pOut_color = texture(u_diffuse, vOut_texcoord);
 }

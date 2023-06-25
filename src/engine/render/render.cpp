@@ -1029,7 +1029,7 @@ Handle<Texture> MakeTexture(TextureDesc desc)
     imageInfo.extent.width = desc.width;
     imageInfo.extent.height = desc.height;
     imageInfo.extent.depth = desc.depth;
-    imageInfo.mipLevels = 1;                        // TODO(caio): Support mipmapping
+    imageInfo.mipLevels = desc.mipLevels;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;      // TODO(caio): Support multisampling
     imageInfo.arrayLayers = 1;
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
@@ -1055,7 +1055,7 @@ Handle<Texture> MakeTexture(TextureDesc desc)
         ? VK_IMAGE_ASPECT_DEPTH_BIT
         : VK_IMAGE_ASPECT_COLOR_BIT;
     imageViewInfo.subresourceRange.baseMipLevel = 0;
-    imageViewInfo.subresourceRange.levelCount = 1;
+    imageViewInfo.subresourceRange.levelCount = desc.mipLevels;
     imageViewInfo.subresourceRange.baseArrayLayer = 0;
     imageViewInfo.subresourceRange.layerCount = 1;
     
@@ -1082,6 +1082,11 @@ void DestroyTexture(Texture* texture)
     *texture = {};
 }
 
+u32 GetMaxMipLevels(u32 w, u32 h)
+{
+    return (u32)(floorf(log2f(MAX(w, h))));
+}
+
 Handle<Sampler> MakeSampler(SamplerDesc desc)
 {
     ASSERT(ctx.vkPhysicalDevice != VK_NULL_HANDLE);
@@ -1105,7 +1110,7 @@ Handle<Sampler> MakeSampler(SamplerDesc desc)
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.mipLodBias = 0.f;
     samplerInfo.minLod = 0.f;
-    samplerInfo.maxLod = 0.f;
+    samplerInfo.maxLod = 1000.f;    // Just for clamping purposes.
     
     VkSampler sampler;
     VkResult ret = vkCreateSampler(ctx.vkDevice, &samplerInfo, NULL, &sampler);
@@ -1524,7 +1529,7 @@ void CmdPipelineBarrierTextureLayout(Handle<CommandBuffer> hCmd, Handle<Texture>
         ? VK_IMAGE_ASPECT_DEPTH_BIT
         : VK_IMAGE_ASPECT_COLOR_BIT;
     vkBarrier.subresourceRange.baseMipLevel = 0;
-    vkBarrier.subresourceRange.levelCount = 1;
+    vkBarrier.subresourceRange.levelCount = texture.desc.mipLevels;
     vkBarrier.subresourceRange.baseArrayLayer = 0;
     vkBarrier.subresourceRange.layerCount = 1;
     vkBarrier.srcAccessMask = (VkAccessFlags)barrier.srcAccess;
@@ -1533,6 +1538,99 @@ void CmdPipelineBarrierTextureLayout(Handle<CommandBuffer> hCmd, Handle<Texture>
     vkCmdPipelineBarrier(cmd.vkHandle, (VkPipelineStageFlags)barrier.srcStage, (VkPipelineStageFlags)barrier.dstStage, 0, 0, NULL, 0, NULL, 1, &vkBarrier);
 
     texture.desc.layout = newLayout;
+}
+
+void CmdPipelineBarrierTextureMipLayout(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, ImageLayout oldLayout, ImageLayout newLayout, Barrier barrier, u32 mipLevel)
+{
+    ASSERT(hCmd.IsValid() && hTexture.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    Texture& texture = textures[hTexture];
+
+    //TODO(caio): mip layouts
+    // This will fire a validation error when oldLayout is actually not the correct layout.
+    // I currently can't verify this in code since I'm not tracking layouts per mip, but only
+    // per image.
+    VkImageLayout vkOldLayout = (VkImageLayout)oldLayout;
+    VkImageLayout vkNewLayout = (VkImageLayout)newLayout;
+    VkImageMemoryBarrier vkBarrier = {};
+    vkBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    vkBarrier.oldLayout = vkOldLayout;
+    vkBarrier.newLayout = vkNewLayout;
+    vkBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    vkBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    vkBarrier.image = texture.vkHandle;
+    vkBarrier.subresourceRange.aspectMask = ENUM_HAS_FLAG(texture.desc.usageFlags, IMAGE_USAGE_DEPTH_ATTACHMENT)
+        ? VK_IMAGE_ASPECT_DEPTH_BIT
+        : VK_IMAGE_ASPECT_COLOR_BIT;
+    vkBarrier.subresourceRange.baseMipLevel = mipLevel;
+    vkBarrier.subresourceRange.levelCount = 1;
+    vkBarrier.subresourceRange.baseArrayLayer = 0;
+    vkBarrier.subresourceRange.layerCount = 1;
+    vkBarrier.srcAccessMask = (VkAccessFlags)barrier.srcAccess;
+    vkBarrier.dstAccessMask = (VkAccessFlags)barrier.dstAccess;
+
+    vkCmdPipelineBarrier(cmd.vkHandle, (VkPipelineStageFlags)barrier.srcStage, (VkPipelineStageFlags)barrier.dstStage, 0, 0, NULL, 0, NULL, 1, &vkBarrier);
+
+    //texture.desc.layout = newLayout;
+}
+
+void CmdGenerateMipmaps(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture)
+{
+    ASSERT(ctx.vkPhysicalDevice != VK_NULL_HANDLE);
+    ASSERT(hCmd.IsValid() && hTexture.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    Texture& texture = textures[hTexture];
+
+    // Check for linear blit support for this texture format
+    VkFormatProperties properties;
+    vkGetPhysicalDeviceFormatProperties(ctx.vkPhysicalDevice, (VkFormat)texture.desc.format, &properties);
+    ASSERT(properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT);
+
+    // First, all levels must be in TRANSFER_DST
+    Barrier barrier = {};
+    barrier.srcAccess = MEMORY_ACCESS_TRANSFER_WRITE;
+    barrier.dstAccess = MEMORY_ACCESS_TRANSFER_READ;
+    barrier.srcStage = PIPELINE_STAGE_TRANSFER;
+    barrier.dstStage = PIPELINE_STAGE_TRANSFER;
+    CmdPipelineBarrierTextureLayout(hCmd, hTexture, IMAGE_LAYOUT_TRANSFER_DST, barrier);
+
+    // Then, starting from level 1, blit past level into current level
+    i32 mipWidth = texture.desc.width;
+    i32 mipHeight = texture.desc.height;
+    for(i32 i = 1; i < texture.desc.mipLevels; i++)
+    {
+        CmdPipelineBarrierTextureMipLayout(hCmd, hTexture, IMAGE_LAYOUT_TRANSFER_DST, IMAGE_LAYOUT_TRANSFER_SRC, barrier, i-1);
+
+        VkImageBlit blitRegion = {};
+        blitRegion.srcOffsets[0] = {0, 0, 0};
+        blitRegion.srcOffsets[1] = {mipWidth, mipHeight, 1};
+        blitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blitRegion.srcSubresource.mipLevel = i - 1;
+        blitRegion.srcSubresource.baseArrayLayer = 0;
+        blitRegion.srcSubresource.layerCount = 1;
+        blitRegion.dstOffsets[0] = {0, 0, 0};
+        blitRegion.dstOffsets[1] = {mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1};
+        blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blitRegion.dstSubresource.mipLevel = i;
+        blitRegion.dstSubresource.baseArrayLayer = 0;
+        blitRegion.dstSubresource.layerCount = 1;
+        vkCmdBlitImage(cmd.vkHandle,
+                texture.vkHandle,
+                (VkImageLayout)IMAGE_LAYOUT_TRANSFER_SRC,
+                texture.vkHandle,
+                (VkImageLayout)IMAGE_LAYOUT_TRANSFER_DST,
+                1, &blitRegion,
+                (VkFilter)texture.desc.mipSamplerFilter);
+
+        if(mipWidth > 1) mipWidth /= 2;
+        if(mipHeight > 1) mipHeight /= 2;
+    }
+
+    // TODO(caio): mip layouts
+    // At the end, all mips will have layout set to TRANSFER_SRC, so do that manually here
+    // since I'm not tracking mip layouts individually
+    CmdPipelineBarrierTextureMipLayout(hCmd, hTexture, IMAGE_LAYOUT_TRANSFER_DST, IMAGE_LAYOUT_TRANSFER_SRC, barrier, texture.desc.mipLevels - 1);
+    texture.desc.layout = IMAGE_LAYOUT_TRANSFER_SRC;
 }
 
 void CmdCopyBufferToTexture(Handle<CommandBuffer> hCmd, Handle<Buffer> hSrc, Handle<Texture> hDst)

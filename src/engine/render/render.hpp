@@ -307,6 +307,8 @@ struct TextureDesc
     u32 width = 0;
     u32 height = 0;
     u32 depth = 1;
+    u32 mipLevels = 1;
+    SamplerFilter mipSamplerFilter = SAMPLER_FILTER_LINEAR;
     ImageUsageFlags usageFlags;
     ImageType type = IMAGE_TYPE_2D;
     ImageViewType viewType = IMAGE_VIEW_TYPE_2D;
@@ -325,7 +327,7 @@ struct Texture
 
 Handle<Texture> MakeTexture(TextureDesc desc);
 void DestroyTexture(Texture* texture);
-//TODO(caio): Copy Memory to Texture from CPU (after command buffer stuff works)
+u32 GetMaxMipLevels(u32 w, u32 h);
 
 struct SamplerDesc
 {
@@ -456,6 +458,9 @@ void EndFrame(u32 frame, Handle<CommandBuffer> hCmd);
 void Present(u32 frame);
 
 void CmdPipelineBarrierTextureLayout(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, ImageLayout newLayout, Barrier barrier);
+//TODO(caio): Should I have each mip's layout tracked? So both these commands can't break
+void CmdPipelineBarrierTextureMipLayout(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, ImageLayout oldLayout, ImageLayout newLayout, Barrier barrier, u32 mipLevel);
+void CmdGenerateMipmaps(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture);
 //TODO(caio): Add a CmdPipelineBarrier that issues a global memory barrier if needed later.
 // maybe I will need for more general compute syncs.
 void CmdCopyBufferToTexture(Handle<CommandBuffer> hCmd, Handle<Buffer> hSrc, Handle<Texture> hDst);

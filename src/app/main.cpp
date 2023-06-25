@@ -63,8 +63,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     Handle<render::Shader> hPsDefault = render::MakeShader(render::SHADER_TYPE_PIXEL, assetPs.size, assetPs.data);
 
     // Checker texture
-    file::Path checkersPath = file::MakePath(IStr("./resources/textures/checkers.png"));
-    Handle<asset::Image> hAssetCheckersTexture = asset::LoadImageFile(checkersPath, false);
+    //file::Path checkersPath = file::MakePath(IStr("./resources/textures/checkers.png"));
+    file::Path checkersPath = file::MakePath(IStr("./resources/textures/viking_room.png"));
+    Handle<asset::Image> hAssetCheckersTexture = asset::LoadImageFile(checkersPath, true);
     asset::Image& assetCheckersTexture = asset::images[hAssetCheckersTexture];
     u64 assetCheckersTextureSize = assetCheckersTexture.width * assetCheckersTexture.height * 4;
 
@@ -81,12 +82,14 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     checkersTextureDesc.type = render::IMAGE_TYPE_2D;
     checkersTextureDesc.width = assetCheckersTexture.width;
     checkersTextureDesc.height = assetCheckersTexture.height;
+    checkersTextureDesc.mipLevels = render::GetMaxMipLevels(assetCheckersTexture.width, assetCheckersTexture.height);
     checkersTextureDesc.format = render::FORMAT_RGBA8_SRGB;
     checkersTextureDesc.viewType = render::IMAGE_VIEW_TYPE_2D;
     checkersTextureDesc.layout = render::IMAGE_LAYOUT_UNDEFINED;
     checkersTextureDesc.usageFlags = ENUM_FLAGS(render::ImageUsageFlags,
             render::IMAGE_USAGE_SAMPLED
-            | render::IMAGE_USAGE_TRANSFER_DST);
+            | render::IMAGE_USAGE_TRANSFER_DST
+            | render::IMAGE_USAGE_TRANSFER_SRC);
     Handle<render::Texture> hCheckersTexture = render::MakeTexture(checkersTextureDesc);
 
     //  Copy texture memory from CPU on staging buffer to GPU texture
@@ -103,6 +106,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
             ty::render::IMAGE_LAYOUT_TRANSFER_DST,
             barrier);
     render::CmdCopyBufferToTexture(hCmd, hCheckersTextureStagingBuffer, hCheckersTexture);
+    render::CmdGenerateMipmaps(hCmd, hCheckersTexture);
     barrier.srcAccess = render::MEMORY_ACCESS_TRANSFER_WRITE;
     barrier.dstAccess = render::MEMORY_ACCESS_SHADER_READ;
     barrier.srcStage = render::PIPELINE_STAGE_TRANSFER;
@@ -172,7 +176,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     Handle<render::Buffer> hCubeVB = render::MakeBuffer(render::BUFFER_TYPE_VERTEX, sizeof(cubeVertices), sizeof(f32), cubeVertices);
     Handle<render::Buffer> hCubeIB = render::MakeBuffer(render::BUFFER_TYPE_INDEX, sizeof(cubeIndices), sizeof(u32), cubeIndices);
 
-    file::Path bunnyPath = file::MakePath(IStr("./resources/models/bunny/bunny.obj"));
+    //file::Path bunnyPath = file::MakePath(IStr("./resources/models/bunny/bunny.obj"));
+    file::Path bunnyPath = file::MakePath(IStr("./resources/models/viking/viking_room.obj"));
     Handle<asset::Model> hAssetBunnyModel = asset::LoadModelOBJ(bunnyPath);
     asset::Model& assetBunnyModel = asset::models[hAssetBunnyModel];
     Handle<render::Buffer> hBunnyVB = render::MakeBuffer(
@@ -192,7 +197,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         math::m4f proj = {};
     };
     SceneData sceneData;
-    sceneData.view = math::Transpose(math::LookAt({2, 2, 5}, {0, 0, 0}, {0, 1, 0}));
+    //sceneData.view = math::Transpose(math::LookAt({2, 2, 5}, {0, 0, 0}, {0, 1, 0}));
+    sceneData.view = math::Transpose(math::LookAt({1, 3, 5}, {0, 0, 0}, {0, 1, 0}));
     sceneData.proj = math::Transpose(math::Perspective(TO_RAD(45.f), (f32)appWidth/(f32)appHeight, 0.1f, 1000.f));
 
     struct ObjectData
@@ -201,7 +207,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     };
     ObjectData cube1Data;
     ObjectData cube2Data;
-    cube2Data.world = math::Identity();
+    cube2Data.world = math::Transpose(math::RotationMatrix(TO_RAD(-90.f), {0,1,0}) * math::RotationMatrix(TO_RAD(-90.f), {1,0,0}) * math::ScaleMatrix({2,2,2})) * math::Identity();
     cube1Data.world = math::Transpose(math::TranslationMatrix({-5, 5, 5}) * math::Identity());
     Handle<render::Buffer> hSceneDataBuffer = render::MakeBuffer(render::BUFFER_TYPE_UNIFORM, sizeof(SceneData), sizeof(SceneData), &sceneData);
     Handle<render::Buffer> hCube1DataBuffer = render::MakeBuffer(render::BUFFER_TYPE_UNIFORM, sizeof(ObjectData), sizeof(ObjectData), &cube1Data);
@@ -354,9 +360,12 @@ int main()
 }
 
 // TODO(caio): CONTINUE
-// - Mipmaps
-// - Multisampling?
-// - Window resizing
+// - Mipmaps*
+// - Shader compilation on build.py
+// - ImGui
+// - Shader hot reload
+// - Instancing
 // - Compute
 // - Dynamic uniform buffers with offsets?
 // - Improving resource binding somehow?
+// - Window maximizing (vkCmdBlitImage can't upscale)
