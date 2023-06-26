@@ -278,6 +278,12 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
 
     i32 frame = 0;
     time::Timer frameTimer;
+    math::v3f colorTest = {0, 0, 0};
+    i32 testDragI32 = 0;
+    f32 testDragF32 = 0.f;
+    i32 testSliderI32 = 0;
+    f32 testSliderF32 = 0.f;
+    f32 testAngle = 0.f;
     while(window.state != render::WINDOW_CLOSED)
     {
         PROFILE_FRAME;
@@ -327,7 +333,19 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         render::CmdBindVertexBuffer(cmd, hBunnyVB);
         render::CmdBindIndexBuffer(cmd, hBunnyIB);
         render::CmdDrawIndexed(cmd, hBunnyIB);
-        egui::ShowDemo();
+        //egui::ShowDemo();
+        egui::Text(IStr("Hi EGUI!"));
+        egui::Text(IStr("Hi EGUI!"));
+        egui::Color(IStr("Color test"), &colorTest.r, &colorTest.g, &colorTest.b);
+        egui::Tooltip(IStr("This is a color selector"));
+        egui::SliderAngle(IStr("Angle test"), &testAngle);
+        egui::SliderF32(IStr("Slider test"), &testSliderF32, 0.f, 1.f);
+        egui::SliderV3F(IStr("Slider v3f test"), &colorTest, 0.f, 1.f);
+        egui::DragI32(IStr("Drag i32 test"), &testDragI32, 0.1f);
+        if(egui::Button(IStr("Increment drag value")))
+        {
+            testDragI32++;
+        }
         egui::DrawFrame(cmd);
         render::EndRenderPass(cmd, hRenderPassMain);
 
