@@ -27,7 +27,7 @@ namespace render
 
 #define RENDER_CONTEXT_MEMORY MB(1)
 #define RENDER_CONCURRENT_FRAMES 2
-#define RENDER_MAX_COMMAND_BUFFERS 16
+#define RENDER_MAX_COMMAND_BUFFERS 1024
 #define RENDER_MAX_RENDER_PASSES 8
 #define RENDER_MAX_VERTEX_LAYOUTS 8
 #define RENDER_MAX_SHADERS 32
@@ -245,7 +245,7 @@ Context MakeContext(Window* window);
 void DestroyContext(Context* ctx);
 
 void MakeCommandBuffers();
-Handle<CommandBuffer> GetAvailableCommandBuffer();
+Handle<CommandBuffer> GetAvailableCommandBuffer(bool wait = false);
 
 struct SwapChain
 {

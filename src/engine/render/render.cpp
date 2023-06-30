@@ -420,7 +420,7 @@ void MakeCommandBuffers()
     }
 }
 
-Handle<CommandBuffer> GetAvailableCommandBuffer()
+Handle<CommandBuffer> GetAvailableCommandBuffer(bool wait)
 {
     // First, update all command buffers from PENDING to IDLE
     // based on vkGetFenceStatus. Inefficient, but only change if it matters.
@@ -439,18 +439,21 @@ Handle<CommandBuffer> GetAvailableCommandBuffer()
         }
     }
 
-    // Then get any command buffer that is IDLE.
-    for(i32 i = 0; i < commandBuffers.count; i++)
+    // Then get any command buffer that is IDLE. Keep trying if wait is true.
+    while(true)
     {
-        CommandBuffer& commandBuffer = commandBuffers[i];
-        if(commandBuffer.state != COMMAND_BUFFER_IDLE) continue;
+        for(i32 i = 0; i < commandBuffers.count; i++)
+        {
+            CommandBuffer& commandBuffer = commandBuffers[i];
+            if(commandBuffer.state != COMMAND_BUFFER_IDLE) continue;
 
-        VkResult ret = vkResetCommandBuffer(commandBuffer.vkHandle, 0);
-        ASSERTVK(ret);
+            VkResult ret = vkResetCommandBuffer(commandBuffer.vkHandle, 0);
+            ASSERTVK(ret);
 
-        return { (u32)i };
+            return { (u32)i };
+        }
+        if(!wait) ASSERT(0);      // All command buffers occupied. Consider increasing buffer count.
     }
-    ASSERT(0);      // All command buffers occupied. Consider increasing number of buffers.
     return {};
 }
 
@@ -1170,7 +1173,9 @@ Handle<BindGroup> MakeBindGroup(ResourceBindingType type, u32 bindingCount, Reso
     ASSERTVK(ret);
 
     // Binding descriptor set to each resource specified in bindings
-    VkWriteDescriptorSet vkDescriptorSetWrites[bindingCount];
+    VkWriteDescriptorSet    vkDescriptorSetWrites[bindingCount];
+    VkDescriptorBufferInfo  bufferResourceInfos[bindingCount];
+    VkDescriptorImageInfo   imageResourceInfos[bindingCount];
     for(i32 i = 0; i < bindingCount; i++)
     {
         ResourceBinding binding = bindings[i];
@@ -1180,18 +1185,21 @@ Handle<BindGroup> MakeBindGroup(ResourceBindingType type, u32 bindingCount, Reso
             ASSERT(hBuffer.IsValid());
             Buffer& resource = buffers[hBuffer];
 
-            VkDescriptorBufferInfo resourceInfo = {};
-            resourceInfo.buffer = resource.vkHandle;
-            resourceInfo.offset = 0;
-            resourceInfo.range = resource.size;
+            VkDescriptorBufferInfo* resourceInfo = &bufferResourceInfos[i];
+            *resourceInfo = {};
+            resourceInfo->buffer = resource.vkHandle;
+            resourceInfo->offset = 0;
+            resourceInfo->range = resource.size;
 
-            vkDescriptorSetWrites[i] = {};
-            vkDescriptorSetWrites[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            vkDescriptorSetWrites[i].dstBinding = i;
-            vkDescriptorSetWrites[i].dstSet = vkDescriptorSet;
-            vkDescriptorSetWrites[i].descriptorCount = 1;
-            vkDescriptorSetWrites[i].descriptorType = (VkDescriptorType)binding.resourceType;
-            vkDescriptorSetWrites[i].pBufferInfo = &resourceInfo;
+            VkWriteDescriptorSet write = {};
+            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write.dstBinding = i;
+            write.dstSet = vkDescriptorSet;
+            write.descriptorCount = 1;
+            write.descriptorType = (VkDescriptorType)binding.resourceType;
+            write.pBufferInfo = resourceInfo;
+
+            vkDescriptorSetWrites[i] = write;
         }
         else if(binding.resourceType == RESOURCE_SAMPLED_TEXTURE)
         {
@@ -1202,18 +1210,21 @@ Handle<BindGroup> MakeBindGroup(ResourceBindingType type, u32 bindingCount, Reso
             Texture& resource = textures[hTexture];
             Sampler& sampler = samplers[hSampler];
 
-            VkDescriptorImageInfo resourceInfo = {};
-            resourceInfo.imageView = resource.vkImageView;
-            resourceInfo.sampler = sampler.vkHandle;
-            resourceInfo.imageLayout = (VkImageLayout)resource.desc.layout;
+            VkDescriptorImageInfo* resourceInfo = &imageResourceInfos[i];
+            *resourceInfo = {};
+            resourceInfo->imageView = resource.vkImageView;
+            resourceInfo->sampler = sampler.vkHandle;
+            resourceInfo->imageLayout = (VkImageLayout)resource.desc.layout;
 
-            vkDescriptorSetWrites[i] = {};
-            vkDescriptorSetWrites[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            vkDescriptorSetWrites[i].dstBinding = i;
-            vkDescriptorSetWrites[i].dstSet = vkDescriptorSet;
-            vkDescriptorSetWrites[i].descriptorCount = 1;
-            vkDescriptorSetWrites[i].descriptorType = (VkDescriptorType)binding.resourceType;
-            vkDescriptorSetWrites[i].pImageInfo = &resourceInfo;
+            VkWriteDescriptorSet write = {};
+            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write.dstBinding = i;
+            write.dstSet = vkDescriptorSet;
+            write.descriptorCount = 1;
+            write.descriptorType = (VkDescriptorType)binding.resourceType;
+            write.pImageInfo = resourceInfo;
+
+            vkDescriptorSetWrites[i] = write;
         }
         else ASSERT(0);
     }
@@ -1848,14 +1859,14 @@ void CmdBindIndexBuffer(Handle<CommandBuffer> hCmd, Handle<Buffer> hIB)
     vkCmdBindIndexBuffer(cmd.vkHandle, ib.vkHandle, 0, VK_INDEX_TYPE_UINT32);
 }
 
-void CmdDrawIndexed(Handle<CommandBuffer> hCmd, Handle<Buffer> hIB)
+void CmdDrawIndexed(Handle<CommandBuffer> hCmd, Handle<Buffer> hIB, i32 instanceCount)
 {
     ASSERT(hCmd.IsValid() && hIB.IsValid());
     CommandBuffer& cmd = commandBuffers[hCmd];
     Buffer& ib = buffers[hIB];
     ASSERT(ib.type == BUFFER_TYPE_INDEX);
 
-    vkCmdDrawIndexed(cmd.vkHandle, ib.count, 1, 0, 0, 0); //TODO(caio): Support instancing
+    vkCmdDrawIndexed(cmd.vkHandle, ib.count, instanceCount, 0, 0, 0);
 }
 
 void BeginFrame(u32 frame)

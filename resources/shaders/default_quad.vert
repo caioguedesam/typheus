@@ -4,31 +4,31 @@ layout (location = 0) in vec3 vIn_position;
 layout (location = 1) in vec3 vIn_normal;
 layout (location = 2) in vec2 vIn_texcoord;
 
-layout (location = 0) out vec3 vOut_color;
-layout (location = 1) out vec2 vOut_texcoord;
+layout (location = 0) out vec2 vOut_texcoord;
+layout (location = 1) out int vOut_instanceIndex;
 
-layout (set = 0, binding = 0) uniform SceneData
+#define INSTANCE_COUNT 512
+struct PerInstanceData
+{
+    mat4 world;
+    vec4 color;
+};
+
+layout (set = 0, binding = 0) uniform SceneDataBlock
 {
     mat4 view;
     mat4 proj;
 } u_scene;
 
-layout (set = 1, binding = 0) uniform ObjectData
+layout (set = 0, binding = 2) uniform InstanceDataBlock
 {
-    mat4 world;
-} u_object;
-
-// layout (set = 0, binding = 0) uniform UniformBuffer
-// {
-//     mat4 world;
-//     mat4 view;
-//     mat4 projection;
-// } u_data;
+    PerInstanceData data[INSTANCE_COUNT];
+} u_instances;
 
 void main()
 {
-    // gl_Position = u_data.projection * u_data.view * u_data.world * vec4(vIn_position, 1);
-    gl_Position = u_scene.proj * u_scene.view * u_object.world * vec4(vIn_position, 1);
-    vOut_color = vec3(vIn_texcoord.x, vIn_texcoord.y, 0);
+    PerInstanceData instanceData = u_instances.data[gl_InstanceIndex];
+    gl_Position = u_scene.proj * u_scene.view * instanceData.world * vec4(vIn_position, 1);
     vOut_texcoord = vIn_texcoord;
+    vOut_instanceIndex = gl_InstanceIndex;
 }

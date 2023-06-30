@@ -127,6 +127,7 @@ u8* ConsumeFloat(u8* p, f32* out)
     {
         f32 expo = 0;
         f32 expoSign = 1;
+        p++;
         if(*p == '-')
         {
             expoSign = -1;

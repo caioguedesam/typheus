@@ -64,35 +64,34 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     Handle<render::Shader> hVsDefault = render::MakeShader(render::SHADER_TYPE_VERTEX, assetVs.size, assetVs.data);
     Handle<render::Shader> hPsDefault = render::MakeShader(render::SHADER_TYPE_PIXEL, assetPs.size, assetPs.data);
 
-    // Checker texture
-    //file::Path checkersPath = file::MakePath(IStr("./resources/textures/checkers.png"));
-    file::Path checkersPath = file::MakePath(IStr("./resources/textures/viking_room.png"));
-    Handle<asset::Image> hAssetCheckersTexture = asset::LoadImageFile(checkersPath, true);
-    asset::Image& assetCheckersTexture = asset::images[hAssetCheckersTexture];
-    u64 assetCheckersTextureSize = assetCheckersTexture.width * assetCheckersTexture.height * 4;
+    // Spot texture
+    file::Path spotTexturePath = file::MakePath(IStr("./resources/textures/viking_room.png"));
+    Handle<asset::Image> hSpotTextureAsset = asset::LoadImageFile(file::MakePath(IStr("./resources/models/spot/spot_texture.png")));
+    asset::Image& spotTextureAsset = asset::images[hSpotTextureAsset];
+    u64 spotTextureSize = spotTextureAsset.width * spotTextureAsset.height * 4;
 
     //  Create staging buffer to store image memory from CPU
-    Handle<render::Buffer> hCheckersTextureStagingBuffer = render::MakeBuffer(
+    Handle<render::Buffer> hSpotTextureStagingBuffer = render::MakeBuffer(
             render::BUFFER_TYPE_STAGING,
-            assetCheckersTextureSize,
-            assetCheckersTextureSize,
-            assetCheckersTexture.data);
-    render::CopyMemoryToBuffer(hCheckersTextureStagingBuffer, assetCheckersTextureSize, assetCheckersTexture.data);
+            spotTextureSize,
+            spotTextureSize,
+            spotTextureAsset.data);
+    render::CopyMemoryToBuffer(hSpotTextureStagingBuffer, spotTextureSize, spotTextureAsset.data);
 
     //  Create GPU texture
-    render::TextureDesc checkersTextureDesc = {};
-    checkersTextureDesc.type = render::IMAGE_TYPE_2D;
-    checkersTextureDesc.width = assetCheckersTexture.width;
-    checkersTextureDesc.height = assetCheckersTexture.height;
-    checkersTextureDesc.mipLevels = render::GetMaxMipLevels(assetCheckersTexture.width, assetCheckersTexture.height);
-    checkersTextureDesc.format = render::FORMAT_RGBA8_SRGB;
-    checkersTextureDesc.viewType = render::IMAGE_VIEW_TYPE_2D;
-    checkersTextureDesc.layout = render::IMAGE_LAYOUT_UNDEFINED;
-    checkersTextureDesc.usageFlags = ENUM_FLAGS(render::ImageUsageFlags,
+    render::TextureDesc spotTextureDesc = {};
+    spotTextureDesc.type = render::IMAGE_TYPE_2D;
+    spotTextureDesc.width = spotTextureAsset.width;
+    spotTextureDesc.height = spotTextureAsset.height;
+    spotTextureDesc.mipLevels = render::GetMaxMipLevels(spotTextureAsset.width, spotTextureAsset.height);
+    spotTextureDesc.format = render::FORMAT_RGBA8_SRGB;
+    spotTextureDesc.viewType = render::IMAGE_VIEW_TYPE_2D;
+    spotTextureDesc.layout = render::IMAGE_LAYOUT_UNDEFINED;
+    spotTextureDesc.usageFlags = ENUM_FLAGS(render::ImageUsageFlags,
             render::IMAGE_USAGE_SAMPLED
             | render::IMAGE_USAGE_TRANSFER_DST
             | render::IMAGE_USAGE_TRANSFER_SRC);
-    Handle<render::Texture> hCheckersTexture = render::MakeTexture(checkersTextureDesc);
+    Handle<render::Texture> hSpotTexture = render::MakeTexture(spotTextureDesc);
 
     //  Copy texture memory from CPU on staging buffer to GPU texture
     Handle<render::CommandBuffer> hCmd = render::GetAvailableCommandBuffer();
@@ -104,18 +103,18 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     barrier.dstStage = render::PIPELINE_STAGE_TRANSFER;
     render::CmdPipelineBarrierTextureLayout(
             hCmd,
-            hCheckersTexture, 
+            hSpotTexture, 
             ty::render::IMAGE_LAYOUT_TRANSFER_DST,
             barrier);
-    render::CmdCopyBufferToTexture(hCmd, hCheckersTextureStagingBuffer, hCheckersTexture);
-    render::CmdGenerateMipmaps(hCmd, hCheckersTexture);
+    render::CmdCopyBufferToTexture(hCmd, hSpotTextureStagingBuffer, hSpotTexture);
+    render::CmdGenerateMipmaps(hCmd, hSpotTexture);
     barrier.srcAccess = render::MEMORY_ACCESS_TRANSFER_WRITE;
     barrier.dstAccess = render::MEMORY_ACCESS_SHADER_READ;
     barrier.srcStage = render::PIPELINE_STAGE_TRANSFER;
     barrier.dstStage = render::PIPELINE_STAGE_FRAGMENT_SHADER;
     render::CmdPipelineBarrierTextureLayout(
             hCmd,
-            hCheckersTexture, 
+            hSpotTexture, 
             ty::render::IMAGE_LAYOUT_SHADER_READ_ONLY,
             barrier);
     render::EndCommandBuffer(hCmd);
@@ -125,73 +124,73 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     render::SamplerDesc defaultSamplerDesc = {};
     Handle<render::Sampler> hDefaultSampler = MakeSampler(defaultSamplerDesc);
 
-    // Cube buffers
-    f32 cubeVertices[] =
-    {
-        // Front face
-        -1.f, -1.f, 1.f, 1, 0, 0, 0.f, 1.f,   // BL
-         1.f, -1.f, 1.f, 0, 1, 0, 1.f, 1.f,   // BR
-         1.f,  1.f, 1.f, 1, 1, 1, 1.f, 0.f,   // TR
-        -1.f,  1.f, 1.f, 0, 0, 1, 0.f, 0.f,   // TL
+    // // Cube buffers
+    // f32 cubeVertices[] =
+    // {
+    //     // Front face
+    //     -1.f, -1.f, 1.f, 1, 0, 0, 0.f, 1.f,   // BL
+    //      1.f, -1.f, 1.f, 0, 1, 0, 1.f, 1.f,   // BR
+    //      1.f,  1.f, 1.f, 1, 1, 1, 1.f, 0.f,   // TR
+    //     -1.f,  1.f, 1.f, 0, 0, 1, 0.f, 0.f,   // TL
 
-        // Back face
-         1.f, -1.f, -1.f, 1, 0, 0, 0.f, 1.f,   // BL
-        -1.f, -1.f, -1.f, 0, 1, 0, 1.f, 1.f,   // BR
-        -1.f,  1.f, -1.f, 1, 1, 1, 1.f, 0.f,   // TR
-         1.f,  1.f, -1.f, 0, 0, 1, 0.f, 0.f,   // TL
+    //     // Back face
+    //      1.f, -1.f, -1.f, 1, 0, 0, 0.f, 1.f,   // BL
+    //     -1.f, -1.f, -1.f, 0, 1, 0, 1.f, 1.f,   // BR
+    //     -1.f,  1.f, -1.f, 1, 1, 1, 1.f, 0.f,   // TR
+    //      1.f,  1.f, -1.f, 0, 0, 1, 0.f, 0.f,   // TL
 
-        // Top face
-        -1.f,  1.f,  1.f, 1, 0, 0, 0.f, 1.f,   // BL
-         1.f,  1.f,  1.f, 0, 1, 0, 1.f, 1.f,   // BR
-         1.f,  1.f, -1.f, 1, 1, 1, 1.f, 0.f,   // TR
-        -1.f,  1.f, -1.f, 0, 0, 1, 0.f, 0.f,   // TL
+    //     // Top face
+    //     -1.f,  1.f,  1.f, 1, 0, 0, 0.f, 1.f,   // BL
+    //      1.f,  1.f,  1.f, 0, 1, 0, 1.f, 1.f,   // BR
+    //      1.f,  1.f, -1.f, 1, 1, 1, 1.f, 0.f,   // TR
+    //     -1.f,  1.f, -1.f, 0, 0, 1, 0.f, 0.f,   // TL
 
-        // Bottom face
-        -1.f, -1.f, -1.f, 1, 0, 0, 0.f, 1.f,   // BL
-         1.f, -1.f, -1.f, 0, 1, 0, 1.f, 1.f,   // BR
-         1.f, -1.f,  1.f, 1, 1, 1, 1.f, 0.f,   // TR
-        -1.f, -1.f,  1.f, 0, 0, 1, 0.f, 0.f,   // TL
+    //     // Bottom face
+    //     -1.f, -1.f, -1.f, 1, 0, 0, 0.f, 1.f,   // BL
+    //      1.f, -1.f, -1.f, 0, 1, 0, 1.f, 1.f,   // BR
+    //      1.f, -1.f,  1.f, 1, 1, 1, 1.f, 0.f,   // TR
+    //     -1.f, -1.f,  1.f, 0, 0, 1, 0.f, 0.f,   // TL
 
-        // Left face
-        -1.f, -1.f, -1.f, 1, 0, 0, 0.f, 1.f,   // BL
-        -1.f, -1.f,  1.f, 0, 1, 0, 1.f, 1.f,   // BR
-        -1.f,  1.f,  1.f, 1, 1, 1, 1.f, 0.f,   // TR
-        -1.f,  1.f, -1.f, 0, 0, 1, 0.f, 0.f,   // TL
+    //     // Left face
+    //     -1.f, -1.f, -1.f, 1, 0, 0, 0.f, 1.f,   // BL
+    //     -1.f, -1.f,  1.f, 0, 1, 0, 1.f, 1.f,   // BR
+    //     -1.f,  1.f,  1.f, 1, 1, 1, 1.f, 0.f,   // TR
+    //     -1.f,  1.f, -1.f, 0, 0, 1, 0.f, 0.f,   // TL
 
-        // Right face
-         1.f, -1.f,  1.f, 1, 0, 0, 0.f, 1.f,   // BL
-         1.f, -1.f, -1.f, 0, 1, 0, 1.f, 1.f,   // BR
-         1.f,  1.f, -1.f, 1, 1, 1, 1.f, 0.f,   // TR
-         1.f,  1.f,  1.f, 0, 0, 1, 0.f, 0.f,   // TL
-    };
+    //     // Right face
+    //      1.f, -1.f,  1.f, 1, 0, 0, 0.f, 1.f,   // BL
+    //      1.f, -1.f, -1.f, 0, 1, 0, 1.f, 1.f,   // BR
+    //      1.f,  1.f, -1.f, 1, 1, 1, 1.f, 0.f,   // TR
+    //      1.f,  1.f,  1.f, 0, 0, 1, 0.f, 0.f,   // TL
+    // };
 
-    u32 cubeIndices[] =
-    {
-        0, 1, 2, 0, 2, 3,
-        4, 5, 6, 4, 6, 7,
-        8, 9, 10, 8, 10, 11,
-        12, 13, 14, 12, 14, 15,
-        16, 17, 18, 16, 18, 19,
-        20, 21, 22, 20, 22, 23,
-    };
+    // u32 cubeIndices[] =
+    // {
+    //     0, 1, 2, 0, 2, 3,
+    //     4, 5, 6, 4, 6, 7,
+    //     8, 9, 10, 8, 10, 11,
+    //     12, 13, 14, 12, 14, 15,
+    //     16, 17, 18, 16, 18, 19,
+    //     20, 21, 22, 20, 22, 23,
+    // };
 
-    Handle<render::Buffer> hCubeVB = render::MakeBuffer(render::BUFFER_TYPE_VERTEX, sizeof(cubeVertices), sizeof(f32), cubeVertices);
-    Handle<render::Buffer> hCubeIB = render::MakeBuffer(render::BUFFER_TYPE_INDEX, sizeof(cubeIndices), sizeof(u32), cubeIndices);
+    //Handle<render::Buffer> hCubeVB = render::MakeBuffer(render::BUFFER_TYPE_VERTEX, sizeof(cubeVertices), sizeof(f32), cubeVertices);
+    //Handle<render::Buffer> hCubeIB = render::MakeBuffer(render::BUFFER_TYPE_INDEX, sizeof(cubeIndices), sizeof(u32), cubeIndices);
 
     //file::Path bunnyPath = file::MakePath(IStr("./resources/models/bunny/bunny.obj"));
-    file::Path bunnyPath = file::MakePath(IStr("./resources/models/viking/viking_room.obj"));
-    Handle<asset::Model> hAssetBunnyModel = asset::LoadModelOBJ(bunnyPath);
-    asset::Model& assetBunnyModel = asset::models[hAssetBunnyModel];
-    Handle<render::Buffer> hBunnyVB = render::MakeBuffer(
+    file::Path spotModelPath = file::MakePath(IStr("./resources/models/spot/spot.obj"));
+    Handle<asset::Model> hSpotModelAsset = asset::LoadModelOBJ(spotModelPath);
+    asset::Model& spotModelAsset = asset::models[hSpotModelAsset];
+    Handle<render::Buffer> hSpotVB = render::MakeBuffer(
             render::BUFFER_TYPE_VERTEX,
-            assetBunnyModel.vertices.count * sizeof(f32),
+            spotModelAsset.vertices.count * sizeof(f32),
             sizeof(f32),
-            assetBunnyModel.vertices.data);
-    Handle<render::Buffer> hBunnyIB = render::MakeBuffer(
+            spotModelAsset.vertices.data);
+    Handle<render::Buffer> hSpotIB = render::MakeBuffer(
             render::BUFFER_TYPE_INDEX,
-            assetBunnyModel.groups[0].indices.count * sizeof(u32),
+            spotModelAsset.groups[0].indices.count * sizeof(u32),
             sizeof(u32),
-            assetBunnyModel.groups[0].indices.data);
+            spotModelAsset.groups[0].indices.data);
 
     struct SceneData
     {
@@ -199,37 +198,92 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         math::m4f proj = {};
     };
     SceneData sceneData;
-    //sceneData.view = math::Transpose(math::LookAt({2, 2, 5}, {0, 0, 0}, {0, 1, 0}));
-    sceneData.view = math::Transpose(math::LookAt({1, 3, 5}, {0, 0, 0}, {0, 1, 0}));
+    sceneData.view = math::Transpose(math::LookAt({0, 0, -5}, {0, 0, 0}, {0, 1, 0}));
     sceneData.proj = math::Transpose(math::Perspective(TO_RAD(45.f), (f32)appWidth/(f32)appHeight, 0.1f, 1000.f));
 
-    struct ObjectData
+    struct PerInstanceData
     {
         math::m4f world = {};
+        math::v4f color = {};
     };
-    ObjectData cube1Data;
-    ObjectData cube2Data;
-    cube2Data.world = math::Transpose(math::RotationMatrix(TO_RAD(-90.f), {0,1,0}) * math::RotationMatrix(TO_RAD(-90.f), {1,0,0}) * math::ScaleMatrix({2,2,2})) * math::Identity();
-    cube1Data.world = math::Transpose(math::TranslationMatrix({-5, 5, 5}) * math::Identity());
-    Handle<render::Buffer> hSceneDataBuffer = render::MakeBuffer(render::BUFFER_TYPE_UNIFORM, sizeof(SceneData), sizeof(SceneData), &sceneData);
-    Handle<render::Buffer> hCube1DataBuffer = render::MakeBuffer(render::BUFFER_TYPE_UNIFORM, sizeof(ObjectData), sizeof(ObjectData), &cube1Data);
-    Handle<render::Buffer> hCube2DataBuffer = render::MakeBuffer(render::BUFFER_TYPE_UNIFORM, sizeof(ObjectData), sizeof(ObjectData), &cube2Data);
+    const i32 instanceCount = 512;
+    PerInstanceData instanceData[instanceCount];
+    // Initializing all instances to have random rotation and color
+    for(i32 i = 0; i < instanceCount; i++)
+    {
+        //f32 randomRotationAngle = math::RandomUniformF32(-360.f, 360.f);
+        //math::v3f randomRotationAxis =
+        //{
+            //math::RandomUniformF32(),
+            //math::RandomUniformF32(),
+            //math::RandomUniformF32(),
+        //};
+        //randomRotationAxis = math::Normalize(randomRotationAxis); 
+        math::v3f randomPosition =
+        {
+            //math::RandomUniformF32(-10.f, 10.f),
+            //math::RandomUniformF32(-10.f, 10.f),
+            //math::RandomUniformF32(-10.f, 10.f),
+            (f32)i * 0.01f, 
+            (f32)i * 0.01f,
+            (f32)i * 0.01f,
+        };
+        //instanceData[i].world = math::Transpose(math::TranslationMatrix(randomPosition) * math::RotationMatrix(randomRotationAngle, randomRotationAxis));
+        instanceData[i].world = math::Transpose(math::TranslationMatrix(randomPosition));
+        instanceData[i].color =
+        {
+            //math::RandomUniformF32(),
+            //math::RandomUniformF32(),
+            //math::RandomUniformF32(),
+            1.f - ((f32)i / 200.f),
+            1.f - ((f32)i / 200.f),
+            1.f - ((f32)i / 200.f),
+            1,
+        };
+    }
+
+    Handle<render::Buffer> hSceneDataBuffer = render::MakeBuffer(
+            render::BUFFER_TYPE_UNIFORM, 
+            sizeof(SceneData),
+            sizeof(SceneData), 
+            &sceneData);
+    Handle<render::Buffer> hInstanceDataBuffer = render::MakeBuffer(
+            render::BUFFER_TYPE_UNIFORM, 
+            sizeof(PerInstanceData) * instanceCount,
+            sizeof(PerInstanceData), 
+            &instanceData);
+
+    // struct ObjectData
+    // {
+    //     math::m4f world = {};
+    // };
+    // ObjectData cube1Data;
+    // ObjectData cube2Data;
+    // cube2Data.world = math::Transpose(math::RotationMatrix(TO_RAD(-90.f), {0,1,0}) * math::RotationMatrix(TO_RAD(-90.f), {1,0,0}) * math::ScaleMatrix({2,2,2})) * math::Identity();
+    // cube1Data.world = math::Transpose(math::TranslationMatrix({-5, 5, 5}) * math::Identity());
+    // Handle<render::Buffer> hSceneDataBuffer = render::MakeBuffer(render::BUFFER_TYPE_UNIFORM, sizeof(SceneData), sizeof(SceneData), &sceneData);
+    // Handle<render::Buffer> hCube1DataBuffer = render::MakeBuffer(render::BUFFER_TYPE_UNIFORM, sizeof(ObjectData), sizeof(ObjectData), &cube1Data);
+    // Handle<render::Buffer> hCube2DataBuffer = render::MakeBuffer(render::BUFFER_TYPE_UNIFORM, sizeof(ObjectData), sizeof(ObjectData), &cube2Data);
 
     // Resource bindings
-    render::ResourceBinding bindings[2];
+    render::ResourceBinding bindings[3];
     bindings[0].resourceType = render::RESOURCE_UNIFORM_BUFFER;
     bindings[0].stages = render::SHADER_TYPE_VERTEX;
     bindings[0].hBuffer = hSceneDataBuffer;
     bindings[1].resourceType = render::RESOURCE_SAMPLED_TEXTURE;
     bindings[1].stages = render::SHADER_TYPE_PIXEL;
-    bindings[1].hTexture = hCheckersTexture;
+    bindings[1].hTexture = hSpotTexture;
     bindings[1].hSampler = hDefaultSampler;
-    Handle<render::BindGroup> hSceneDataBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, 2, bindings);
+    bindings[2].resourceType = render::RESOURCE_UNIFORM_BUFFER;
+    bindings[2].stages = ENUM_FLAGS(render::ShaderType,
+            render::SHADER_TYPE_VERTEX | render::SHADER_TYPE_PIXEL);
+    bindings[2].hBuffer = hInstanceDataBuffer;
+    Handle<render::BindGroup> hBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, ARR_LEN(bindings), bindings);
 
-    bindings[0].hBuffer = hCube1DataBuffer;
-    Handle<render::BindGroup> hCube1DataBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, 1, bindings);
-    bindings[0].hBuffer = hCube2DataBuffer;
-    Handle<render::BindGroup> hCube2DataBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, 1, bindings);
+    // bindings[0].hBuffer = hCube1DataBuffer;
+    // Handle<render::BindGroup> hCube1DataBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, 1, bindings);
+    // bindings[0].hBuffer = hCube2DataBuffer;
+    // Handle<render::BindGroup> hCube2DataBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, 1, bindings);
 
     // Main render pass (output will be copied to swap chain image)
     render::RenderPassDesc mainRenderPassDesc = {};
@@ -267,14 +321,14 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         //TODO(caio): I feel there might be a better way to set "compatible"
         //bind group layouts instead of passing bind groups directly
         //(hCube1DataBindGroup is compatible with hCube2DataBindGroup)
-        hSceneDataBindGroup, hCube1DataBindGroup,
+        hBindGroup,
     };
     Handle<render::GraphicsPipeline> hGraphicsPipelineDefault = render::MakeGraphicsPipeline(hRenderPassMain,
             defaultPipelineDesc,
             ARR_LEN(hGraphicsPipelineBindGroups),
             hGraphicsPipelineBindGroups);
 
-    egui::Init(hRenderPassMain);
+    //egui::Init(hRenderPassMain);
 
     i32 frame = 0;
     time::Timer frameTimer;
@@ -293,10 +347,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
 
         // Frame setup
         render::BeginFrame(frame);
-        Handle<render::CommandBuffer> cmd = render::GetAvailableCommandBuffer();
-        render::BeginCommandBuffer(cmd);
+        Handle<render::CommandBuffer> hCmd = render::GetAvailableCommandBuffer();
+        render::BeginCommandBuffer(hCmd);
 
-        egui::BeginFrame();
+        //egui::BeginFrame();
 
         // Frame commands 
         Handle<render::Texture> hRenderPassMainOutput = render::GetRenderPassOutput(hRenderPassMain, 0);
@@ -306,61 +360,66 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         barrier.dstAccess = render::MEMORY_ACCESS_TRANSFER_WRITE;
         barrier.srcStage = render::PIPELINE_STAGE_TOP;
         barrier.dstStage = render::PIPELINE_STAGE_TRANSFER;
-        render::CmdPipelineBarrierTextureLayout(cmd, hRenderPassMainOutput, 
+        render::CmdPipelineBarrierTextureLayout(hCmd, hRenderPassMainOutput, 
                 ty::render::IMAGE_LAYOUT_TRANSFER_DST,
                 barrier);
-        math::v3f clearColor =
-        {
-            math::Lerp(1, 0, (f32)(frame % 5000)/5000.f),
-            math::Lerp(0, 1, (f32)(frame % 5000)/5000.f),
-            1,
-        };
-        render::CmdClearColorTexture(cmd, hRenderPassMainOutput, clearColor.r, clearColor.g, clearColor.b, 1);
+        //math::v3f clearColor =
+        //{
+            //math::Lerp(1, 0, (f32)(frame % 5000)/5000.f),
+            //math::Lerp(0, 1, (f32)(frame % 5000)/5000.f),
+            //1,
+        //};
+        //render::CmdClearColorTexture(hCmd, hRenderPassMainOutput, clearColor.r, clearColor.g, clearColor.b, 1);
 
-        render::BeginRenderPass(cmd, hRenderPassMain);
-        render::CmdBindPipeline(cmd, hGraphicsPipelineDefault);
-        render::CmdSetViewport(cmd, hRenderPassMain);
-        render::CmdSetScissor(cmd, hRenderPassMain);
-        //render::CmdBindResources(cmd, hBindGroup, 0, hGraphicsPipelineDefault);
-        render::CmdBindResources(cmd, hSceneDataBindGroup, 0, hGraphicsPipelineDefault);
-        // Draw cube 1
-        render::CmdBindVertexBuffer(cmd, hCubeVB);
-        render::CmdBindIndexBuffer(cmd, hCubeIB);
-        render::CmdBindResources(cmd, hCube1DataBindGroup, 1, hGraphicsPipelineDefault);
-        render::CmdDrawIndexed(cmd, hCubeIB);
-        // Draw cube 2
-        render::CmdBindResources(cmd, hCube2DataBindGroup, 1, hGraphicsPipelineDefault);
-        render::CmdBindVertexBuffer(cmd, hBunnyVB);
-        render::CmdBindIndexBuffer(cmd, hBunnyIB);
-        render::CmdDrawIndexed(cmd, hBunnyIB);
-        //egui::ShowDemo();
-        egui::Text(IStr("Hi EGUI!"));
-        egui::Text(IStr("Hi EGUI!"));
-        egui::Color(IStr("Color test"), &colorTest.r, &colorTest.g, &colorTest.b);
-        egui::Tooltip(IStr("This is a color selector"));
-        egui::SliderAngle(IStr("Angle test"), &testAngle);
-        egui::SliderF32(IStr("Slider test"), &testSliderF32, 0.f, 1.f);
-        egui::SliderV3F(IStr("Slider v3f test"), &colorTest, 0.f, 1.f);
-        egui::DragI32(IStr("Drag i32 test"), &testDragI32, 0.1f);
-        if(egui::Button(IStr("Increment drag value")))
-        {
-            testDragI32++;
-        }
-        egui::DrawFrame(cmd);
-        render::EndRenderPass(cmd, hRenderPassMain);
+        render::BeginRenderPass(hCmd, hRenderPassMain);
+        render::CmdBindPipeline(hCmd, hGraphicsPipelineDefault);
+        render::CmdSetViewport(hCmd, hRenderPassMain);
+        render::CmdSetScissor(hCmd, hRenderPassMain);
+        render::CmdBindResources(hCmd, hBindGroup, 0, hGraphicsPipelineDefault);
+
+        // Draw all instances
+        render::CmdBindVertexBuffer(hCmd, hSpotVB);
+        render::CmdBindIndexBuffer(hCmd, hSpotIB);
+        render::CmdDrawIndexed(hCmd, hSpotIB, 512);
+
+        //// Draw cube 1
+        //render::CmdBindVertexBuffer(cmd, hCubeVB);
+        //render::CmdBindIndexBuffer(cmd, hCubeIB);
+        //render::CmdBindResources(cmd, hCube1DataBindGroup, 1, hGraphicsPipelineDefault);
+        //render::CmdDrawIndexed(cmd, hCubeIB);
+        //// Draw cube 2
+        //render::CmdBindResources(cmd, hCube2DataBindGroup, 1, hGraphicsPipelineDefault);
+        //render::CmdBindVertexBuffer(cmd, hSpotVB);
+        //render::CmdBindIndexBuffer(cmd, hSpotIB);
+        //render::CmdDrawIndexed(cmd, hSpotIB);
+        ////egui::ShowDemo();
+        //egui::Text(IStr("Hi EGUI!"));
+        //egui::Text(IStr("Hi EGUI!"));
+        //egui::Color(IStr("Color test"), &colorTest.r, &colorTest.g, &colorTest.b);
+        //egui::Tooltip(IStr("This is a color selector"));
+        //egui::SliderAngle(IStr("Angle test"), &testAngle);
+        //egui::SliderF32(IStr("Slider test"), &testSliderF32, 0.f, 1.f);
+        //egui::SliderV3F(IStr("Slider v3f test"), &colorTest, 0.f, 1.f);
+        //egui::DragI32(IStr("Drag i32 test"), &testDragI32, 0.1f);
+        //if(egui::Button(IStr("Increment drag value")))
+        //{
+            //testDragI32++;
+        //}
+        //egui::DrawFrame(cmd);
+        render::EndRenderPass(hCmd, hRenderPassMain);
 
         barrier.srcAccess = render::MEMORY_ACCESS_TRANSFER_WRITE;
         barrier.dstAccess = render::MEMORY_ACCESS_TRANSFER_READ;
         barrier.srcStage = render::PIPELINE_STAGE_TRANSFER;
         barrier.dstStage = render::PIPELINE_STAGE_TRANSFER;
-        render::CmdPipelineBarrierTextureLayout(cmd, hRenderPassMainOutput, 
+        render::CmdPipelineBarrierTextureLayout(hCmd, hRenderPassMainOutput, 
                 ty::render::IMAGE_LAYOUT_TRANSFER_SRC,
                 barrier);
-        render::CmdCopyToSwapChain(cmd, hRenderPassMainOutput);
+        render::CmdCopyToSwapChain(hCmd, hRenderPassMainOutput);
 
         // Frame teardown
-        render::EndCommandBuffer(cmd);
-        render::EndFrame(frame, cmd);
+        render::EndCommandBuffer(hCmd);
+        render::EndFrame(frame, hCmd);
 
         // Present
         render::Present(frame);
@@ -370,7 +429,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         frame++;
     }
 
-    egui::Shutdown();
+    //egui::Shutdown();
     render::Shutdown();
     render::DestroyWindow(&window);
 
@@ -387,10 +446,13 @@ int main()
 }
 
 // TODO(caio): CONTINUE
-// - ImGui
-// - Shader hot reload
-// - Instancing
+// - Instancing*
+//      > Test: many single models with individual instance data: 1 model matrix (64 bytes) + 1 color (16 bytes?)
 // - Compute
-// - Dynamic uniform buffers with offsets?
 // - Improving resource binding somehow?
+//      > IMPORTANT: Per frame resources and descriptors (e.g. per frame UBO copied from CPU every frame)
+// - Draw indirect?
+// - Dynamic uniform buffers with offsets?
+// - Runtime shader compilation and shader hot reload
+//      > Will likely need to change asset lib a little
 // - Window maximizing (vkCmdBlitImage can't upscale)
