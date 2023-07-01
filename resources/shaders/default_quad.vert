@@ -7,7 +7,6 @@ layout (location = 2) in vec2 vIn_texcoord;
 layout (location = 0) out vec2 vOut_texcoord;
 layout (location = 1) out int vOut_instanceIndex;
 
-#define INSTANCE_COUNT 512
 struct PerInstanceData
 {
     mat4 world;
@@ -20,9 +19,10 @@ layout (set = 0, binding = 0) uniform SceneDataBlock
     mat4 proj;
 } u_scene;
 
-layout (set = 0, binding = 2) uniform InstanceDataBlock
+//layout (set = 0, binding = 2) uniform InstanceDataBlock
+layout (std140, set = 0, binding = 2) readonly buffer InstanceDataBlock
 {
-    PerInstanceData data[INSTANCE_COUNT];
+    PerInstanceData data[];
 } u_instances;
 
 void main()

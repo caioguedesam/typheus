@@ -5,7 +5,6 @@ layout (location = 1) flat in int vOut_instanceIndex;
 
 layout (location = 0) out vec4 pOut_color;
 
-#define INSTANCE_COUNT 512
 struct PerInstanceData
 {
     mat4 world;
@@ -13,9 +12,10 @@ struct PerInstanceData
 };
 
 layout (set = 0, binding = 1) uniform sampler2D u_diffuse;
-layout (set = 0, binding = 2) uniform InstanceDataBlock
+//layout (set = 0, binding = 2) uniform InstanceDataBlock
+layout (std140, set = 0, binding = 2) readonly buffer InstanceDataBlock
 {
-    PerInstanceData data[INSTANCE_COUNT];
+    PerInstanceData data[];
 } u_instances;
 
 void main()

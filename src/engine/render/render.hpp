@@ -36,6 +36,7 @@ namespace render
 #define RENDER_MAX_SAMPLERS 16
 #define RENDER_MAX_RESOURCE_BINDING_SETS 256
 #define RENDER_MAX_GRAPHICS_PIPELINES 32
+#define RENDER_MAX_COMPUTE_PIPELINES 32
 
 enum Format
 {
@@ -85,16 +86,16 @@ enum ShaderType : u32
 {
     SHADER_TYPE_VERTEX  = VK_SHADER_STAGE_VERTEX_BIT,
     SHADER_TYPE_PIXEL   = VK_SHADER_STAGE_FRAGMENT_BIT,
-    //TODO(caio): Support compute
+    SHADER_TYPE_COMPUTE = VK_SHADER_STAGE_COMPUTE_BIT,
 };
 
-enum BufferType
+enum BufferType : u32
 {
     BUFFER_TYPE_VERTEX  = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
     BUFFER_TYPE_INDEX   = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
     BUFFER_TYPE_UNIFORM = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-    //TODO(caio): Storage buffers
     BUFFER_TYPE_STAGING = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    BUFFER_TYPE_STORAGE = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 };
 
 enum ImageType
@@ -131,8 +132,8 @@ enum SamplerAddressMode
 enum ResourceType
 {
     RESOURCE_UNIFORM_BUFFER             = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    RESOURCE_STORAGE_BUFFER             = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
     RESOURCE_SAMPLED_TEXTURE            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-    //TODO(caio): Support storage buffers
 };
 
 enum ResourceBindingType
@@ -429,6 +430,17 @@ struct GraphicsPipeline
 Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, GraphicsPipelineDesc desc, u32 bindGroupCount, Handle<BindGroup>* hBindGroups);
 void DestroyGraphicsPipeline(GraphicsPipeline* pipeline);
 
+struct ComputePipeline
+{
+    VkPipeline vkPipeline = VK_NULL_HANDLE;
+    VkPipelineLayout vkPipelineLayout = VK_NULL_HANDLE;
+
+    Handle<Shader> hShaderCompute;
+};
+
+Handle<ComputePipeline> MakeComputePipeline(Handle<Shader> hShaderCompute, u32 bindGroupCount, Handle<BindGroup>* hBindGroups);
+void DestroyComputePipeline(ComputePipeline* pipeline);
+
 inline mem::HeapAllocator renderHeap;
 inline Context ctx;
 inline SwapChain swapChain;
@@ -442,6 +454,7 @@ inline Array<Texture> textures;
 inline Array<Sampler> samplers;
 inline Array<BindGroup> bindGroups;
 inline Array<GraphicsPipeline> graphicsPipelines;
+inline Array<ComputePipeline> computePipelines;
 
 void Init(Window* window);
 void Shutdown();

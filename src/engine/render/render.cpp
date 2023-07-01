@@ -70,6 +70,7 @@ void Init(Window* window)
     samplers = MakeArray<Sampler>(RENDER_MAX_SAMPLERS);
     bindGroups = MakeArray<BindGroup>(RENDER_MAX_RESOURCE_BINDING_SETS);
     graphicsPipelines = MakeArray<GraphicsPipeline>(RENDER_MAX_GRAPHICS_PIPELINES);
+    computePipelines = MakeArray<ComputePipeline>(RENDER_MAX_COMPUTE_PIPELINES);
 
     MakeCommandBuffers();
 }
@@ -111,6 +112,10 @@ void Shutdown()
     {
         DestroyGraphicsPipeline(&graphicsPipelines[i]);
     }
+    for(i32 i = 0; i < computePipelines.count; i++)
+    {
+        DestroyComputePipeline(&computePipelines[i]);
+    }
     DestroyArray(&commandBuffers);
     DestroyArray(&renderPasses);
     DestroyArray(&vertexLayouts);
@@ -119,6 +124,7 @@ void Shutdown()
     DestroyArray(&textures);
     DestroyArray(&bindGroups);
     DestroyArray(&graphicsPipelines);
+    DestroyArray(&computePipelines);
 
     DestroySwapChain(&swapChain);
     DestroyContext(&ctx);
@@ -384,7 +390,7 @@ void MakeContext_CreatePools(Context* ctx)
     {
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 100 },
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100 },
-        //TODO(caio): Storage buffers
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 100 },
     };
     VkDescriptorPoolCreateInfo descriptorPoolInfo = {};
     descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1179,7 +1185,7 @@ Handle<BindGroup> MakeBindGroup(ResourceBindingType type, u32 bindingCount, Reso
     for(i32 i = 0; i < bindingCount; i++)
     {
         ResourceBinding binding = bindings[i];
-        if(binding.resourceType == RESOURCE_UNIFORM_BUFFER)
+        if(binding.resourceType == RESOURCE_UNIFORM_BUFFER || binding.resourceType == RESOURCE_STORAGE_BUFFER)
         {
             Handle<Buffer> hBuffer = binding.hBuffer;
             ASSERT(hBuffer.IsValid());
@@ -1357,7 +1363,7 @@ Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, Gr
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layoutInfo.setLayoutCount = bindGroupCount;
     layoutInfo.pSetLayouts = descriptorSetLayouts;
-    layoutInfo.pushConstantRangeCount = 0;
+    layoutInfo.pushConstantRangeCount = 0;  // TODO(caio): Push constants
     layoutInfo.pPushConstantRanges = NULL;
     VkPipelineLayout pipelineLayout;
     VkResult ret = vkCreatePipelineLayout(ctx.vkDevice, &layoutInfo, NULL, &pipelineLayout);
@@ -1391,6 +1397,61 @@ Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, Gr
 }
 
 void DestroyGraphicsPipeline(GraphicsPipeline* pipeline)
+{
+    ASSERT(pipeline);
+    ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
+    vkDestroyPipelineLayout(ctx.vkDevice, pipeline->vkPipelineLayout, NULL);
+    vkDestroyPipeline(ctx.vkDevice, pipeline->vkPipeline, NULL);
+}
+
+Handle<ComputePipeline> MakeComputePipeline(Handle<Shader> hShaderCompute, u32 bindGroupCount, Handle<BindGroup>* hBindGroups)
+{ 
+    Shader& cs = shaders[hShaderCompute];
+    ASSERT(cs.type == SHADER_TYPE_COMPUTE);
+
+    // Shader stages
+    VkPipelineShaderStageCreateInfo csStageInfo = {};
+    csStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    csStageInfo.pName = "main";     // Shader entrypoint is always main
+    csStageInfo.module = cs.vkShaderModule;
+    csStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayout descriptorSetLayouts[bindGroupCount];
+    for(i32 i = 0; i < bindGroupCount; i++)
+    {
+        ASSERT(hBindGroups[i].IsValid());
+        BindGroup& bindGroup = bindGroups[hBindGroups[i]];
+        descriptorSetLayouts[i] = bindGroup.vkDescriptorSetLayout;
+    }
+
+    VkPipelineLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    layoutInfo.setLayoutCount = bindGroupCount;
+    layoutInfo.pSetLayouts = descriptorSetLayouts;
+    layoutInfo.pushConstantRangeCount = 0;  // TODO(caio): Push constants
+    layoutInfo.pPushConstantRanges = NULL;
+    VkPipelineLayout pipelineLayout;
+    VkResult ret = vkCreatePipelineLayout(ctx.vkDevice, &layoutInfo, NULL, &pipelineLayout);
+    ASSERTVK(ret);
+
+    VkComputePipelineCreateInfo pipelineInfo = {};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.stage = csStageInfo;
+    VkPipeline pipeline;
+    ret = vkCreateComputePipelines(ctx.vkDevice, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pipeline);
+    ASSERTVK(ret);
+
+    ComputePipeline result = {};
+    result.vkPipeline = pipeline;
+    result.vkPipelineLayout = pipelineLayout;
+    result.hShaderCompute = hShaderCompute;
+
+    computePipelines.Push(result);
+    return { (u32)computePipelines.count - 1 };
+}
+
+void DestroyComputePipeline(ComputePipeline* pipeline)
 {
     ASSERT(pipeline);
     ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
