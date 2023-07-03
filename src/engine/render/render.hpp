@@ -478,15 +478,18 @@ void CmdGenerateMipmaps(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture);
 // maybe I will need for more general compute syncs.
 void CmdCopyBufferToTexture(Handle<CommandBuffer> hCmd, Handle<Buffer> hSrc, Handle<Texture> hDst);
 void CmdClearColorTexture(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, f32 r, f32 g, f32 b, f32 a);
-void CmdBindPipeline(Handle<CommandBuffer> hCmd, Handle<GraphicsPipeline> hPipeline);
-void CmdBindResources(Handle<CommandBuffer> hCmd, Handle<BindGroup> hBindGroup, u32 setIndex, Handle<GraphicsPipeline> hPipeline);
+void CmdBindGraphicsPipeline(Handle<CommandBuffer> hCmd, Handle<GraphicsPipeline> hPipeline);
+void CmdBindComputePipeline(Handle<CommandBuffer> hCmd, Handle<ComputePipeline> hPipeline);
+void CmdBindGraphicsResources(Handle<CommandBuffer> hCmd, Handle<BindGroup> hBindGroup, u32 setIndex, Handle<GraphicsPipeline> hPipeline);
+void CmdBindComputeResources(Handle<CommandBuffer> hCmd, Handle<BindGroup> hBindGroup, u32 setIndex, Handle<ComputePipeline> hPipeline);
 void CmdSetViewport(Handle<CommandBuffer> hCmd, f32 offsetX, f32 offsetY, f32 width, f32 height, f32 minDepth = 0, f32 maxDepth = 1);
 void CmdSetViewport(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass);
 void CmdSetScissor(Handle<CommandBuffer> hCmd, i32 offsetX, i32 offsetY, i32 width, i32 height);
 void CmdSetScissor(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass);
 void CmdBindVertexBuffer(Handle<CommandBuffer> hCmd, Handle<Buffer> hVB);
 void CmdBindIndexBuffer(Handle<CommandBuffer> hCmd, Handle<Buffer> hIB);
-void CmdDrawIndexed(Handle<CommandBuffer> hCmd, Handle<Buffer> hIB);
+void CmdDrawIndexed(Handle<CommandBuffer> hCmd, Handle<Buffer> hIB, i32 instanceCount);
+void CmdDispatch(Handle<CommandBuffer> hCmd, u32 x, u32 y, u32 z);
 void CmdCopyToSwapChain(Handle<CommandBuffer> hCmd, Handle<Texture> hSrc);
 
 };

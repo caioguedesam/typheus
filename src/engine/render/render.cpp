@@ -440,6 +440,7 @@ Handle<CommandBuffer> GetAvailableCommandBuffer(bool wait)
         VkResult ret = vkGetFenceStatus(ctx.vkDevice, commandBuffer.vkFence);
         if(ret == VK_SUCCESS)   // Fence signaled, command buffer not pending.
         {
+            LOGF("Command buffer %d is now available", i);
             commandBuffer.state = COMMAND_BUFFER_IDLE;
             commandBuffer.vkFence = VK_NULL_HANDLE;
         }
@@ -456,6 +457,7 @@ Handle<CommandBuffer> GetAvailableCommandBuffer(bool wait)
             VkResult ret = vkResetCommandBuffer(commandBuffer.vkHandle, 0);
             ASSERTVK(ret);
 
+            LOGF("Returned available command buffer %d", i);
             return { (u32)i };
         }
         if(!wait) ASSERT(0);      // All command buffers occupied. Consider increasing buffer count.
@@ -1835,7 +1837,7 @@ void CmdCopyToSwapChain(Handle<CommandBuffer> hCmd, Handle<Texture> hSrc)
     swapChain.imageLayouts[swapChain.activeImage] = IMAGE_LAYOUT_PRESENT_SRC;
 }
 
-void CmdBindPipeline(Handle<CommandBuffer> hCmd, Handle<GraphicsPipeline> hPipeline)
+void CmdBindGraphicsPipeline(Handle<CommandBuffer> hCmd, Handle<GraphicsPipeline> hPipeline)
 {
     ASSERT(hCmd.IsValid() && hPipeline.IsValid());
     CommandBuffer& cmd = commandBuffers[hCmd];
@@ -1843,7 +1845,15 @@ void CmdBindPipeline(Handle<CommandBuffer> hCmd, Handle<GraphicsPipeline> hPipel
     vkCmdBindPipeline(cmd.vkHandle, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.vkPipeline);
 }
 
-void CmdBindResources(Handle<CommandBuffer> hCmd, Handle<BindGroup> hBindGroup, u32 setIndex, Handle<GraphicsPipeline> hPipeline)
+void CmdBindComputePipeline(Handle<CommandBuffer> hCmd, Handle<ComputePipeline> hPipeline)
+{
+    ASSERT(hCmd.IsValid() && hPipeline.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    ComputePipeline& pipeline = computePipelines[hPipeline];
+    vkCmdBindPipeline(cmd.vkHandle, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.vkPipeline);
+}
+
+void CmdBindGraphicsResources(Handle<CommandBuffer> hCmd, Handle<BindGroup> hBindGroup, u32 setIndex, Handle<GraphicsPipeline> hPipeline)
 {
     ASSERT(hCmd.IsValid() && hBindGroup.IsValid() && hPipeline.IsValid());
     CommandBuffer& cmd = commandBuffers[hCmd];
@@ -1851,6 +1861,22 @@ void CmdBindResources(Handle<CommandBuffer> hCmd, Handle<BindGroup> hBindGroup, 
     GraphicsPipeline& pipeline = graphicsPipelines[hPipeline];
     vkCmdBindDescriptorSets(cmd.vkHandle, 
             VK_PIPELINE_BIND_POINT_GRAPHICS, 
+            pipeline.vkPipelineLayout, 
+            setIndex, 
+            1, 
+            &bindGroup.vkDescriptorSet,
+            0,
+            NULL);
+}
+
+void CmdBindComputeResources(Handle<CommandBuffer> hCmd, Handle<BindGroup> hBindGroup, u32 setIndex, Handle<ComputePipeline> hPipeline)
+{
+    ASSERT(hCmd.IsValid() && hBindGroup.IsValid() && hPipeline.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    BindGroup& bindGroup = bindGroups[hBindGroup];
+    ComputePipeline& pipeline = computePipelines[hPipeline];
+    vkCmdBindDescriptorSets(cmd.vkHandle, 
+            VK_PIPELINE_BIND_POINT_COMPUTE, 
             pipeline.vkPipelineLayout, 
             setIndex, 
             1, 
@@ -1928,6 +1954,15 @@ void CmdDrawIndexed(Handle<CommandBuffer> hCmd, Handle<Buffer> hIB, i32 instance
     ASSERT(ib.type == BUFFER_TYPE_INDEX);
 
     vkCmdDrawIndexed(cmd.vkHandle, ib.count, instanceCount, 0, 0, 0);
+}
+
+void CmdDispatch(Handle<CommandBuffer> hCmd, u32 x, u32 y, u32 z)
+{
+    ASSERT(hCmd.IsValid());
+    ASSERT(x > 0 && y > 0 && z > 0);
+    CommandBuffer& cmd = commandBuffers[hCmd];
+
+    vkCmdDispatch(cmd.vkHandle, x, y, z);
 }
 
 void BeginFrame(u32 frame)

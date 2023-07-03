@@ -57,12 +57,16 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     // Shaders
     file::Path vsPath = file::MakePath(IStr("./build/default_quad_vert.spv"));
     file::Path psPath = file::MakePath(IStr("./build/default_quad_frag.spv"));
+    file::Path csPath = file::MakePath(IStr("./build/update_instances_comp.spv"));
     Handle<asset::BinaryData> hAssetVs = asset::LoadBinaryFile(vsPath);
     Handle<asset::BinaryData> hAssetPs = asset::LoadBinaryFile(psPath);
+    Handle<asset::BinaryData> hAssetCs = asset::LoadBinaryFile(csPath);
     asset::BinaryData& assetVs = asset::binaryDatas[hAssetVs];
     asset::BinaryData& assetPs = asset::binaryDatas[hAssetPs];
+    asset::BinaryData& assetCs = asset::binaryDatas[hAssetCs];
     Handle<render::Shader> hVsDefault = render::MakeShader(render::SHADER_TYPE_VERTEX, assetVs.size, assetVs.data);
     Handle<render::Shader> hPsDefault = render::MakeShader(render::SHADER_TYPE_PIXEL, assetPs.size, assetPs.data);
+    Handle<render::Shader> hCsDefault = render::MakeShader(render::SHADER_TYPE_COMPUTE, assetCs.size, assetCs.data);
 
     // Spot texture
     file::Path spotTexturePath = file::MakePath(IStr("./resources/textures/viking_room.png"));
@@ -152,7 +156,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         math::m4f world = {};
         math::v4f color = {};
     };
-    const i32 instanceCount = 65536;
+    const i32 instanceCount = 4096;
     //PerInstanceData instanceData[instanceCount];
     mem::SetContext(&generalHeap);
     Array<PerInstanceData> instanceData = MakeArray<PerInstanceData>(instanceCount, instanceCount, {});
@@ -209,6 +213,12 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     bindings[2].hBuffer = hInstanceDataBuffer;
     Handle<render::BindGroup> hBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, ARR_LEN(bindings), bindings);
 
+    render::ResourceBinding csBinding = {};
+    csBinding.resourceType = render::RESOURCE_STORAGE_BUFFER;
+    csBinding.stages = render::SHADER_TYPE_COMPUTE;
+    csBinding.hBuffer = hInstanceDataBuffer;
+    Handle<render::BindGroup> hCsBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, 1, &csBinding);
+
     // Main render pass (output will be copied to swap chain image)
     render::RenderPassDesc mainRenderPassDesc = {};
     mainRenderPassDesc.width = appWidth;
@@ -252,6 +262,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
             ARR_LEN(hGraphicsPipelineBindGroups),
             hGraphicsPipelineBindGroups);
 
+    // Compute pipeline
+    Handle<render::ComputePipeline> hComputePipelineDefault = render::MakeComputePipeline(hCsDefault, 1, &hCsBindGroup);
+
     //egui::Init(hRenderPassMain);
 
     i32 frame = 0;
@@ -289,11 +302,16 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         };
         render::CmdClearColorTexture(hCmd, hRenderPassMainOutput, clearColor.r, clearColor.g, clearColor.b, 1);
 
+        // Update colors with compute pass
+        render::CmdBindComputePipeline(hCmd, hComputePipelineDefault);
+        render::CmdBindComputeResources(hCmd, hCsBindGroup, 0, hComputePipelineDefault);
+        render::CmdDispatch(hCmd, instanceCount / 16, 1, 1);
+
         render::BeginRenderPass(hCmd, hRenderPassMain);
-        render::CmdBindPipeline(hCmd, hGraphicsPipelineDefault);
+        render::CmdBindGraphicsPipeline(hCmd, hGraphicsPipelineDefault);
         render::CmdSetViewport(hCmd, hRenderPassMain);
         render::CmdSetScissor(hCmd, hRenderPassMain);
-        render::CmdBindResources(hCmd, hBindGroup, 0, hGraphicsPipelineDefault);
+        render::CmdBindGraphicsResources(hCmd, hBindGroup, 0, hGraphicsPipelineDefault);
 
         // Draw all instances
         render::CmdBindVertexBuffer(hCmd, hSpotVB);
@@ -344,13 +362,15 @@ int main()
 
 // TODO(caio): CONTINUE
 // - Compute*
-//      > Compute shader
-//      > Dispatch command
 //      > Barrier between compute and draw (buffer needs to update before drawing)
+// - Fix unavailable command buffer assert bug
 // - Improving resource binding somehow?
 //      > IMPORTANT: Per frame resources and descriptors (e.g. per frame UBO copied from CPU every frame)
+//          > This might be better to just use offsets instead of one resource per frame
 //      > Push constants
 // - Dynamic uniform buffers with offsets?
+// - Upscale when resizing
+//      > Do a render to texture instead of blit?
 // - Make typheus into a submodule
 // - Draw indirect?
 // - Runtime shader compilation and shader hot reload
