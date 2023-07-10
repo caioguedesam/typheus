@@ -421,47 +421,69 @@ void MakeCommandBuffers()
 
         CommandBuffer result = {};
         result.vkHandle = commandBuffer;
+        result.vkFence = VK_NULL_HANDLE;
         result.state = COMMAND_BUFFER_IDLE;
         commandBuffers.Push(result);
     }
 }
 
-Handle<CommandBuffer> GetAvailableCommandBuffer(bool wait)
+Handle<CommandBuffer> GetAvailableCommandBuffer(CommandBufferType type, i32 frame)
 {
-    // First, update all command buffers from PENDING to IDLE
-    // based on vkGetFenceStatus. Inefficient, but only change if it matters.
+    VkFence resultFence;
+    VkResult ret;
+    if(type == COMMAND_BUFFER_FRAME)
+    {
+        // Frame command buffers wait for the frame's signal here before they start
+        // recording again.
+        resultFence = ctx.vkRenderFences[frame % RENDER_CONCURRENT_FRAMES];
+        ret = vkWaitForFences(ctx.vkDevice, 1, &resultFence, VK_TRUE, MAX_U64);
+        ASSERTVK(ret);
+    }
+    else if(type == COMMAND_BUFFER_IMMEDIATE)
+    {
+        // Immediate command buffers don't need waiting since they wait right after
+        // submit.
+        resultFence = ctx.vkImmediateFence;
+    }
+
+    // First look for an IDLE command buffer
     for(i32 i = 0; i < commandBuffers.count; i++)
     {
         CommandBuffer& commandBuffer = commandBuffers[i];
-        if(commandBuffer.state != COMMAND_BUFFER_PENDING) continue;
-
-        ASSERT(commandBuffer.vkFence != VK_NULL_HANDLE);
-        ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
-        VkResult ret = vkGetFenceStatus(ctx.vkDevice, commandBuffer.vkFence);
-        if(ret == VK_SUCCESS)   // Fence signaled, command buffer not pending.
+        if(commandBuffer.state == COMMAND_BUFFER_IDLE)
         {
-            LOGF("Command buffer %d is now available", i);
-            commandBuffer.state = COMMAND_BUFFER_IDLE;
-            commandBuffer.vkFence = VK_NULL_HANDLE;
-        }
-    }
-
-    // Then get any command buffer that is IDLE. Keep trying if wait is true.
-    while(true)
-    {
-        for(i32 i = 0; i < commandBuffers.count; i++)
-        {
-            CommandBuffer& commandBuffer = commandBuffers[i];
-            if(commandBuffer.state != COMMAND_BUFFER_IDLE) continue;
-
-            VkResult ret = vkResetCommandBuffer(commandBuffer.vkHandle, 0);
+            ret = vkResetCommandBuffer(commandBuffer.vkHandle, 0);
             ASSERTVK(ret);
-
-            LOGF("Returned available command buffer %d", i);
+            commandBuffer.vkFence = resultFence;
+            ret = vkResetFences(ctx.vkDevice, 1, &commandBuffer.vkFence);
+            ASSERTVK(ret);
             return { (u32)i };
         }
-        if(!wait) ASSERT(0);      // All command buffers occupied. Consider increasing buffer count.
     }
+
+    // If no IDLE command buffers left, look for a PENDING one which has already
+    // finished submission and should be IDLE.
+    for(i32 i = 0; i < commandBuffers.count; i++)
+    {
+        CommandBuffer& commandBuffer = commandBuffers[i];
+        if(commandBuffer.state == COMMAND_BUFFER_PENDING)
+        {
+            ASSERT(commandBuffer.vkFence);
+            ret = vkGetFenceStatus(ctx.vkDevice, commandBuffer.vkFence);
+            if(ret == VK_SUCCESS)
+            {
+                ret = vkResetCommandBuffer(commandBuffer.vkHandle, 0);
+                ASSERTVK(ret);
+                commandBuffer.vkFence = resultFence;
+                commandBuffer.state = COMMAND_BUFFER_IDLE;
+                ret = vkResetFences(ctx.vkDevice, 1, &commandBuffer.vkFence);
+                ASSERTVK(ret);
+                return { (u32)i };
+            }
+        }
+    }
+    
+    ASSERT(0);
     return {};
 }
 
@@ -1465,7 +1487,6 @@ void BeginCommandBuffer(Handle<CommandBuffer> hCmd)
 {
     ASSERT(hCmd.IsValid());
     CommandBuffer& cmd = commandBuffers[hCmd];
-    //ASSERT(cmd.isAvailable);
     ASSERT(cmd.state == COMMAND_BUFFER_IDLE);
 
     VkCommandBufferBeginInfo beginInfo = {};
@@ -1500,16 +1521,12 @@ void SubmitImmediate(Handle<CommandBuffer> hCmd)
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &cmd.vkHandle;
     
-    VkResult ret = vkQueueSubmit(ctx.vkCommandQueue, 1, &submitInfo, ctx.vkImmediateFence);
+    VkResult ret = vkQueueSubmit(ctx.vkCommandQueue, 1, &submitInfo, cmd.vkFence);
     ASSERTVK(ret);
-
-    ret = vkWaitForFences(ctx.vkDevice, 1, &ctx.vkImmediateFence, VK_TRUE, MAX_U64);
-    ASSERTVK(ret);
-    ret = vkResetFences(ctx.vkDevice, 1, &ctx.vkImmediateFence);
-    ASSERTVK(ret);
-
     cmd.state = COMMAND_BUFFER_PENDING;
-    cmd.vkFence = ctx.vkImmediateFence;
+
+    ret = vkWaitForFences(ctx.vkDevice, 1, &cmd.vkFence, VK_TRUE, MAX_U64);
+    ASSERTVK(ret);
 }
 
 void BeginRenderPass(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass)
@@ -1969,9 +1986,9 @@ void BeginFrame(u32 frame)
 {
     u32 inFlightFrame = frame % RENDER_CONCURRENT_FRAMES;
     
-    // Wait for last occurrence of frame to finish
-    VkFence fence = ctx.vkRenderFences[inFlightFrame];
-    vkWaitForFences(ctx.vkDevice, 1, &fence, VK_TRUE, MAX_U64);
+    //// Wait for last occurrence of frame to finish
+    //VkFence fence = ctx.vkRenderFences[inFlightFrame];
+    //vkWaitForFences(ctx.vkDevice, 1, &fence, VK_TRUE, MAX_U64);
 
     VkSemaphore presentSemaphore = ctx.vkPresentSemaphores[inFlightFrame];
     VkResult ret = vkAcquireNextImageKHR(ctx.vkDevice, swapChain.vkHandle, MAX_U64, presentSemaphore, VK_NULL_HANDLE, &swapChain.activeImage);
@@ -1982,8 +1999,8 @@ void BeginFrame(u32 frame)
     }
     else ASSERTVK(ret);
 
-    // Reset fence to start recording work
-    vkResetFences(ctx.vkDevice, 1, &fence);
+    // // Reset fence to start recording work
+    // vkResetFences(ctx.vkDevice, 1, &fence);
 }
 
 void EndFrame(u32 frame, Handle<CommandBuffer> hCmd)
@@ -2001,7 +2018,7 @@ void EndFrame(u32 frame, Handle<CommandBuffer> hCmd)
 
     VkSemaphore presentSemaphore = ctx.vkPresentSemaphores[inFlightFrame];
     VkSemaphore renderSemaphore = ctx.vkRenderSemaphores[inFlightFrame];
-    VkFence renderFence = ctx.vkRenderFences[inFlightFrame];
+    //VkFence renderFence = ctx.vkRenderFences[inFlightFrame];
     
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     submitInfo.pWaitDstStageMask = &waitStage;
@@ -2010,11 +2027,10 @@ void EndFrame(u32 frame, Handle<CommandBuffer> hCmd)
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = &renderSemaphore;
 
-    VkResult ret = vkQueueSubmit(ctx.vkCommandQueue, 1, &submitInfo, renderFence);
+    VkResult ret = vkQueueSubmit(ctx.vkCommandQueue, 1, &submitInfo, cmd.vkFence);
     ASSERTVK(ret);
 
     cmd.state = COMMAND_BUFFER_PENDING;
-    cmd.vkFence = renderFence;
 }
 
 void Present(u32 frame)

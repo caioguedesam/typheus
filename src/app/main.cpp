@@ -98,31 +98,31 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     Handle<render::Texture> hSpotTexture = render::MakeTexture(spotTextureDesc);
 
     //  Copy texture memory from CPU on staging buffer to GPU texture
-    Handle<render::CommandBuffer> hCmd = render::GetAvailableCommandBuffer();
-    render::BeginCommandBuffer(hCmd);
+    Handle<render::CommandBuffer> hUploadCmd = render::GetAvailableCommandBuffer(render::COMMAND_BUFFER_IMMEDIATE);
+    render::BeginCommandBuffer(hUploadCmd);
     render::Barrier barrier = {};
     barrier.srcAccess = render::MEMORY_ACCESS_NONE;
     barrier.dstAccess = render::MEMORY_ACCESS_TRANSFER_WRITE;
     barrier.srcStage = render::PIPELINE_STAGE_TOP;
     barrier.dstStage = render::PIPELINE_STAGE_TRANSFER;
     render::CmdPipelineBarrierTextureLayout(
-            hCmd,
+            hUploadCmd,
             hSpotTexture, 
             ty::render::IMAGE_LAYOUT_TRANSFER_DST,
             barrier);
-    render::CmdCopyBufferToTexture(hCmd, hSpotTextureStagingBuffer, hSpotTexture);
-    render::CmdGenerateMipmaps(hCmd, hSpotTexture);
+    render::CmdCopyBufferToTexture(hUploadCmd, hSpotTextureStagingBuffer, hSpotTexture);
+    render::CmdGenerateMipmaps(hUploadCmd, hSpotTexture);
     barrier.srcAccess = render::MEMORY_ACCESS_TRANSFER_WRITE;
     barrier.dstAccess = render::MEMORY_ACCESS_SHADER_READ;
     barrier.srcStage = render::PIPELINE_STAGE_TRANSFER;
     barrier.dstStage = render::PIPELINE_STAGE_FRAGMENT_SHADER;
     render::CmdPipelineBarrierTextureLayout(
-            hCmd,
+            hUploadCmd,
             hSpotTexture, 
             ty::render::IMAGE_LAYOUT_SHADER_READ_ONLY,
             barrier);
-    render::EndCommandBuffer(hCmd);
-    render::SubmitImmediate(hCmd);
+    render::EndCommandBuffer(hUploadCmd);
+    render::SubmitImmediate(hUploadCmd);
 
     // Default sampler
     render::SamplerDesc defaultSamplerDesc = {};
@@ -277,8 +277,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         window.PollMessages();
 
         // Frame setup
+        Handle<render::CommandBuffer> hCmd = render::GetAvailableCommandBuffer(render::COMMAND_BUFFER_FRAME, frame);
         render::BeginFrame(frame);
-        Handle<render::CommandBuffer> hCmd = render::GetAvailableCommandBuffer();
         render::BeginCommandBuffer(hCmd);
 
         //egui::BeginFrame();

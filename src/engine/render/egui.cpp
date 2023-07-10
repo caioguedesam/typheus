@@ -61,7 +61,7 @@ void Init(Handle<render::RenderPass> hRenderPass)
     ImGui_ImplVulkan_Init(&initInfo, render::renderPasses[hRenderPass].vkHandle);
 
     // Create font atlas texture for ImGui
-    Handle<render::CommandBuffer> hCmd = render::GetAvailableCommandBuffer();
+    Handle<render::CommandBuffer> hCmd = render::GetAvailableCommandBuffer(render::COMMAND_BUFFER_IMMEDIATE);
     render::BeginCommandBuffer(hCmd);
     ImGui_ImplVulkan_CreateFontsTexture(render::commandBuffers[hCmd].vkHandle);
     render::EndCommandBuffer(hCmd);

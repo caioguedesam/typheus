@@ -27,7 +27,7 @@ namespace render
 
 #define RENDER_CONTEXT_MEMORY MB(1)
 #define RENDER_CONCURRENT_FRAMES 2
-#define RENDER_MAX_COMMAND_BUFFERS 1024
+#define RENDER_MAX_COMMAND_BUFFERS 16
 #define RENDER_MAX_RENDER_PASSES 8
 #define RENDER_MAX_VERTEX_LAYOUTS 8
 #define RENDER_MAX_SHADERS 32
@@ -209,10 +209,15 @@ enum CommandBufferState
     COMMAND_BUFFER_PENDING,
 };
 
+enum CommandBufferType
+{
+    COMMAND_BUFFER_FRAME,
+    COMMAND_BUFFER_IMMEDIATE,
+};
+
 struct CommandBuffer
 {
     VkCommandBuffer vkHandle = VK_NULL_HANDLE;
-    //bool isAvailable = false;   // Not recording or submitting
     CommandBufferState state = COMMAND_BUFFER_INVALID;
     VkFence vkFence = VK_NULL_HANDLE;
 };
@@ -246,7 +251,7 @@ Context MakeContext(Window* window);
 void DestroyContext(Context* ctx);
 
 void MakeCommandBuffers();
-Handle<CommandBuffer> GetAvailableCommandBuffer(bool wait = false);
+Handle<CommandBuffer> GetAvailableCommandBuffer(CommandBufferType type, i32 frame = 0);
 
 struct SwapChain
 {
