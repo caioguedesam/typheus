@@ -34,7 +34,9 @@ namespace render
 #define RENDER_MAX_BUFFERS 256
 #define RENDER_MAX_TEXTURES 1024
 #define RENDER_MAX_SAMPLERS 16
-#define RENDER_MAX_RESOURCE_BINDING_SETS 256
+//#define RENDER_MAX_RESOURCE_BINDING_SETS 256
+#define RENDER_MAX_RESOURCE_SETS 256
+#define RENDER_MAX_RESOURCE_SET_LAYOUTS 256
 #define RENDER_MAX_GRAPHICS_PIPELINES 32
 #define RENDER_MAX_COMPUTE_PIPELINES 32
 
@@ -354,35 +356,70 @@ struct Sampler
 Handle<Sampler> MakeSampler(SamplerDesc desc);
 void DestroySampler(Sampler* sampler);
 
-// Each resource binding represents one of the resources bundled
-// in a BindGroup (descriptor set). The binding indices for
-// shader access are in order of appeareance in the bound BindGroup.
-struct ResourceBinding
+struct ResourceSetLayout
 {
-    ResourceType resourceType;
-    ShaderType stages;
+    struct Entry
+    {
+        ResourceType resourceType;
+        ShaderType shaderStages;
+        i32 bindingCount = 1;   // TODO(caio): Multiple descriptors per binding
+    };
 
-    // Relevant handles according to resource type will be valid,
-    // others not.
-    Handle<Buffer>  hBuffer;
-    Handle<Texture> hTexture;
-    Handle<Sampler> hSampler;
-};
-
-// Each resource bind group has a single descriptor set/layout.
-// The set is addressed by layout (set = n) when binding using
-// CmdBindResources with set n.
-struct BindGroup
-{
-    VkDescriptorSet vkDescriptorSet = VK_NULL_HANDLE;
     VkDescriptorSetLayout vkDescriptorSetLayout = VK_NULL_HANDLE;
-
-    ResourceBindingType bindingType;
-    Array<ResourceBinding> bindings;
+    Array<Entry> entries;
 };
 
-Handle<BindGroup> MakeBindGroup(ResourceBindingType type, u32 bindingCount, ResourceBinding* bindings);
-void DestroyBindGroup(BindGroup* bindGroup);
+Handle<ResourceSetLayout> MakeResourceSetLayout(i32 entryCount, ResourceSetLayout::Entry* entries);
+void DestroyResourceSetLayout(ResourceSetLayout* resourceSetLayout);
+
+struct ResourceSet
+{
+    struct Entry
+    {
+        i32 binding = -1;       // TODO(caio): Multiple descriptors per binding
+        ResourceType resourceType;
+
+        Handle<Buffer> hBuffer;
+        Handle<Texture> hTexture;
+        Handle<Sampler> hSampler;
+    };
+
+    VkDescriptorSet vkDescriptorSet = VK_NULL_HANDLE;
+    Array<Entry> resources;
+};
+
+Handle<ResourceSet> MakeResourceSet(Handle<ResourceSetLayout> hResourceSetLayout, i32 resourceCount, ResourceSet::Entry* resources);
+void DestroyResourceSet(ResourceSet* resourceSet);
+
+// // Each resource binding represents one of the resources bundled
+// // in a BindGroup (descriptor set). The binding indices for
+// // shader access are in order of appeareance in the bound BindGroup.
+// struct ResourceBinding
+// {
+//     ResourceType resourceType;
+//     ShaderType stages;
+// 
+//     // Relevant handles according to resource type will be valid,
+//     // others not.
+//     Handle<Buffer>  hBuffer;
+//     Handle<Texture> hTexture;
+//     Handle<Sampler> hSampler;
+// };
+// 
+// // Each resource bind group has a single descriptor set/layout.
+// // The set is addressed by layout (set = n) when binding using
+// // CmdBindResources with set n.
+// struct BindGroup
+// {
+//     VkDescriptorSet vkDescriptorSet = VK_NULL_HANDLE;
+//     VkDescriptorSetLayout vkDescriptorSetLayout = VK_NULL_HANDLE;
+// 
+//     ResourceBindingType bindingType;
+//     Array<ResourceBinding> bindings;
+// };
+// 
+// Handle<BindGroup> MakeBindGroup(ResourceBindingType type, u32 bindingCount, ResourceBinding* bindings);
+// void DestroyBindGroup(BindGroup* bindGroup);
 
 struct RenderPassDesc
 {
@@ -432,7 +469,7 @@ struct GraphicsPipeline
     GraphicsPipelineDesc desc = {};
 };
 
-Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, GraphicsPipelineDesc desc, u32 bindGroupCount, Handle<BindGroup>* hBindGroups);
+Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, GraphicsPipelineDesc desc, u32 resourceSetLayoutCount, Handle<ResourceSetLayout>* hResourceSetLayouts);
 void DestroyGraphicsPipeline(GraphicsPipeline* pipeline);
 
 struct ComputePipeline
@@ -443,7 +480,7 @@ struct ComputePipeline
     Handle<Shader> hShaderCompute;
 };
 
-Handle<ComputePipeline> MakeComputePipeline(Handle<Shader> hShaderCompute, u32 bindGroupCount, Handle<BindGroup>* hBindGroups);
+Handle<ComputePipeline> MakeComputePipeline(Handle<Shader> hShaderCompute, u32 resourceSetLayoutCount, Handle<ResourceSetLayout>* hResourceSetLayouts);
 void DestroyComputePipeline(ComputePipeline* pipeline);
 
 inline mem::HeapAllocator renderHeap;
@@ -457,7 +494,9 @@ inline Array<Shader> shaders;
 inline Array<Buffer> buffers;
 inline Array<Texture> textures;
 inline Array<Sampler> samplers;
-inline Array<BindGroup> bindGroups;
+//inline Array<BindGroup> bindGroups;
+inline Array<ResourceSetLayout> resourceSetLayouts;
+inline Array<ResourceSet> resourceSets;
 inline Array<GraphicsPipeline> graphicsPipelines;
 inline Array<ComputePipeline> computePipelines;
 
@@ -485,8 +524,8 @@ void CmdCopyBufferToTexture(Handle<CommandBuffer> hCmd, Handle<Buffer> hSrc, Han
 void CmdClearColorTexture(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, f32 r, f32 g, f32 b, f32 a);
 void CmdBindGraphicsPipeline(Handle<CommandBuffer> hCmd, Handle<GraphicsPipeline> hPipeline);
 void CmdBindComputePipeline(Handle<CommandBuffer> hCmd, Handle<ComputePipeline> hPipeline);
-void CmdBindGraphicsResources(Handle<CommandBuffer> hCmd, Handle<BindGroup> hBindGroup, u32 setIndex, Handle<GraphicsPipeline> hPipeline);
-void CmdBindComputeResources(Handle<CommandBuffer> hCmd, Handle<BindGroup> hBindGroup, u32 setIndex, Handle<ComputePipeline> hPipeline);
+void CmdBindGraphicsResources(Handle<CommandBuffer> hCmd, Handle<ResourceSet> hResourceSet, u32 resourceSetIndex, Handle<GraphicsPipeline> hPipeline);
+void CmdBindComputeResources(Handle<CommandBuffer> hCmd, Handle<ResourceSet> hResourceSet, u32 resourceSetIndex, Handle<ComputePipeline> hPipeline);
 void CmdSetViewport(Handle<CommandBuffer> hCmd, f32 offsetX, f32 offsetY, f32 width, f32 height, f32 minDepth = 0, f32 maxDepth = 1);
 void CmdSetViewport(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass);
 void CmdSetScissor(Handle<CommandBuffer> hCmd, i32 offsetX, i32 offsetY, i32 width, i32 height);

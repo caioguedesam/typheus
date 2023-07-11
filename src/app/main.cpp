@@ -198,27 +198,37 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
             sizeof(PerInstanceData), 
             instanceData.data);
 
-    // Resource bindings
-    render::ResourceBinding bindings[3];
-    bindings[0].resourceType = render::RESOURCE_UNIFORM_BUFFER;
-    bindings[0].stages = render::SHADER_TYPE_VERTEX;
-    bindings[0].hBuffer = hSceneDataBuffer;
-    bindings[1].resourceType = render::RESOURCE_SAMPLED_TEXTURE;
-    bindings[1].stages = render::SHADER_TYPE_PIXEL;
-    bindings[1].hTexture = hSpotTexture;
-    bindings[1].hSampler = hDefaultSampler;
-    bindings[2].resourceType = render::RESOURCE_STORAGE_BUFFER;
-    bindings[2].stages = ENUM_FLAGS(render::ShaderType,
-            render::SHADER_TYPE_VERTEX | render::SHADER_TYPE_PIXEL);
-    bindings[2].hBuffer = hInstanceDataBuffer;
-    Handle<render::BindGroup> hBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, ARR_LEN(bindings), bindings);
+    // Resource binding layouts
+    render::ResourceSetLayout::Entry resourceLayoutEntries[3];
+    resourceLayoutEntries[0].resourceType = render::RESOURCE_UNIFORM_BUFFER;
+    resourceLayoutEntries[0].shaderStages = render::SHADER_TYPE_VERTEX;
+    resourceLayoutEntries[1].resourceType = render::RESOURCE_SAMPLED_TEXTURE;
+    resourceLayoutEntries[1].shaderStages = render::SHADER_TYPE_PIXEL;
+    resourceLayoutEntries[2].resourceType = render::RESOURCE_STORAGE_BUFFER;
+    resourceLayoutEntries[2].shaderStages = ENUM_FLAGS(render::ShaderType, render::SHADER_TYPE_VERTEX | render::SHADER_TYPE_PIXEL);
+    Handle<render::ResourceSetLayout> hMainRenderPassResourceLayout = render::MakeResourceSetLayout(3, resourceLayoutEntries);
+    resourceLayoutEntries[0].resourceType = render::RESOURCE_STORAGE_BUFFER;
+    resourceLayoutEntries[0].shaderStages = render::SHADER_TYPE_COMPUTE;
+    Handle<render::ResourceSetLayout> hComputePassResourceLayout = render::MakeResourceSetLayout(1, resourceLayoutEntries);
 
-    render::ResourceBinding csBinding = {};
-    csBinding.resourceType = render::RESOURCE_STORAGE_BUFFER;
-    csBinding.stages = render::SHADER_TYPE_COMPUTE;
-    csBinding.hBuffer = hInstanceDataBuffer;
-    Handle<render::BindGroup> hCsBindGroup = render::MakeBindGroup(render::RESOURCE_BINDING_STATIC, 1, &csBinding);
-
+    // Resource binding sets
+    render::ResourceSet::Entry resourceSetEntries[3];
+    resourceSetEntries[0].binding = 0;
+    resourceSetEntries[0].resourceType = render::RESOURCE_UNIFORM_BUFFER;
+    resourceSetEntries[0].hBuffer = hSceneDataBuffer;
+    resourceSetEntries[1].binding = 1;
+    resourceSetEntries[1].resourceType = render::RESOURCE_SAMPLED_TEXTURE;
+    resourceSetEntries[1].hTexture = hSpotTexture;
+    resourceSetEntries[1].hSampler = hDefaultSampler;
+    resourceSetEntries[2].binding = 2;
+    resourceSetEntries[2].resourceType = render::RESOURCE_STORAGE_BUFFER;
+    resourceSetEntries[2].hBuffer = hInstanceDataBuffer;
+    Handle<render::ResourceSet> hMainRenderPassResources = render::MakeResourceSet(hMainRenderPassResourceLayout, 3, resourceSetEntries);
+    resourceSetEntries[0].binding = 0;
+    resourceSetEntries[0].resourceType = render::RESOURCE_STORAGE_BUFFER;
+    resourceSetEntries[0].hBuffer = hInstanceDataBuffer;
+    Handle<render::ResourceSet> hComputePassResources = render::MakeResourceSet(hComputePassResourceLayout, 1, resourceSetEntries);
+    
     // Main render pass (output will be copied to swap chain image)
     render::RenderPassDesc mainRenderPassDesc = {};
     mainRenderPassDesc.width = appWidth;
@@ -250,20 +260,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     defaultPipelineDesc.cullMode = render::CULL_MODE_BACK;
     defaultPipelineDesc.primitive = render::PRIMITIVE_TRIANGLE_LIST;
     defaultPipelineDesc.fillMode = render::FILL_MODE_SOLID;
-    Handle<render::BindGroup> hGraphicsPipelineBindGroups[] =
-    {
-        //TODO(caio): I feel there might be a better way to set "compatible"
-        //bind group layouts instead of passing bind groups directly
-        //(hCube1DataBindGroup is compatible with hCube2DataBindGroup)
-        hBindGroup,
-    };
     Handle<render::GraphicsPipeline> hGraphicsPipelineDefault = render::MakeGraphicsPipeline(hRenderPassMain,
             defaultPipelineDesc,
-            ARR_LEN(hGraphicsPipelineBindGroups),
-            hGraphicsPipelineBindGroups);
+            1,
+            &hMainRenderPassResourceLayout);
 
     // Compute pipeline
-    Handle<render::ComputePipeline> hComputePipelineDefault = render::MakeComputePipeline(hCsDefault, 1, &hCsBindGroup);
+    Handle<render::ComputePipeline> hComputePipelineDefault = render::MakeComputePipeline(hCsDefault, 1, &hComputePassResourceLayout);
 
     //egui::Init(hRenderPassMain);
 
@@ -304,14 +307,14 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
 
         // Update colors with compute pass
         render::CmdBindComputePipeline(hCmd, hComputePipelineDefault);
-        render::CmdBindComputeResources(hCmd, hCsBindGroup, 0, hComputePipelineDefault);
+        render::CmdBindComputeResources(hCmd, hComputePassResources, 0, hComputePipelineDefault);
         render::CmdDispatch(hCmd, instanceCount / 16, 1, 1);
 
         render::BeginRenderPass(hCmd, hRenderPassMain);
         render::CmdBindGraphicsPipeline(hCmd, hGraphicsPipelineDefault);
         render::CmdSetViewport(hCmd, hRenderPassMain);
         render::CmdSetScissor(hCmd, hRenderPassMain);
-        render::CmdBindGraphicsResources(hCmd, hBindGroup, 0, hGraphicsPipelineDefault);
+        render::CmdBindGraphicsResources(hCmd, hMainRenderPassResources, 0, hGraphicsPipelineDefault);
 
         // Draw all instances
         render::CmdBindVertexBuffer(hCmd, hSpotVB);
@@ -361,18 +364,17 @@ int main()
 }
 
 // TODO(caio): CONTINUE
-// - Compute*
-//      > Barrier between compute and draw (buffer needs to update before drawing)
-// - Fix unavailable command buffer assert bug
-// - Improving resource binding somehow?
-//      > IMPORTANT: Per frame resources and descriptors (e.g. per frame UBO copied from CPU every frame)
-//          > This might be better to just use offsets instead of one resource per frame
+// - Compute
+//      > Implement general resource barrier
+//      > Insert barrier between compute write and draw read (buffer needs to update before drawing)
+// - Improving resource binding
+//      > Separation between binding layouts and sets**
 //      > Push constants
-// - Dynamic uniform buffers with offsets?
-// - Upscale when resizing
+//      > Dynamic binding
+//      > Buffer offsets
+// - Upscale when resizing (maximizing)
 //      > Do a render to texture instead of blit?
 // - Make typheus into a submodule
 // - Draw indirect?
 // - Runtime shader compilation and shader hot reload
 //      > Will likely need to change asset lib a little
-// - Window maximizing (vkCmdBlitImage can't upscale)

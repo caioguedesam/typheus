@@ -68,7 +68,9 @@ void Init(Window* window)
     buffers = MakeArray<Buffer>(RENDER_MAX_BUFFERS);
     textures = MakeArray<Texture>(RENDER_MAX_TEXTURES);
     samplers = MakeArray<Sampler>(RENDER_MAX_SAMPLERS);
-    bindGroups = MakeArray<BindGroup>(RENDER_MAX_RESOURCE_BINDING_SETS);
+    //bindGroups = MakeArray<BindGroup>(RENDER_MAX_RESOURCE_BINDING_SETS);
+    resourceSetLayouts = MakeArray<ResourceSetLayout>(RENDER_MAX_RESOURCE_SET_LAYOUTS);
+    resourceSets = MakeArray<ResourceSet>(RENDER_MAX_RESOURCE_SETS);
     graphicsPipelines = MakeArray<GraphicsPipeline>(RENDER_MAX_GRAPHICS_PIPELINES);
     computePipelines = MakeArray<ComputePipeline>(RENDER_MAX_COMPUTE_PIPELINES);
 
@@ -104,9 +106,13 @@ void Shutdown()
     {
         DestroySampler(&samplers[i]);
     }
-    for(i32 i = 0; i < bindGroups.count; i++)
+    for(i32 i = 0; i < resourceSetLayouts.count; i++)
     {
-        DestroyBindGroup(&bindGroups[i]);
+        DestroyResourceSetLayout(&resourceSetLayouts[i]);
+    }
+    for(i32 i = 0; i < resourceSets.count; i++)
+    {
+        DestroyResourceSet(&resourceSets[i]);
     }
     for(i32 i = 0; i < graphicsPipelines.count; i++)
     {
@@ -122,7 +128,8 @@ void Shutdown()
     DestroyArray(&shaders);
     DestroyArray(&buffers);
     DestroyArray(&textures);
-    DestroyArray(&bindGroups);
+    DestroyArray(&resourceSetLayouts);
+    DestroyArray(&resourceSets);
     DestroyArray(&graphicsPipelines);
     DestroyArray(&computePipelines);
 
@@ -1165,127 +1172,137 @@ void DestroySampler(Sampler* sampler)
     *sampler = {};
 }
 
-Handle<BindGroup> MakeBindGroup(ResourceBindingType type, u32 bindingCount, ResourceBinding* bindings)
+Handle<ResourceSetLayout> MakeResourceSetLayout(i32 entryCount, ResourceSetLayout::Entry *entries)
 {
-    ASSERT(ctx.vkDevice != VK_NULL_HANDLE && ctx.vkDescriptorPool != VK_NULL_HANDLE);
+    ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
     mem::SetContext(&renderHeap);
 
-    // Creating descriptor set layout
-    VkDescriptorSetLayoutBinding vkLayoutBindings[bindingCount];
-    for(i32 i = 0; i < bindingCount; i++)
+    VkDescriptorSetLayoutBinding vkLayoutBindings[entryCount];
+    for(i32 i = 0; i < entryCount; i++)
     {
-        ResourceBinding binding = bindings[i];
-        
-        VkDescriptorSetLayoutBinding vkLayoutBinding = {};
-        vkLayoutBinding.binding = i;
-        vkLayoutBinding.descriptorCount = 1; //TODO(caio): Change this when needed for arrays of uniform buffers and such
-        vkLayoutBinding.stageFlags = binding.stages;
-        vkLayoutBinding.descriptorType = (VkDescriptorType)binding.resourceType;
-
-        vkLayoutBindings[i] = vkLayoutBinding;
+        ResourceSetLayout::Entry entry = entries[i];
+        VkDescriptorSetLayoutBinding vkBinding = {};
+        vkBinding.binding = i;
+        vkBinding.stageFlags = entry.shaderStages;
+        vkBinding.descriptorType = (VkDescriptorType)entry.resourceType;
+        vkBinding.descriptorCount = 1;  // TODO(caio): Multiple descriptors per binding
+        vkLayoutBindings[i] = vkBinding;
     }
-    VkDescriptorSetLayoutCreateInfo vkLayoutInfo = {};
-    vkLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    vkLayoutInfo.bindingCount = bindingCount;
-    vkLayoutInfo.pBindings = vkLayoutBindings;
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = entryCount;
+    layoutInfo.pBindings = vkLayoutBindings;
     VkDescriptorSetLayout vkLayout;
-    VkResult ret = vkCreateDescriptorSetLayout(ctx.vkDevice, &vkLayoutInfo, NULL, &vkLayout);
+    VkResult ret = vkCreateDescriptorSetLayout(ctx.vkDevice, &layoutInfo, NULL, &vkLayout);
     ASSERTVK(ret);
 
-    // Allocating descriptor set
+    ResourceSetLayout result = {};
+    result.vkDescriptorSetLayout = vkLayout;
+    result.entries = MakeArray<ResourceSetLayout::Entry>(entryCount);
+    for(i32 i = 0; i < entryCount; i++)
+    {
+        result.entries.Push(entries[i]);
+    }
+
+    resourceSetLayouts.Push(result);
+    return { (u32)resourceSetLayouts.count - 1 };
+}
+
+void DestroyResourceSetLayout(ResourceSetLayout *resourceSetLayout)
+{
+    ASSERT(resourceSetLayout);
+    ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
+    vkDestroyDescriptorSetLayout(ctx.vkDevice, resourceSetLayout->vkDescriptorSetLayout, NULL);
+    DestroyArray(&resourceSetLayout->entries);
+    *resourceSetLayout = {};
+}
+
+Handle<ResourceSet> MakeResourceSet(Handle<ResourceSetLayout> hResourceSetLayout, i32 resourceCount, ResourceSet::Entry *resources)
+{
+    ASSERT(hResourceSetLayout.IsValid());
+    ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
+    mem::SetContext(&renderHeap);
+    ResourceSetLayout& layout = resourceSetLayouts[hResourceSetLayout];
+
     VkDescriptorSetAllocateInfo vkDescriptorSetAllocInfo = {};
     vkDescriptorSetAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     vkDescriptorSetAllocInfo.descriptorPool = ctx.vkDescriptorPool;
     vkDescriptorSetAllocInfo.descriptorSetCount = 1;
-    vkDescriptorSetAllocInfo.pSetLayouts = &vkLayout;
+    vkDescriptorSetAllocInfo.pSetLayouts = &layout.vkDescriptorSetLayout;
     VkDescriptorSet vkDescriptorSet;
-    ret = vkAllocateDescriptorSets(ctx.vkDevice, &vkDescriptorSetAllocInfo, &vkDescriptorSet);
+    VkResult ret = vkAllocateDescriptorSets(ctx.vkDevice, &vkDescriptorSetAllocInfo, &vkDescriptorSet);
     ASSERTVK(ret);
 
-    // Binding descriptor set to each resource specified in bindings
-    VkWriteDescriptorSet    vkDescriptorSetWrites[bindingCount];
-    VkDescriptorBufferInfo  bufferResourceInfos[bindingCount];
-    VkDescriptorImageInfo   imageResourceInfos[bindingCount];
-    for(i32 i = 0; i < bindingCount; i++)
+    VkWriteDescriptorSet vkDescriptorSetWrites[resourceCount];
+    VkDescriptorBufferInfo bufferInfos[resourceCount];
+    VkDescriptorImageInfo imageInfos[resourceCount];
+    for(i32 i = 0; i < resourceCount; i++)
     {
-        ResourceBinding binding = bindings[i];
-        if(binding.resourceType == RESOURCE_UNIFORM_BUFFER || binding.resourceType == RESOURCE_STORAGE_BUFFER)
+        ResourceSet::Entry resource = resources[i];
+        VkWriteDescriptorSet write = {};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = vkDescriptorSet;
+        write.dstBinding = resource.binding;
+        write.descriptorCount = 1;
+        write.descriptorType = (VkDescriptorType)resource.resourceType;
+        switch(resource.resourceType)
         {
-            Handle<Buffer> hBuffer = binding.hBuffer;
-            ASSERT(hBuffer.IsValid());
-            Buffer& resource = buffers[hBuffer];
+            case RESOURCE_UNIFORM_BUFFER:
+            case RESOURCE_STORAGE_BUFFER:
+            {
+                ASSERT(resource.hBuffer.IsValid());
+                Buffer& buffer = buffers[resource.hBuffer];
 
-            VkDescriptorBufferInfo* resourceInfo = &bufferResourceInfos[i];
-            *resourceInfo = {};
-            resourceInfo->buffer = resource.vkHandle;
-            resourceInfo->offset = 0;
-            resourceInfo->range = resource.size;
+                VkDescriptorBufferInfo* bufferInfo = &bufferInfos[i];
+                *bufferInfo = {};
+                bufferInfo->buffer = buffer.vkHandle;
+                bufferInfo->offset = 0;
+                bufferInfo->range = buffer.size;
 
-            VkWriteDescriptorSet write = {};
-            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write.dstBinding = i;
-            write.dstSet = vkDescriptorSet;
-            write.descriptorCount = 1;
-            write.descriptorType = (VkDescriptorType)binding.resourceType;
-            write.pBufferInfo = resourceInfo;
+                write.pBufferInfo = bufferInfo;
+            } break;
+            case RESOURCE_SAMPLED_TEXTURE:
+            {
+                ASSERT(resource.hTexture.IsValid());
+                ASSERT(resource.hSampler.IsValid());
+                Texture& texture = textures[resource.hTexture];
+                Sampler& sampler = samplers[resource.hSampler];
 
-            vkDescriptorSetWrites[i] = write;
+                VkDescriptorImageInfo* imageInfo = &imageInfos[i];
+                *imageInfo = {};
+                imageInfo->imageView = texture.vkImageView;
+                imageInfo->sampler = sampler.vkHandle;
+                imageInfo->imageLayout = (VkImageLayout)texture.desc.layout;
+
+                write.pImageInfo = imageInfo;
+            } break;
+            default: ASSERT(0);
         }
-        else if(binding.resourceType == RESOURCE_SAMPLED_TEXTURE)
-        {
-            Handle<Texture> hTexture = binding.hTexture;
-            ASSERT(hTexture.IsValid());
-            Handle<Sampler> hSampler = binding.hSampler;
-            ASSERT(hSampler.IsValid());
-            Texture& resource = textures[hTexture];
-            Sampler& sampler = samplers[hSampler];
-
-            VkDescriptorImageInfo* resourceInfo = &imageResourceInfos[i];
-            *resourceInfo = {};
-            resourceInfo->imageView = resource.vkImageView;
-            resourceInfo->sampler = sampler.vkHandle;
-            resourceInfo->imageLayout = (VkImageLayout)resource.desc.layout;
-
-            VkWriteDescriptorSet write = {};
-            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write.dstBinding = i;
-            write.dstSet = vkDescriptorSet;
-            write.descriptorCount = 1;
-            write.descriptorType = (VkDescriptorType)binding.resourceType;
-            write.pImageInfo = resourceInfo;
-
-            vkDescriptorSetWrites[i] = write;
-        }
-        else ASSERT(0);
+        vkDescriptorSetWrites[i] = write;
     }
-    vkUpdateDescriptorSets(ctx.vkDevice, bindingCount, vkDescriptorSetWrites, 0, NULL);
+    vkUpdateDescriptorSets(ctx.vkDevice, resourceCount, vkDescriptorSetWrites, 0, NULL);
 
-    BindGroup result = {};
-    result.vkDescriptorSetLayout = vkLayout;
+    ResourceSet result = {};
     result.vkDescriptorSet = vkDescriptorSet;
-    result.bindingType = type;
-    result.bindings = MakeArray<ResourceBinding>(bindingCount);
-    for(i32 i = 0; i < bindingCount; i++)
+    result.resources = MakeArray<ResourceSet::Entry>(resourceCount);
+    for(i32 i = 0; i < resourceCount; i++)
     {
-        result.bindings.Push(bindings[i]);
+        result.resources.Push(resources[i]);
     }
 
-    bindGroups.Push(result);
-    return { (u32)bindGroups.count - 1 };
+    resourceSets.Push(result);
+    return { (u32)resourceSets.count - 1 };
 }
 
-void DestroyBindGroup(BindGroup* set)
+void DestroyResourceSet(ResourceSet *resourceSet)
 {
-    ASSERT(set);
+    ASSERT(resourceSet);
     ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
-    vkDestroyDescriptorSetLayout(ctx.vkDevice, set->vkDescriptorSetLayout, NULL);
-    *set = {};
+    DestroyArray(&resourceSet->resources);
+    *resourceSet = {};
 }
 
-// TODO(caio): I don't like passing bind groups to here, since it just uses layouts,
-// so pipeline can be compatible with different bind groups at appropriate slots.
-// Figure something out.
-Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, GraphicsPipelineDesc desc, u32 bindGroupCount, Handle<BindGroup>* hBindGroups)
+Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, GraphicsPipelineDesc desc, u32 resourceSetLayoutCount, Handle<ResourceSetLayout>* hResourceSetLayouts)
 {
     ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
 
@@ -1375,17 +1392,17 @@ Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, Gr
     depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
     depthStencilInfo.stencilTestEnable = VK_FALSE;
 
-    VkDescriptorSetLayout descriptorSetLayouts[bindGroupCount];
-    for(i32 i = 0; i < bindGroupCount; i++)
+    VkDescriptorSetLayout descriptorSetLayouts[resourceSetLayoutCount];
+    for(i32 i = 0; i < resourceSetLayoutCount; i++)
     {
-        ASSERT(hBindGroups[i].IsValid());
-        BindGroup& bindGroup = bindGroups[hBindGroups[i]];
-        descriptorSetLayouts[i] = bindGroup.vkDescriptorSetLayout;
+        ASSERT(hResourceSetLayouts[i].IsValid());
+        ResourceSetLayout& layout = resourceSetLayouts[hResourceSetLayouts[i]];
+        descriptorSetLayouts[i] = layout.vkDescriptorSetLayout;
     }
 
     VkPipelineLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    layoutInfo.setLayoutCount = bindGroupCount;
+    layoutInfo.setLayoutCount = resourceSetLayoutCount;
     layoutInfo.pSetLayouts = descriptorSetLayouts;
     layoutInfo.pushConstantRangeCount = 0;  // TODO(caio): Push constants
     layoutInfo.pPushConstantRanges = NULL;
@@ -1428,7 +1445,7 @@ void DestroyGraphicsPipeline(GraphicsPipeline* pipeline)
     vkDestroyPipeline(ctx.vkDevice, pipeline->vkPipeline, NULL);
 }
 
-Handle<ComputePipeline> MakeComputePipeline(Handle<Shader> hShaderCompute, u32 bindGroupCount, Handle<BindGroup>* hBindGroups)
+Handle<ComputePipeline> MakeComputePipeline(Handle<Shader> hShaderCompute, u32 resourceSetLayoutCount, Handle<ResourceSetLayout>* hResourceSetLayouts)
 { 
     Shader& cs = shaders[hShaderCompute];
     ASSERT(cs.type == SHADER_TYPE_COMPUTE);
@@ -1440,17 +1457,17 @@ Handle<ComputePipeline> MakeComputePipeline(Handle<Shader> hShaderCompute, u32 b
     csStageInfo.module = cs.vkShaderModule;
     csStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    VkDescriptorSetLayout descriptorSetLayouts[bindGroupCount];
-    for(i32 i = 0; i < bindGroupCount; i++)
+    VkDescriptorSetLayout descriptorSetLayouts[resourceSetLayoutCount];
+    for(i32 i = 0; i < resourceSetLayoutCount; i++)
     {
-        ASSERT(hBindGroups[i].IsValid());
-        BindGroup& bindGroup = bindGroups[hBindGroups[i]];
-        descriptorSetLayouts[i] = bindGroup.vkDescriptorSetLayout;
+        ASSERT(hResourceSetLayouts[i].IsValid());
+        ResourceSetLayout& layout = resourceSetLayouts[hResourceSetLayouts[i]];
+        descriptorSetLayouts[i] = layout.vkDescriptorSetLayout;
     }
 
     VkPipelineLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    layoutInfo.setLayoutCount = bindGroupCount;
+    layoutInfo.setLayoutCount = resourceSetLayoutCount;
     layoutInfo.pSetLayouts = descriptorSetLayouts;
     layoutInfo.pushConstantRangeCount = 0;  // TODO(caio): Push constants
     layoutInfo.pPushConstantRanges = NULL;
@@ -1870,34 +1887,34 @@ void CmdBindComputePipeline(Handle<CommandBuffer> hCmd, Handle<ComputePipeline> 
     vkCmdBindPipeline(cmd.vkHandle, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.vkPipeline);
 }
 
-void CmdBindGraphicsResources(Handle<CommandBuffer> hCmd, Handle<BindGroup> hBindGroup, u32 setIndex, Handle<GraphicsPipeline> hPipeline)
+void CmdBindGraphicsResources(Handle<CommandBuffer> hCmd, Handle<ResourceSet> hResourceSet, u32 resourceSetIndex, Handle<GraphicsPipeline> hPipeline)
 {
-    ASSERT(hCmd.IsValid() && hBindGroup.IsValid() && hPipeline.IsValid());
+    ASSERT(hCmd.IsValid() && hResourceSet.IsValid() && hPipeline.IsValid());
     CommandBuffer& cmd = commandBuffers[hCmd];
-    BindGroup& bindGroup = bindGroups[hBindGroup];
+    ResourceSet& resourceSet = resourceSets[hResourceSet];
     GraphicsPipeline& pipeline = graphicsPipelines[hPipeline];
     vkCmdBindDescriptorSets(cmd.vkHandle, 
             VK_PIPELINE_BIND_POINT_GRAPHICS, 
             pipeline.vkPipelineLayout, 
-            setIndex, 
+            resourceSetIndex, 
             1, 
-            &bindGroup.vkDescriptorSet,
+            &resourceSet.vkDescriptorSet,
             0,
             NULL);
 }
 
-void CmdBindComputeResources(Handle<CommandBuffer> hCmd, Handle<BindGroup> hBindGroup, u32 setIndex, Handle<ComputePipeline> hPipeline)
+void CmdBindComputeResources(Handle<CommandBuffer> hCmd, Handle<ResourceSet> hResourceSet, u32 resourceSetIndex, Handle<ComputePipeline> hPipeline)
 {
-    ASSERT(hCmd.IsValid() && hBindGroup.IsValid() && hPipeline.IsValid());
+    ASSERT(hCmd.IsValid() && hResourceSet.IsValid() && hPipeline.IsValid());
     CommandBuffer& cmd = commandBuffers[hCmd];
-    BindGroup& bindGroup = bindGroups[hBindGroup];
+    ResourceSet& resourceSet = resourceSets[hResourceSet];
     ComputePipeline& pipeline = computePipelines[hPipeline];
     vkCmdBindDescriptorSets(cmd.vkHandle, 
             VK_PIPELINE_BIND_POINT_COMPUTE, 
             pipeline.vkPipelineLayout, 
-            setIndex, 
+            resourceSetIndex, 
             1, 
-            &bindGroup.vkDescriptorSet,
+            &resourceSet.vkDescriptorSet,
             0,
             NULL);
 }
