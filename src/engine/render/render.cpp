@@ -1612,6 +1612,19 @@ void EndRenderPass(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass)
     depthOutput.desc.layout = IMAGE_LAYOUT_DEPTH_STENCIL_OUTPUT;
 }
 
+void CmdPipelineBarrier(Handle<CommandBuffer> hCmd, Barrier barrier)
+{
+    ASSERT(hCmd.IsValid());
+    CommandBuffer& cmd = commandBuffers[hCmd];
+
+    VkMemoryBarrier vkBarrier = {};
+    vkBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    vkBarrier.srcAccessMask = (VkAccessFlags)barrier.srcAccess;
+    vkBarrier.dstAccessMask = (VkAccessFlags)barrier.dstAccess;
+
+    vkCmdPipelineBarrier(cmd.vkHandle, (VkPipelineStageFlags)barrier.srcStage, (VkPipelineStageFlags)barrier.dstStage, 0,
+            1, &vkBarrier, 0, NULL, 0, NULL);
+}
 
 void CmdPipelineBarrierTextureLayout(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, ImageLayout newLayout, Barrier barrier)
 {
@@ -1643,7 +1656,8 @@ void CmdPipelineBarrierTextureLayout(Handle<CommandBuffer> hCmd, Handle<Texture>
     vkBarrier.srcAccessMask = (VkAccessFlags)barrier.srcAccess;
     vkBarrier.dstAccessMask = (VkAccessFlags)barrier.dstAccess;
 
-    vkCmdPipelineBarrier(cmd.vkHandle, (VkPipelineStageFlags)barrier.srcStage, (VkPipelineStageFlags)barrier.dstStage, 0, 0, NULL, 0, NULL, 1, &vkBarrier);
+    vkCmdPipelineBarrier(cmd.vkHandle, (VkPipelineStageFlags)barrier.srcStage, (VkPipelineStageFlags)barrier.dstStage, 0,
+            0, NULL, 0, NULL, 1, &vkBarrier);
 
     texture.desc.layout = newLayout;
 }

@@ -310,6 +310,12 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         render::CmdBindComputeResources(hCmd, hComputePassResources, 0, hComputePipelineDefault);
         render::CmdDispatch(hCmd, instanceCount / 16, 1, 1);
 
+        barrier.srcAccess = render::MEMORY_ACCESS_SHADER_WRITE;
+        barrier.srcStage = render::PIPELINE_STAGE_COMPUTE_SHADER;
+        barrier.dstAccess = render::MEMORY_ACCESS_SHADER_READ;
+        barrier.dstStage = render::PIPELINE_STAGE_VERTEX_SHADER;
+        render::CmdPipelineBarrier(hCmd, barrier);
+
         render::BeginRenderPass(hCmd, hRenderPassMain);
         render::CmdBindGraphicsPipeline(hCmd, hGraphicsPipelineDefault);
         render::CmdSetViewport(hCmd, hRenderPassMain);

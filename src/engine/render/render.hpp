@@ -138,12 +138,6 @@ enum ResourceType
     RESOURCE_SAMPLED_TEXTURE            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 };
 
-enum ResourceBindingType
-{
-    RESOURCE_BINDING_STATIC,
-    RESOURCE_BINDING_DYNAMIC,
-};
-
 enum Primitive
 {
     PRIMITIVE_TRIANGLE_LIST     = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
@@ -391,36 +385,6 @@ struct ResourceSet
 Handle<ResourceSet> MakeResourceSet(Handle<ResourceSetLayout> hResourceSetLayout, i32 resourceCount, ResourceSet::Entry* resources);
 void DestroyResourceSet(ResourceSet* resourceSet);
 
-// // Each resource binding represents one of the resources bundled
-// // in a BindGroup (descriptor set). The binding indices for
-// // shader access are in order of appeareance in the bound BindGroup.
-// struct ResourceBinding
-// {
-//     ResourceType resourceType;
-//     ShaderType stages;
-// 
-//     // Relevant handles according to resource type will be valid,
-//     // others not.
-//     Handle<Buffer>  hBuffer;
-//     Handle<Texture> hTexture;
-//     Handle<Sampler> hSampler;
-// };
-// 
-// // Each resource bind group has a single descriptor set/layout.
-// // The set is addressed by layout (set = n) when binding using
-// // CmdBindResources with set n.
-// struct BindGroup
-// {
-//     VkDescriptorSet vkDescriptorSet = VK_NULL_HANDLE;
-//     VkDescriptorSetLayout vkDescriptorSetLayout = VK_NULL_HANDLE;
-// 
-//     ResourceBindingType bindingType;
-//     Array<ResourceBinding> bindings;
-// };
-// 
-// Handle<BindGroup> MakeBindGroup(ResourceBindingType type, u32 bindingCount, ResourceBinding* bindings);
-// void DestroyBindGroup(BindGroup* bindGroup);
-
 struct RenderPassDesc
 {
     u32         width           = 0;
@@ -514,6 +478,7 @@ void BeginFrame(u32 frame);
 void EndFrame(u32 frame, Handle<CommandBuffer> hCmd);
 void Present(u32 frame);
 
+void CmdPipelineBarrier(Handle<CommandBuffer> hCmd, Barrier barrier);
 void CmdPipelineBarrierTextureLayout(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, ImageLayout newLayout, Barrier barrier);
 //TODO(caio): Should I have each mip's layout tracked? So both these commands can't break
 void CmdPipelineBarrierTextureMipLayout(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, ImageLayout oldLayout, ImageLayout newLayout, Barrier barrier, u32 mipLevel);
