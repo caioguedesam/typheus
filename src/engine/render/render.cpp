@@ -1400,12 +1400,20 @@ Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, Gr
         descriptorSetLayouts[i] = layout.vkDescriptorSetLayout;
     }
 
+    VkPushConstantRange vkPushConstantRanges[RENDER_MAX_PUSH_CONSTANT_RANGES];
+    for(i32 i = 0; i < desc.pushConstantRangeCount; i++)
+    {
+        vkPushConstantRanges[i].offset = desc.pushConstantRanges[i].offset;
+        vkPushConstantRanges[i].size = desc.pushConstantRanges[i].size;
+        vkPushConstantRanges[i].stageFlags = (VkShaderStageFlags)desc.pushConstantRanges[i].shaderStages;
+    }
+
     VkPipelineLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layoutInfo.setLayoutCount = resourceSetLayoutCount;
     layoutInfo.pSetLayouts = descriptorSetLayouts;
-    layoutInfo.pushConstantRangeCount = 0;  // TODO(caio): Push constants
-    layoutInfo.pPushConstantRanges = NULL;
+    layoutInfo.pushConstantRangeCount = desc.pushConstantRangeCount;
+    layoutInfo.pPushConstantRanges = vkPushConstantRanges;
     VkPipelineLayout pipelineLayout;
     VkResult ret = vkCreatePipelineLayout(ctx.vkDevice, &layoutInfo, NULL, &pipelineLayout);
     ASSERTVK(ret);
@@ -1445,9 +1453,9 @@ void DestroyGraphicsPipeline(GraphicsPipeline* pipeline)
     vkDestroyPipeline(ctx.vkDevice, pipeline->vkPipeline, NULL);
 }
 
-Handle<ComputePipeline> MakeComputePipeline(Handle<Shader> hShaderCompute, u32 resourceSetLayoutCount, Handle<ResourceSetLayout>* hResourceSetLayouts)
+Handle<ComputePipeline> MakeComputePipeline(ComputePipelineDesc desc, u32 resourceSetLayoutCount, Handle<ResourceSetLayout>* hResourceSetLayouts)
 { 
-    Shader& cs = shaders[hShaderCompute];
+    Shader& cs = shaders[desc.hShaderCompute];
     ASSERT(cs.type == SHADER_TYPE_COMPUTE);
 
     // Shader stages
@@ -1465,12 +1473,20 @@ Handle<ComputePipeline> MakeComputePipeline(Handle<Shader> hShaderCompute, u32 r
         descriptorSetLayouts[i] = layout.vkDescriptorSetLayout;
     }
 
+    VkPushConstantRange vkPushConstantRanges[RENDER_MAX_PUSH_CONSTANT_RANGES];
+    for(i32 i = 0; i < desc.pushConstantRangeCount; i++)
+    {
+        vkPushConstantRanges[i].offset = desc.pushConstantRanges[i].offset;
+        vkPushConstantRanges[i].size = desc.pushConstantRanges[i].size;
+        vkPushConstantRanges[i].stageFlags = (VkShaderStageFlags)desc.pushConstantRanges[i].shaderStages;
+    }
+
     VkPipelineLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layoutInfo.setLayoutCount = resourceSetLayoutCount;
     layoutInfo.pSetLayouts = descriptorSetLayouts;
-    layoutInfo.pushConstantRangeCount = 0;  // TODO(caio): Push constants
-    layoutInfo.pPushConstantRanges = NULL;
+    layoutInfo.pushConstantRangeCount = desc.pushConstantRangeCount;
+    layoutInfo.pPushConstantRanges = vkPushConstantRanges;
     VkPipelineLayout pipelineLayout;
     VkResult ret = vkCreatePipelineLayout(ctx.vkDevice, &layoutInfo, NULL, &pipelineLayout);
     ASSERTVK(ret);
@@ -1486,7 +1502,7 @@ Handle<ComputePipeline> MakeComputePipeline(Handle<Shader> hShaderCompute, u32 r
     ComputePipeline result = {};
     result.vkPipeline = pipeline;
     result.vkPipelineLayout = pipelineLayout;
-    result.hShaderCompute = hShaderCompute;
+    result.desc = desc;
 
     computePipelines.Push(result);
     return { (u32)computePipelines.count - 1 };
@@ -1931,6 +1947,36 @@ void CmdBindComputeResources(Handle<CommandBuffer> hCmd, Handle<ResourceSet> hRe
             &resourceSet.vkDescriptorSet,
             0,
             NULL);
+}
+
+void CmdUpdatePushConstantRange(Handle<CommandBuffer> hCmd, u32 rangeIndex, void* data, Handle<GraphicsPipeline> hPipeline)
+{
+    ASSERT(hCmd.IsValid() && hPipeline.IsValid());
+    ASSERT(data);
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    GraphicsPipeline& pipeline = graphicsPipelines[hPipeline];
+    ASSERT(rangeIndex < pipeline.desc.pushConstantRangeCount);
+    PushConstantRange pushConstantRange = pipeline.desc.pushConstantRanges[rangeIndex];
+    vkCmdPushConstants(cmd.vkHandle, pipeline.vkPipelineLayout, 
+            (VkShaderStageFlags)pushConstantRange.shaderStages,
+            pushConstantRange.offset,
+            pushConstantRange.size,
+            data);
+}
+
+void CmdUpdatePushConstantRange(Handle<CommandBuffer> hCmd, u32 rangeIndex, void* data, Handle<ComputePipeline> hPipeline)
+{
+    ASSERT(hCmd.IsValid() && hPipeline.IsValid());
+    ASSERT(data);
+    CommandBuffer& cmd = commandBuffers[hCmd];
+    ComputePipeline& pipeline = computePipelines[hPipeline];
+    ASSERT(rangeIndex < pipeline.desc.pushConstantRangeCount);
+    PushConstantRange pushConstantRange = pipeline.desc.pushConstantRanges[rangeIndex];
+    vkCmdPushConstants(cmd.vkHandle, pipeline.vkPipelineLayout, 
+            (VkShaderStageFlags)pushConstantRange.shaderStages,
+            pushConstantRange.offset,
+            pushConstantRange.size,
+            data);
 }
 
 void CmdSetViewport(Handle<CommandBuffer> hCmd, f32 offsetX, f32 offsetY, f32 width, f32 height, f32 minDepth, f32 maxDepth)

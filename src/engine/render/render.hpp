@@ -37,6 +37,7 @@ namespace render
 //#define RENDER_MAX_RESOURCE_BINDING_SETS 256
 #define RENDER_MAX_RESOURCE_SETS 256
 #define RENDER_MAX_RESOURCE_SET_LAYOUTS 256
+#define RENDER_MAX_PUSH_CONSTANT_RANGES 4
 #define RENDER_MAX_GRAPHICS_PIPELINES 32
 #define RENDER_MAX_COMPUTE_PIPELINES 32
 
@@ -410,6 +411,14 @@ Handle<RenderPass> MakeRenderPass(RenderPassDesc desc, u32 colorImageCount, Form
 void DestroyRenderPass(RenderPass* renderPass);
 Handle<Texture> GetRenderPassOutput(Handle<RenderPass> hRenderPass, u32 outputIndex);
 
+struct PushConstantRange
+{
+    // TODO(caio): Push constant offsets? Currently only doing single block from offset 0
+    u64 offset = 0;
+    u64 size = 0;
+    ShaderType shaderStages;
+};
+
 struct GraphicsPipelineDesc
 {
     // Programmable pipeline
@@ -423,6 +432,9 @@ struct GraphicsPipelineDesc
     CullMode cullMode = CULL_MODE_BACK;
     FrontFace frontFace = FRONT_FACE_CCW;
     //TODO(caio): Blending modes, depth testing modes...
+
+    u32 pushConstantRangeCount = 0;
+    PushConstantRange pushConstantRanges[RENDER_MAX_PUSH_CONSTANT_RANGES];
 };
 
 struct GraphicsPipeline
@@ -436,15 +448,23 @@ struct GraphicsPipeline
 Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, GraphicsPipelineDesc desc, u32 resourceSetLayoutCount, Handle<ResourceSetLayout>* hResourceSetLayouts);
 void DestroyGraphicsPipeline(GraphicsPipeline* pipeline);
 
+struct ComputePipelineDesc
+{
+    Handle<Shader> hShaderCompute;
+
+    u32 pushConstantRangeCount = 0;
+    PushConstantRange pushConstantRanges[RENDER_MAX_PUSH_CONSTANT_RANGES];
+};
+
 struct ComputePipeline
 {
     VkPipeline vkPipeline = VK_NULL_HANDLE;
     VkPipelineLayout vkPipelineLayout = VK_NULL_HANDLE;
 
-    Handle<Shader> hShaderCompute;
+    ComputePipelineDesc desc = {};
 };
 
-Handle<ComputePipeline> MakeComputePipeline(Handle<Shader> hShaderCompute, u32 resourceSetLayoutCount, Handle<ResourceSetLayout>* hResourceSetLayouts);
+Handle<ComputePipeline> MakeComputePipeline(ComputePipelineDesc desc, u32 resourceSetLayoutCount, Handle<ResourceSetLayout>* hResourceSetLayouts);
 void DestroyComputePipeline(ComputePipeline* pipeline);
 
 inline mem::HeapAllocator renderHeap;
@@ -483,14 +503,14 @@ void CmdPipelineBarrierTextureLayout(Handle<CommandBuffer> hCmd, Handle<Texture>
 //TODO(caio): Should I have each mip's layout tracked? So both these commands can't break
 void CmdPipelineBarrierTextureMipLayout(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, ImageLayout oldLayout, ImageLayout newLayout, Barrier barrier, u32 mipLevel);
 void CmdGenerateMipmaps(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture);
-//TODO(caio): Add a CmdPipelineBarrier that issues a global memory barrier if needed later.
-// maybe I will need for more general compute syncs.
 void CmdCopyBufferToTexture(Handle<CommandBuffer> hCmd, Handle<Buffer> hSrc, Handle<Texture> hDst);
 void CmdClearColorTexture(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, f32 r, f32 g, f32 b, f32 a);
 void CmdBindGraphicsPipeline(Handle<CommandBuffer> hCmd, Handle<GraphicsPipeline> hPipeline);
 void CmdBindComputePipeline(Handle<CommandBuffer> hCmd, Handle<ComputePipeline> hPipeline);
 void CmdBindGraphicsResources(Handle<CommandBuffer> hCmd, Handle<ResourceSet> hResourceSet, u32 resourceSetIndex, Handle<GraphicsPipeline> hPipeline);
 void CmdBindComputeResources(Handle<CommandBuffer> hCmd, Handle<ResourceSet> hResourceSet, u32 resourceSetIndex, Handle<ComputePipeline> hPipeline);
+void CmdUpdatePushConstantRange(Handle<CommandBuffer> hCmd, u32 rangeIndex, void* data, Handle<GraphicsPipeline> hPipeline);
+void CmdUpdatePushConstantRange(Handle<CommandBuffer> hCmd, u32 rangeIndex, void* data, Handle<ComputePipeline> hPipeline);
 void CmdSetViewport(Handle<CommandBuffer> hCmd, f32 offsetX, f32 offsetY, f32 width, f32 height, f32 minDepth = 0, f32 maxDepth = 1);
 void CmdSetViewport(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass);
 void CmdSetScissor(Handle<CommandBuffer> hCmd, i32 offsetX, i32 offsetY, i32 width, i32 height);

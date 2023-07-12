@@ -266,12 +266,24 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
             &hMainRenderPassResourceLayout);
 
     // Compute pipeline
-    Handle<render::ComputePipeline> hComputePipelineDefault = render::MakeComputePipeline(hCsDefault, 1, &hComputePassResourceLayout);
+    struct ComputePushConstants
+    {
+        math::m4f rotation;
+        f32 dt;
+    };
+    render::ComputePipelineDesc computePipelineDesc = {};
+    computePipelineDesc.hShaderCompute = hCsDefault;
+    computePipelineDesc.pushConstantRangeCount = 1;
+    computePipelineDesc.pushConstantRanges[0].offset = 0;
+    computePipelineDesc.pushConstantRanges[0].size = sizeof(ComputePushConstants);
+    computePipelineDesc.pushConstantRanges[0].shaderStages = render::SHADER_TYPE_COMPUTE;
+    Handle<render::ComputePipeline> hComputePipelineDefault = render::MakeComputePipeline(computePipelineDesc, 1, &hComputePassResourceLayout);
 
     //egui::Init(hRenderPassMain);
 
     i32 frame = 0;
     time::Timer frameTimer;
+    f32 deltaTime = 0;
     while(window.state != render::WINDOW_CLOSED)
     {
         PROFILE_FRAME;
@@ -306,8 +318,12 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         render::CmdClearColorTexture(hCmd, hRenderPassMainOutput, clearColor.r, clearColor.g, clearColor.b, 1);
 
         // Update colors with compute pass
+        ComputePushConstants pushConstants = {};
+        pushConstants.rotation = math::RotationMatrix(TO_RAD(45.f * deltaTime), {0,1,0});
+        pushConstants.dt = deltaTime;
         render::CmdBindComputePipeline(hCmd, hComputePipelineDefault);
         render::CmdBindComputeResources(hCmd, hComputePassResources, 0, hComputePipelineDefault);
+        render::CmdUpdatePushConstantRange(hCmd, 0, &pushConstants, hComputePipelineDefault);
         render::CmdDispatch(hCmd, instanceCount / 16, 1, 1);
 
         barrier.srcAccess = render::MEMORY_ACCESS_SHADER_WRITE;
@@ -348,6 +364,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
 
         frameTimer.Stop();
         LOGF("Frame %d: %.4lf ms", frame, (f32)frameTimer.GetElapsedMS());
+        deltaTime = (f32)frameTimer.GetElapsedS();
         frame++;
     }
 
@@ -370,12 +387,9 @@ int main()
 }
 
 // TODO(caio): CONTINUE
-// - Compute
-//      > Implement general resource barrier
-//      > Insert barrier between compute write and draw read (buffer needs to update before drawing)
 // - Improving resource binding
 //      > Separation between binding layouts and sets**
-//      > Push constants
+//      > Push constants*
 //      > Dynamic binding
 //      > Buffer offsets
 // - Upscale when resizing (maximizing)
