@@ -1,4 +1,5 @@
 #include "engine/core/memory.hpp"
+#include "engine/core/base.hpp"
 #include "engine/core/debug.hpp"
 #include <vcruntime_string.h>
 
@@ -7,7 +8,7 @@ namespace ty
 namespace mem
 {
 
-Region AllocateRegion(u64 capacity)
+Region AllocateRegion(i64 capacity)
 {
     Region result = {};
     result.start = (u8*)malloc(capacity);
@@ -21,19 +22,37 @@ void FreeRegion(Region* region)
     *region = {};
 }
 
-void* InvalidAlloc(u64 size)
+void* InvalidAlloc(i64 size)
 {
     ASSERT(0);  // Context is invalid for this operation
     return NULL;
 }
 
-void* InvalidAllocZero(u64 size)
+void* InvalidAllocAlign(i64 size, i64 alignment)
 {
     ASSERT(0);  // Context is invalid for this operation
     return NULL;
 }
 
-void* InvalidRealloc(void* data, u64 size)
+void* InvalidAllocZero(i64 size)
+{
+    ASSERT(0);  // Context is invalid for this operation
+    return NULL;
+}
+
+void* InvalidAllocAlignZero(i64 size, i64 alignment)
+{
+    ASSERT(0);  // Context is invalid for this operation
+    return NULL;
+}
+
+void* InvalidRealloc(void* data, i64 size)
+{
+    ASSERT(0);  // Context is invalid for this operation
+    return NULL;
+}
+
+void* InvalidReallocAlign(void* data, i64 size, i64 alignment)
 {
     ASSERT(0);  // Context is invalid for this operation
     return NULL;
@@ -59,7 +78,7 @@ void ResetContext()
     FreeAll = InvalidFreeAll;
 }
 
-ArenaAllocator MakeArenaAllocator(u64 capacity)
+ArenaAllocator MakeArenaAllocator(i64 capacity)
 {
     ArenaAllocator result = {};
     result.region = AllocateRegion(capacity);
@@ -79,13 +98,17 @@ void SetContext(ArenaAllocator* arena)
     ctxAllocator = arena;
     Alloc = ArenaAlloc;
     AllocZero = ArenaAllocZero;
+    AllocAlign = InvalidAllocAlign;
+    AllocAlignZero = InvalidAllocAlignZero;
     Realloc = InvalidRealloc;
+    ReallocAlign = InvalidReallocAlign;
     Free = InvalidFree;
     FreeAll = ArenaFreeAll;
 }
 
-void* ArenaAlloc(u64 size)
+void* ArenaAlloc(i64 size)
 {
+    ASSERT(size > 0);
     ArenaAllocator* arena = (ArenaAllocator*)ctxAllocator;
     ASSERT(arena);
     ASSERT(arena->offset + size <= arena->region.capacity);
@@ -94,7 +117,7 @@ void* ArenaAlloc(u64 size)
     return result;
 }
 
-void* ArenaAllocZero(u64 size)
+void* ArenaAllocZero(i64 size)
 {
     void* result = ArenaAlloc(size);
     memset(result, 0, size);
@@ -108,15 +131,338 @@ void ArenaFreeAll()
     arena->offset = 0;
 }
 
-HeapAllocator MakeHeapAllocator(u64 capacity)
+bool HeapAllocator_CanCoalesce(HeapAllocator::FreeHeader* lhs, HeapAllocator::FreeHeader* rhs)
+{
+    if(!lhs || !rhs) return false;
+    return (i64)lhs + sizeof(HeapAllocator::FreeHeader) + lhs->size == (i64)rhs;
+}
+
+void HeapAllocator::AddFreeBlock(FreeHeader *block, FreeHeader *prev)
+{
+    ASSERT(block);
+    if(!prev)
+    {
+        block->next = head;
+        head = block;
+    }
+    else
+    {
+        FreeHeader* prevNext = prev->next;
+        prev->next = block;
+        block->next = prevNext;
+    }
+}
+
+void HeapAllocator::RemoveFreeBlock(FreeHeader *block, FreeHeader *prev)
+{
+    ASSERT(block);
+    if(block == head)
+    {
+        head = block->next;
+    }
+    else
+    {
+        prev->next = block->next;
+    }
+}
+
+HeapAllocator::FreeHeader* HeapAllocator::Coalesce(FreeHeader *lhs, FreeHeader *rhs)
+{
+    ASSERT(HeapAllocator_CanCoalesce(lhs, rhs));
+    lhs->size += rhs->size + sizeof(FreeHeader);
+    RemoveFreeBlock(rhs, lhs);
+    return lhs;
+}
+
+void HeapAllocator::Free(void* data)
+{
+    if(!data) return;
+
+    // Create free block where allocation was
+    HeapAllocator::AllocationHeader* allocHeader = (HeapAllocator::AllocationHeader*)((i64)data - sizeof(HeapAllocator::AllocationHeader));
+    i64 blockSize = allocHeader->size + allocHeader->offset + sizeof(HeapAllocator::AllocationHeader);
+    HeapAllocator::FreeHeader* freeHeader = (HeapAllocator::FreeHeader*)((i64)allocHeader - allocHeader->offset);
+    freeHeader->size = blockSize - sizeof(HeapAllocator::FreeHeader);
+    freeHeader->next = NULL;
+
+    // Insert new free block on free list at appropriate position
+    // (address-ordered)
+    HeapAllocator::FreeHeader* current = head;
+    HeapAllocator::FreeHeader* prev = NULL;
+    while(current)
+    {
+        if(current > freeHeader)
+        {
+            AddFreeBlock(freeHeader, prev);
+            break;
+        }
+        prev = current;
+        current = current->next;
+    }
+
+    // Coalesce (merge two free blocks together)
+    if(HeapAllocator_CanCoalesce(prev, freeHeader))
+    {
+        freeHeader = Coalesce(prev, freeHeader);
+    }
+    if(HeapAllocator_CanCoalesce(freeHeader, freeHeader->next))
+    {
+        freeHeader = Coalesce(freeHeader, freeHeader->next);
+    }
+
+    // Update heap allocator internals
+    i64 oldUsed = used;
+    used -= blockSize;
+    ASSERT(oldUsed >= used);  // Guard from underflow
+}
+
+HeapAllocator::FreeHeader* HeapAllocator::FindFreeBlock(i64 size, i64 alignment, HeapAllocator::FreeHeader** prev)
+{
+    ASSERT(size > 0);
+    ASSERT(IS_POW2(alignment));
+    ASSERT(IS_ALIGNED(size, alignment));
+    // TODO(caio): Add find best strategy
+
+    FreeHeader* currentBlock = head;
+    FreeHeader* prevBlock = NULL;
+
+    while(currentBlock)
+    {
+        // First, calculate the offset for the allocation header, for alignment purposes.
+        i64 currentBlockStart = ALIGN_TO((i64)currentBlock, alignment);
+        i64 currentBlockOffset = currentBlockStart - (i64)currentBlock;
+
+        // Free block always has at least allocation header size. But we still need
+        // to see if it supports the offset and the requested memory size.
+        if(currentBlock->size >= size + currentBlockOffset)
+        {
+            break;
+        }
+
+        prevBlock = currentBlock;
+        currentBlock = currentBlock->next;
+    }
+    ASSERT(currentBlock);    // If 0, couldn't find a free node.
+    if(prev) *prev = prevBlock;
+    return currentBlock;
+}
+
+void HeapAllocator::FreeAll()
+{
+    used = 0;
+    head = (HeapAllocator::FreeHeader*)region.start;
+    *head = {};
+    head->size = region.capacity - sizeof(HeapAllocator::FreeHeader);
+    head->next = NULL;
+}
+
+void* HeapAllocator::Alloc(i64 size, i64 alignment)
+{
+    ASSERT(size > 0);
+    ASSERT(IS_POW2(alignment));
+    ASSERT(IS_ALIGNED(size, alignment));
+
+    // Allocation requires given size and space for the header, plus additional padding
+    // (which is at most alignment - 1 | TODO(caio): Verify)
+    ASSERT(used + size + sizeof(HeapAllocator::AllocationHeader) + alignment - 1 <= region.capacity);
+
+    HeapAllocator::FreeHeader* prevBlock = NULL;
+    HeapAllocator::FreeHeader* freeBlock = FindFreeBlock(size, alignment, &prevBlock); 
+    HeapAllocator::FreeHeader* nextFreeBlock = freeBlock->next;
+
+    // Check memory between allocation and next block.
+    // If there's space for a free block, make a new one.
+    // If there isn't, add the remaining space to the size of the allocation.
+    i64 allocAddr = ALIGN_TO((i64)freeBlock + sizeof(HeapAllocator::AllocationHeader), alignment);
+    i64 allocHeaderOffset = ((i64)allocAddr - sizeof(HeapAllocator::AllocationHeader)) - (i64)freeBlock;
+
+    i64 allocBlockSize = size + allocHeaderOffset + sizeof(HeapAllocator::AllocationHeader);
+    i64 freeBlockSize = freeBlock->size + sizeof(HeapAllocator::FreeHeader);
+    i64 remainder = freeBlockSize - allocBlockSize;
+    if(remainder > (i64)sizeof(HeapAllocator::FreeHeader))
+    {
+        HeapAllocator::FreeHeader* remainderFreeBlock = (HeapAllocator::FreeHeader*)((i64)freeBlock + sizeof(HeapAllocator::FreeHeader) + freeBlock->size - remainder);
+        *remainderFreeBlock = {};
+        remainderFreeBlock->size = remainder - sizeof(HeapAllocator::FreeHeader);
+        AddFreeBlock(remainderFreeBlock, freeBlock);
+    }
+    else
+    {
+        size += remainder;
+    }
+
+    // Remove selected free block from list
+    RemoveFreeBlock(freeBlock, prevBlock);
+
+    // Setup allocation and return
+    HeapAllocator::AllocationHeader* header = (HeapAllocator::AllocationHeader*)((i64)freeBlock + allocHeaderOffset);
+    *header = {};
+    header->size = size;
+    header->offset = allocHeaderOffset;
+
+    i64 oldUsed = used;
+    used += size + sizeof(HeapAllocator::AllocationHeader) + allocHeaderOffset;
+    ASSERT(oldUsed <= used);  // Guard from overflow
+
+    ASSERT(IS_ALIGNED((void*)((i64)header + sizeof(HeapAllocator::AllocationHeader)), alignment));
+    return (void*)((i64)header + sizeof(HeapAllocator::AllocationHeader));
+}
+
+void* HeapAllocator::Realloc(void* data, i64 size, i64 alignment)
+{
+    ASSERT(size > 0);
+    ASSERT(IS_POW2(alignment));
+    ASSERT(IS_ALIGNED(size, alignment));
+    if(!data)
+    {
+        return Alloc(size, alignment);
+    }
+
+    HeapAllocator::AllocationHeader* header = (HeapAllocator::AllocationHeader*)((i64)data - sizeof(HeapAllocator::AllocationHeader));
+
+    // Best case: there's enough space in an adjacent free block to data
+    // for the realloc.
+    // First, check if there's an adjacent free block that is in the free list.
+    i64 neededSize = size - header->size;
+    if(neededSize == 0)
+    {
+        return data;
+    }
+    else if(neededSize < 0)
+    {
+        //  TODO(caio): Realloc reduce (split current memory block).
+        //  This currently just goes to worst case, which works but is less memory efficient.
+        //  Note: should take into account if the new free block from the reduced alloc can
+        //  fit the header size.
+    }
+    HeapAllocator::FreeHeader* adjacentFreeBlock = (HeapAllocator::FreeHeader*)((i64)data + header->size);
+
+    HeapAllocator::FreeHeader* prevFreeBlock = NULL;
+    HeapAllocator::FreeHeader* currFreeBlock = head;
+    while(currFreeBlock)
+    {
+        if(currFreeBlock == adjacentFreeBlock)
+        {
+            break;
+        }
+        prevFreeBlock = currFreeBlock;
+        currFreeBlock = currFreeBlock->next;
+    }
+
+    if(currFreeBlock)
+    {
+        i64 freeBlockSize = adjacentFreeBlock->size + sizeof(HeapAllocator::FreeHeader);
+        i64 freeBlockSizeAfterRealloc = (i64)freeBlockSize - (i64)neededSize;
+        if(freeBlockSizeAfterRealloc > (i64)sizeof(HeapAllocator::FreeHeader))
+        {
+            // Create new free block with reduced size after realloc
+            HeapAllocator::FreeHeader* nextFreeBlock = adjacentFreeBlock->next;
+            RemoveFreeBlock(adjacentFreeBlock, prevFreeBlock);
+            HeapAllocator::FreeHeader* newFreeBlock = (HeapAllocator::FreeHeader*)((i64)adjacentFreeBlock + freeBlockSize - freeBlockSizeAfterRealloc);
+            *newFreeBlock = {};
+            newFreeBlock->size = freeBlockSizeAfterRealloc - sizeof(HeapAllocator::FreeHeader);
+            newFreeBlock->next = nextFreeBlock;
+            AddFreeBlock(newFreeBlock, prevFreeBlock);
+
+            header->size += neededSize;
+            used += neededSize;
+            return data;
+        }
+        else if(freeBlockSizeAfterRealloc > 0)
+        {
+            // Realloc consumes free block entirely, to avoid untracked regions
+            RemoveFreeBlock(adjacentFreeBlock, prevFreeBlock);
+            header->size += freeBlockSize;
+            used += freeBlockSize;
+            return data;
+        }
+        // If the free block size is negative, it's not enough to contain the realloc,
+        // so move to worst case.
+    }
+
+    // Worst case: allocate new block and move data
+    void* result = Alloc(size, alignment);
+    // Copy the minimum memory that fits in the new block
+    memcpy(result, data, header->size < size ? header->size : size);
+    Free(data);
+    return result;
+}
+
+void SetContext(HeapAllocator* heap)
+{
+    ctxAllocator = heap;
+    Alloc = HeapAlloc;
+    AllocAlign = HeapAllocAlign;
+    AllocZero = HeapAllocZero;
+    AllocAlignZero = HeapAllocAlignZero;
+    Realloc = HeapRealloc;
+    ReallocAlign = HeapReallocAlign;
+    Free = HeapFree;
+    FreeAll = HeapFreeAll;
+}
+
+void* HeapAlloc(i64 size)
+{
+    HeapAllocator* heap = (HeapAllocator*)ctxAllocator;
+    return heap->Alloc(size, 1);
+}
+
+void* HeapAllocAlign(i64 size, i64 alignment)
+{
+    HeapAllocator* heap = (HeapAllocator*)ctxAllocator;
+    return heap->Alloc(size, alignment);
+}
+
+void* HeapAllocZero(i64 size)
+{
+    HeapAllocator* heap = (HeapAllocator*)ctxAllocator;
+    void* result = heap->Alloc(size, 1);
+    memset(result, 0, size);
+    return result;
+}
+
+void* HeapAllocAlignZero(i64 size, i64 alignment)
+{
+    HeapAllocator* heap = (HeapAllocator*)ctxAllocator;
+    void* result = heap->Alloc(size, alignment);
+    memset(result, 0, size);
+    return result;
+}
+
+void* HeapRealloc(void* data, i64 size)
+{
+    HeapAllocator* heap = (HeapAllocator*)ctxAllocator;
+    return heap->Realloc(data, size, 1);
+}
+
+void* HeapReallocAlign(void* data, i64 size, i64 alignment)
+{
+    HeapAllocator* heap = (HeapAllocator*)ctxAllocator;
+    return heap->Realloc(data, size, alignment);
+}
+
+void HeapFree(void *data)
+{
+    HeapAllocator* heap = (HeapAllocator*)ctxAllocator;
+    heap->Free(data);
+}
+
+void HeapFreeAll()
+{
+    HeapAllocator* heap = (HeapAllocator*)ctxAllocator;
+    heap->FreeAll();
+}
+
+HeapAllocator MakeHeapAllocator(i64 capacity)
 {
     HeapAllocator result = {};
     result.region = AllocateRegion(capacity);
+
     result.used = 0;
-    HeapAllocatorFreeListNode* firstNode = (HeapAllocatorFreeListNode*)result.region.start;
-    firstNode->blockSize = capacity;
-    firstNode->next = NULL;
-    result.head = firstNode;
+    result.head = (HeapAllocator::FreeHeader*)result.region.start;
+    *result.head = {};
+    result.head->size = result.region.capacity - sizeof(HeapAllocator::FreeHeader);
+    result.head->next = NULL;
     return result;
 }
 
@@ -127,283 +473,46 @@ void DestroyHeapAllocator(HeapAllocator* heap)
     *heap = {};
 }
 
-void SetContext(HeapAllocator* heap)
-{
-    ctxAllocator = heap;
-    Alloc = HeapAlloc;
-    AllocZero = HeapAllocZero;
-    Realloc = HeapRealloc;
-    Free = HeapFree;
-    FreeAll = HeapFreeAll;
-}
+//void HeapAllocator::DebugPrint()
+//{
+    //// Clear console
+    //system("cls");
 
-void HeapFreeAll()
-{
-    HeapAllocator* heap = (HeapAllocator*)ctxAllocator;
-    heap->used = 0;
-    HeapAllocatorFreeListNode* firstNode = (HeapAllocatorFreeListNode*)heap->region.start;
-    firstNode->blockSize = heap->region.capacity;
-    firstNode->next = NULL;
-    heap->head = firstNode;
-}
+    //LOGLF("HEAP_ALLOC", "Heap allocator [%llu] (%llu bytes used of %llu)", (i64)region.start, used, region.capacity);
+    //FreeHeader* current = head;
 
-void HeapAllocator::InsertNode(HeapAllocatorFreeListNode *prev, HeapAllocatorFreeListNode *node)
-{
-    if(!prev)   // No previous node means inserting at head position
-    {
-        if(head)
-        {
-            node->next = head;
-        }
-        head = node;
-    }
-    else
-    {
-        if(!prev->next)
-        {
-            prev->next = node;
-            node->next = NULL;
-        }
-        else
-        {
-            node->next = prev->next;
-            prev->next = node;
-        }
-    }
-}
+    //if((i64)current != (i64)region.start)
+    //{
+        //i64 distance = (i64)current - (i64)region.start;
+        //for(i32 i = 0; i < distance; i++)
+        //{
+            //printf("/");
+        //}
+    //}
 
-void HeapAllocator::RemoveNode(HeapAllocatorFreeListNode *prev, HeapAllocatorFreeListNode *node)
-{
-    if(!prev)   // No previous node means removing at head position
-    {
-        head = node->next;
-    }
-    else
-    {
-        prev->next = node->next;
-    }
-}
-
-void HeapAllocator::Coalesce(HeapAllocatorFreeListNode *prev, HeapAllocatorFreeListNode *node)
-{
-    // Coalesce to the front
-    if(node->next && (void*)((u8*)node + node->blockSize) == node->next)
-    {
-        node->blockSize += node->next->blockSize;
-        RemoveNode(node, node->next);
-    }
-    // Coalesce to the back
-    if(prev->next && (void*)((u8*)prev + prev->blockSize) == node)
-    {
-        prev->blockSize += node->blockSize;
-        RemoveNode(prev, node);
-    }
-}
-
-HeapAllocatorFreeListNode* HeapAllocator::FindFirst(u64 size, HeapAllocatorFreeListNode** prev)
-{
-    // Starts at head, iterates through the list and returns first free block matching
-    // size requirements (required size + header size)
-    HeapAllocatorFreeListNode* node = head;
-    HeapAllocatorFreeListNode* prevNode = NULL;
-
-    while(node)
-    {
-        u64 requiredSpace = sizeof(HeapAllocationHeader) + size; //TODO(caio): Alignment/padding
-        if(node->blockSize >= requiredSpace)
-        {
-            break;
-        }
-        prevNode = node;
-        node = node->next;
-    }
-
-    if(prev) *prev = prevNode;
-    return node;
-}
-
-HeapAllocatorFreeListNode* HeapAllocator::FindBest(u64 size, HeapAllocatorFreeListNode** prev)
-{
-    // Starts at head, iterates through the list and returns smallest free block matching
-    // size requirements (required size + header size)
-    HeapAllocatorFreeListNode* node = head;
-    HeapAllocatorFreeListNode* prevNode = NULL;
-
-    HeapAllocatorFreeListNode* bestNode = NULL;
-    HeapAllocatorFreeListNode* bestPrevNode = NULL;
-    u64 smallestDiff = MAX_U64;
-    while(node)
-    {
-        u64 requiredSpace = sizeof(HeapAllocationHeader) + size; //TODO(caio): Alignment/padding
-        if(node->blockSize >= requiredSpace && (node->blockSize - requiredSpace < smallestDiff))
-        {
-            bestPrevNode = prevNode;
-            bestNode = node;
-            smallestDiff = node->blockSize - requiredSpace;
-        }
-        prevNode = node;
-        node = node->next;
-    }
-
-    if(prev) *prev = bestPrevNode;
-    return bestNode;
-}
-
-void* HeapAlloc(u64 size)
-{
-    HeapAllocator* heap = (HeapAllocator*)ctxAllocator;
-
-    u64 headerSize = sizeof(HeapAllocationHeader);
-    u64 allocationSize = headerSize + size; //TODO(caio): Alignment/padding
-    ASSERT(heap->used + allocationSize <= heap->region.capacity);
-
-    //u64 headerSize = sizeof(HeapAllocationHeader);
-    //if(size < headerSize) size = headerSize + size;
-
-    // Find free node to use for allocation
-    HeapAllocatorFreeListNode* node = NULL;
-    HeapAllocatorFreeListNode* prevNode = NULL;
-    switch(heap->strategy)
-    {
-        case FIND_FIRST:
-        {
-            node = heap->FindFirst(size, &prevNode);
-        } break;
-        case FIND_BEST:
-        {
-            node = heap->FindBest(size, &prevNode);
-        } break;
-        default: ASSERT(0);
-    }
-    ASSERT(node);
-
-    // Allocate space and adjust free list accordingly
-    u64 remainingSize = node->blockSize - allocationSize;
-    if(remainingSize)
-    {
-        HeapAllocatorFreeListNode* newNode = (HeapAllocatorFreeListNode*)((u8*)node + allocationSize);
-        newNode->blockSize = remainingSize;
-        heap->InsertNode(node, newNode);
-    }
-    heap->RemoveNode(prevNode, node);
-
-    // Set allocation header and return allocated memory address
-    HeapAllocationHeader* header = (HeapAllocationHeader*)(node);
-    header->blockSize = allocationSize;
-    heap->used += allocationSize;
-    return (void*)((u8*)header + headerSize);
-}
-
-void* HeapAllocZero(u64 size)
-{
-    void* result = HeapAlloc(size);
-    memset(result, 0, size);
-    return result;
-}
-
-void* HeapRealloc(void* data, u64 size)
-{
-    if(!data) return HeapAlloc(size);
-
-    HeapAllocator* heap = (HeapAllocator*)ctxAllocator;
-
-    // First, check the memory right after the data to realloc.
-    // If there's a free block that has enough size for the realloc,
-    // just use and adjust that.
-    u64 headerSize = sizeof(HeapAllocationHeader);
-    u64 allocationSize = headerSize + size;
-    // Find what would be a free node right after the already allocated data in the free list
-    HeapAllocationHeader* dataHeader = (HeapAllocationHeader*)((u8*)data - headerSize);
-    HeapAllocatorFreeListNode* freeNodeAfterData = (HeapAllocatorFreeListNode*)((u8*)data - headerSize + dataHeader->blockSize);
-    // Then search for it in the free list to see if it's actually an available free node.
-    HeapAllocatorFreeListNode* node = heap->head;
-    HeapAllocatorFreeListNode* prevNode = NULL;
-    while(node)
-    {
-        if(node == freeNodeAfterData) break;
-        prevNode = node;
-        node = node->next;
-    }
-    if(node && node->blockSize + dataHeader->blockSize >= allocationSize)
-    {
-        // Found available space, adjust existing alloc and free list accordingly.
-        u64 oldDataSize = dataHeader->blockSize;
-        i64 dataSizeDelta = allocationSize - oldDataSize; //TODO(caio): Test this with reallocs that reduce instead of enlarge
-        dataHeader->blockSize = allocationSize;
-
-        u64 newFreeNodeBlockSize = node->blockSize - dataSizeDelta;  //TODO(caio)CONTINUE: bug when this is 0, use ASSERT on bottom and active remedy session
-        HeapAllocatorFreeListNode* newFreeNodeNext = node->next;
-        if(newFreeNodeBlockSize == 0)
-        {
-            // Consumed all of the node's free memory, just delete the node.
-            if(!prevNode)
-            {
-                heap->head = newFreeNodeNext;
-            }
-            else
-            {
-                prevNode->next = newFreeNodeNext;
-            }
-        }
-        else
-        {
-            // Some of the node's free memory is still left, replace it with new smaller node
-            if(!prevNode)
-            {
-                heap->head = (HeapAllocatorFreeListNode*)((u8*)node + dataSizeDelta);
-                heap->head->blockSize = newFreeNodeBlockSize;
-                heap->head->next = newFreeNodeNext;
-            }
-            else
-            {
-                HeapAllocatorFreeListNode* newNode = (HeapAllocatorFreeListNode*)((u8*)node + dataSizeDelta);
-                ASSERT((u64)newNode != (u64)newFreeNodeNext);
-                prevNode->next = newNode;
-                newNode->blockSize = newFreeNodeBlockSize;
-                newNode->next = newFreeNodeNext;
-            }
-        }
-
-        return data;
-    }
-
-    // If there's no free block, or if the next free block is not
-    // big enough for the realloc, then just find another space in
-    // the heap and copy the old data.
-    void* result = HeapAllocZero(size);
-    memcpy(result, data, dataHeader->blockSize - headerSize);
-    HeapFree(data);
-    return result;
-}
-
-void HeapFree(void* data)
-{
-    HeapAllocator* heap = (HeapAllocator*)ctxAllocator;
-    if(!data) return;
-
-    // Create new free list node header where allocation was
-    HeapAllocationHeader* header = (HeapAllocationHeader*)((u8*)data - sizeof(HeapAllocationHeader));
-    HeapAllocatorFreeListNode* newNode = (HeapAllocatorFreeListNode*)header;
-    newNode->blockSize = header->blockSize; //TODO(caio): Alignment/padding
-    newNode->next = NULL;
-
-    // Insert the node at the appropriate position in the free list
-    HeapAllocatorFreeListNode* node = heap->head;
-    HeapAllocatorFreeListNode* prevNode = NULL;
-    while(node)
-    {
-        if(node > data)
-        {
-            heap->InsertNode(prevNode, newNode);
-        }
-        prevNode = node;
-        node = node->next;
-    }
-
-    // Coalesce newly free node to avoid breaks between contiguous free blocks
-    heap->used -= newNode->blockSize;
-    heap->Coalesce(prevNode, newNode);
-}
+    //while(current)
+    //{
+        //printf("|");
+        //for(i32 i = 0; i < sizeof(FreeHeader); i++)
+        //{
+            //printf("#");
+        //}
+        //for(i32 i = 0; i < current->size; i++)
+        //{
+            //printf("-");
+        //}
+        //if(current->next)
+        //{
+            //i64 distance = (i64)current->next - ((i64)current + current->size + sizeof(FreeHeader));
+            //for(i32 i = 0; i < distance; i++)
+            //{
+                //printf("/");
+            //}
+        //}
+        //current = current->next;
+    //}
+    //printf("\n");
+//}
 
 };
 };

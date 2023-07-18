@@ -396,8 +396,10 @@ void MakeContext_CreatePools(Context* ctx)
     VkDescriptorPoolSize descriptorPoolSizes[] =
     {
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 100 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 100 },
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100 },
         { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 100 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 100 },
     };
     VkDescriptorPoolCreateInfo descriptorPoolInfo = {};
     descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1007,6 +1009,11 @@ Handle<Buffer> MakeBuffer(BufferType type, u64 size, u64 stride, void* data)
 
     VkBufferCreateInfo bufferInfo = {};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    // TODO(caio): CONTINUE
+    // - For dynamic uniform/storage buffers the size needs to be allocated with the required alignment,
+    // which probably means padding the size and stride with the alignment requirements from vulkan.
+    // - Figure out how to pass offset to bind graphics/compute resources
+    // - Also maybe make a base pipeline type and have graphics/compute inherit
     bufferInfo.size = size;
     bufferInfo.usage = (VkBufferUsageFlags)type;
     

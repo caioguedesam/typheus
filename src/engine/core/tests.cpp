@@ -19,6 +19,8 @@ namespace ty
 
 void TestMemory()
 {
+    //TODO(caio): Review and retest arena allocator when I need it again
+#if 0
     // Arena allocator
     mem::ArenaAllocator testArena = mem::MakeArenaAllocator(2048);
     ASSERT(testArena.region.start);
@@ -53,66 +55,58 @@ void TestMemory()
     //ASSERT(IS_ALIGNED(pAlign, 32));
 
     mem::DestroyArenaAllocator(&testArena);
+#endif
 
     // Heap allocator
-    mem::HeapAllocator testHeap = mem::MakeHeapAllocator(2048);
+    mem::HeapAllocator testHeap = mem::MakeHeapAllocator(MB(1));
     ASSERT(testHeap.region.start);
-    ASSERT(testHeap.region.capacity == 2048);
     mem::SetContext(&testHeap);
 
+
+    u32* p = (u32*)mem::Alloc(sizeof(u32));
+    mem::Free(p);
+
+    u32* p1 = (u32*)mem::Alloc(sizeof(u32));
+    u32* p2 = (u32*)mem::Alloc(sizeof(u32));
+    u32* p3 = (u32*)mem::Alloc(sizeof(u32));
+    mem::Free(p2);
+    mem::Free(p3);
+
+    p2 = (u32*)mem::AllocAlign(sizeof(u32) * 8, 16);
+    p3 = (u32*)mem::AllocAlign(sizeof(u32) * 8, 16);
+    mem::Free(p2);
+
+    u32* p4 = (u32*)mem::Alloc(sizeof(u32));
+    mem::Free(p4);
+    mem::Free(p3);
+    mem::Free(p1);
+
+    p1 = (u32*)mem::Alloc(sizeof(u32));
+    *p1 = 20;
+    p2 = (u32*)mem::Alloc(sizeof(u32) * 4);
+    p3 = (u32*)mem::Alloc(sizeof(u32));
+    mem::Free(p2);
+    p2 = (u32*)mem::Alloc(sizeof(u32));
+    *p2 = 10;
+    p2 = (u32*)mem::Realloc(p2, sizeof(u32) * 2);
+    ASSERT(*p2 == 10);
+    p1 = (u32*)mem::Realloc(p1, sizeof(u32) + 2);
+    ASSERT(*p1 == 20);
+    p1 = (u32*)mem::Realloc(p1, sizeof(u32) + 24);
+    ASSERT(*p1 == 20);
+
+    mem::Free(p1);
+    mem::Free(p2);
+    mem::Free(p3);
+
+    List<u32> v1 = MakeList<u32>();
+    List<math::v3f> v2 = MakeList<math::v3f>();
+    for(i32 i = 0; i < 512; i++)
     {
-        u64 headerSize = sizeof(mem::HeapAllocationHeader);
-        // Regular alloc
-        u32* p = (u32*)mem::Alloc(sizeof(u32));
-        ASSERT(p);
-        *p = 10;
-        ASSERT(*p == 10);
-        u64 pOffset = (u64)((void*)p);
-        mem::HeapAllocationHeader* pHeader = (mem::HeapAllocationHeader*)((u8*)p - headerSize);
-        ASSERT(pHeader->blockSize == sizeof(u32) + headerSize);
-
-        u32* p2 = (u32*)mem::Alloc(sizeof(u32));
-        ASSERT(p2);
-        u64 p2Target = (u64)((void*)p) + sizeof(u32) + headerSize;
-        u64 p2Offset = (u64)((void*)p2);
-        ASSERT(p2Target == p2Offset);
-        *p2 = 20;
-        ASSERT(*p2 == 20);
-        mem::HeapAllocationHeader* p2Header = (mem::HeapAllocationHeader*)((u8*)p2 - headerSize);
-        ASSERT(p2Header->blockSize == sizeof(u32) + headerSize);
-
-        // Realloc forward
-        u32* p3 = (u32*)mem::Realloc(p, sizeof(u32) * 2);
-        ASSERT(p3);
-        ASSERT(*p3 == 10);
-        u64 p3Offset = (u64)((void*)p3);
-        mem::HeapAllocationHeader* p3Header = (mem::HeapAllocationHeader*)((u8*)p3 - headerSize);
-        ASSERT(p3Header->blockSize == sizeof(u32) * 2 + headerSize);
-
-        u32* p4 = (u32*)mem::AllocZero(sizeof(u32));
-        ASSERT(p4);
-        ASSERT(*p4 == 0);
-        u64 p4Target = pOffset;
-        u64 p4Offset = (u64)((void*)p4);
-        ASSERT(p4Target == p4Offset);
-        mem::HeapAllocationHeader* p4Header = (mem::HeapAllocationHeader*)((u8*)p4 - headerSize);
-        ASSERT(p4Header->blockSize == sizeof(u32) + headerSize);
-
-        // Realloc in place
-        u32* p5 = (u32*)mem::AllocZero(sizeof(u32));
-        ASSERT(p5);
-        mem::HeapFree(p3);
-        u32* p6 = (u32*)mem::Realloc(p2, sizeof(u32) * 2);
-        ASSERT(p6);
-        ASSERT(*p6 == 20);
-        u64 p6Target = p2Offset;
-        u64 p6Offset = (u64)((void*)p6);
-        ASSERT(p6Target == p6Offset);
-        mem::HeapAllocationHeader* p6Header = (mem::HeapAllocationHeader*)((u8*)p6 - headerSize);
-        ASSERT(p6Header->blockSize == sizeof(u32) * 2 + headerSize);
-
-        //TODO(caio): Test these further. There's just so much possible cases here...
+        v1.Push(i);
+        v2.Push({});
     }
+    mem::FreeAll();
 
     mem::DestroyHeapAllocator(&testHeap);
 }

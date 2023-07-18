@@ -41,6 +41,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
 {
     using namespace ty;
 
+    //TestMemory();
+    //ASSERT(0);
+
     time::Init();
     asset::Init();
 
@@ -387,14 +390,17 @@ int main()
 }
 
 // TODO(caio): CONTINUE
-// - Improving resource binding
+// - Improving resource binding*
 //      > Separation between binding layouts and sets**
-//      > Push constants*
-//      > Dynamic binding
-//      > Buffer offsets
+//      > Push constants**
+//      > Dynamic binding*
+//      > Buffer offsets*
 // - Upscale when resizing (maximizing)
 //      > Do a render to texture instead of blit?
+// - Runtime shader compilation?
+//      > Will likely need a shader asset type
 // - Make typheus into a submodule
-// - Draw indirect?
-// - Runtime shader compilation and shader hot reload
-//      > Will likely need to change asset lib a little
+//
+// FUTURE GOALS
+// - GPU driven rendering capability (draw indirect)
+// - Headless render (save images to assets on disk)

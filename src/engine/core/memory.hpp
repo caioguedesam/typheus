@@ -6,6 +6,7 @@
 
 #pragma once
 #include "engine/core/base.hpp"
+#include "engine/core/debug.hpp"
 
 namespace ty
 {
@@ -18,10 +19,10 @@ namespace mem
 struct Region
 {
     u8* start = NULL;
-    u64 capacity = 0;
+    i64 capacity = 0;
 };
 
-Region  AllocateRegion(u64 capacity);
+Region  AllocateRegion(i64 capacity);
 void    FreeRegion(Region* region);
 
 // ========================================================
@@ -32,18 +33,24 @@ void    FreeRegion(Region* region);
 // implements each callback differently.
 
 // These are standard calls for each callback, with an assert for invalid operation.
-void* InvalidAlloc(u64 size);
-void* InvalidAllocZero(u64 size);
-void* InvalidRealloc(void* data, u64 size);
+void* InvalidAlloc(i64 size);
+void* InvalidAllocAlign(i64 size, i64 alignment);
+void* InvalidAllocZero(i64 size);
+void* InvalidAllocAlignZero(i64 size, i64 alignment);
+void* InvalidRealloc(void* data, i64 size);
+void* InvalidReallocAlign(void* data, i64 size, i64 alignment);
 void  InvalidFree(void* data);
 void  InvalidFreeAll();
 
 inline void* ctxAllocator = NULL;
 
 //TODO(caio): Implement aligned allocation functions
-inline void* (*Alloc)(u64 size) = InvalidAlloc;
-inline void* (*AllocZero)(u64 size) = InvalidAllocZero;
-inline void* (*Realloc)(void* data, u64 size) = InvalidRealloc;
+inline void* (*Alloc)(i64 size) = InvalidAlloc;
+inline void* (*AllocAlign)(i64 size, i64 alignment) = InvalidAllocAlign;
+inline void* (*AllocZero)(i64 size) = InvalidAllocZero;
+inline void* (*AllocAlignZero)(i64 size, i64 alignment) = InvalidAllocAlignZero;
+inline void* (*Realloc)(void* data, i64 size) = InvalidRealloc;
+inline void* (*ReallocAlign)(void* data, i64 size, i64 alignment) = InvalidReallocAlign;
 inline void  (*Free)(void* data) = InvalidFree;
 inline void  (*FreeAll)() = InvalidFreeAll;
 
@@ -57,61 +64,62 @@ void ResetContext();
 struct ArenaAllocator
 {
     Region region = {};
-    u64 offset = 0;
+    i64 offset = 0;
 };
-ArenaAllocator  MakeArenaAllocator(u64 capacity);
+ArenaAllocator  MakeArenaAllocator(i64 capacity);
 void            DestroyArenaAllocator(ArenaAllocator* arena); 
 
 void  SetContext(ArenaAllocator* arena);
-void* ArenaAlloc(u64 size);
-void* ArenaAllocZero(u64 size);
+void* ArenaAlloc(i64 size);
+void* ArenaAllocZero(i64 size);
 void  ArenaFreeAll();
 
 // ========================================================
 // [HEAP]
 // General purpose free list allocator.
-enum HeapAllocatorStrategy
-{
-    FIND_FIRST,
-    FIND_BEST,
-};
-
-struct HeapAllocationHeader
-{
-    u64 blockSize = 0;
-    //TODO(caio): Alignment and padding
-    u64 padding = 0;    // AllocationHeader MUST have same size as FreeListNode
-                        // This member will be used when implementing aligned allocs
-};
-
-struct HeapAllocatorFreeListNode
-{
-    HeapAllocatorFreeListNode* next = nullptr;
-    u64 blockSize = 0;
-};
-
 struct HeapAllocator
 {
+    //TODO(caio): How to reduce these sizes? 16 bytes seems overkill
+    struct AllocationHeader
+    {
+        i64 size = 0;       // The memory usable in this block
+        i64 offset = 0;     // The offset from the block start until the header (padding)
+    };
+
+    struct FreeHeader
+    {
+        i64 size = 0;               // The available memory for allocation from this block
+        FreeHeader* next = NULL;    // The next free header in the list
+    };
+
+    STATIC_ASSERT(sizeof(AllocationHeader) == sizeof(FreeHeader));
+
     Region region = {};
-    u64 used = 0;
+    i64 used = 0;
+    FreeHeader* head = NULL;
 
-    HeapAllocatorFreeListNode* head = nullptr;
-    HeapAllocatorStrategy strategy = FIND_FIRST;
+    FreeHeader* FindFreeBlock(i64 size, i64 alignment, FreeHeader** prev);
 
-    void InsertNode(HeapAllocatorFreeListNode* prev, HeapAllocatorFreeListNode* node);
-    void RemoveNode(HeapAllocatorFreeListNode* prev, HeapAllocatorFreeListNode* node);
-    void Coalesce(HeapAllocatorFreeListNode* prev, HeapAllocatorFreeListNode* node);
+    void AddFreeBlock(FreeHeader* block, FreeHeader* prev);
+    void RemoveFreeBlock(FreeHeader* block, FreeHeader* prev);
+    FreeHeader* Coalesce(FreeHeader* lhs, FreeHeader* rhs);
 
-    HeapAllocatorFreeListNode* FindFirst(u64 size, HeapAllocatorFreeListNode** prev);
-    HeapAllocatorFreeListNode* FindBest(u64 size, HeapAllocatorFreeListNode** prev);
+    void*   Alloc(i64 size, i64 alignment = 1);
+    void*   Realloc(void* data, i64 size, i64 alignment = 1);
+    void    Free(void* data);
+    void    FreeAll();
 };
-HeapAllocator   MakeHeapAllocator(u64 capacity);
+HeapAllocator   MakeHeapAllocator(i64 capacity);
 void            DestroyHeapAllocator(HeapAllocator* heap);
 
+// Heap alloc interface
 void  SetContext(HeapAllocator* heap);
-void* HeapAlloc(u64 size);
-void* HeapAllocZero(u64 size);
-void* HeapRealloc(void* data, u64 size);
+void* HeapAlloc(i64 size);
+void* HeapAllocZero(i64 size);
+void* HeapAllocAlign(i64 size, i64 alignment);
+void* HeapAllocAlignZero(i64 size, i64 alignment);
+void* HeapRealloc(void* data, i64 size);
+void* HeapReallocAlign(void* data, i64 size, i64 alignment);
 void  HeapFree(void* data);
 void  HeapFreeAll();
 
