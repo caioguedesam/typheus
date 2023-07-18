@@ -246,8 +246,6 @@ struct Context
     Array<VkSemaphore> vkPresentSemaphores;
     Array<VkFence> vkRenderFences;
     VkFence vkImmediateFence = VK_NULL_HANDLE;
-
-    u32 GetDynamicOffsetAlignment();
 };
 Context MakeContext(Window* window);
 void DestroyContext(Context* ctx);
@@ -309,6 +307,7 @@ struct Buffer
 Handle<Buffer> MakeBuffer(BufferType type, u64 size, u64 stride, void* data = NULL);
 void DestroyBuffer(Buffer* buffer);
 void CopyMemoryToBuffer(Handle<Buffer> hDstBuffer, u64 size, void* data);
+u32 GetBufferTypeAlignment(BufferType type);
 
 struct TextureDesc
 {

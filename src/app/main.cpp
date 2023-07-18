@@ -150,10 +150,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         math::m4f view = {};
         math::m4f proj = {};
     };
-    ASSERT(IS_ALIGNED(sizeof(SceneData), render::ctx.GetDynamicOffsetAlignment()));
+    ASSERT(IS_ALIGNED(sizeof(SceneData), render::GetBufferTypeAlignment(render::BUFFER_TYPE_UNIFORM)));
 
     mem::SetContext(&generalHeap);
-    Array<SceneData> sceneData = MakeArrayAlign<SceneData>(RENDER_CONCURRENT_FRAMES, render::ctx.GetDynamicOffsetAlignment());
+    Array<SceneData> sceneData = MakeArrayAlign<SceneData>(RENDER_CONCURRENT_FRAMES, render::GetBufferTypeAlignment(render::BUFFER_TYPE_UNIFORM));
     for(i32 i = 0; i < RENDER_CONCURRENT_FRAMES; i++)
     {
         SceneData sceneDataFrame;

@@ -582,12 +582,6 @@ void DestroyContext(Context *ctx)
     *ctx = {};
 }
 
-u32 Context::GetDynamicOffsetAlignment()
-{
-    ASSERT(vkPhysicalDevice != VK_NULL_HANDLE);
-    return vkPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
-}
-
 void MakeSwapChain_CreateSwapChain(Context* ctx, SwapChain* swapChain)
 {
     ASSERT(ctx && swapChain);
@@ -1063,6 +1057,17 @@ void CopyMemoryToBuffer(Handle<Buffer> hDstBuffer, u64 size, void* data)
     memcpy(mapping, data, size);
     ASSERTVK(ret);
     vmaUnmapMemory(ctx.vkAllocator, buffer.vkAllocation);
+}
+
+u32 GetBufferTypeAlignment(BufferType type)
+{
+    ASSERT(ctx.vkPhysicalDevice != VK_NULL_HANDLE);
+    switch (type)
+    {
+        case BUFFER_TYPE_UNIFORM: return ctx.vkPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
+        case BUFFER_TYPE_STORAGE: return ctx.vkPhysicalDeviceProperties.limits.minStorageBufferOffsetAlignment;
+        default: return 1;
+    }
 }
 
 Handle<Texture> MakeTexture(TextureDesc desc)
