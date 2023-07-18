@@ -150,9 +150,17 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         math::m4f view = {};
         math::m4f proj = {};
     };
-    SceneData sceneData;
-    sceneData.view = math::Transpose(math::LookAt({0, 0, -5}, {0, 0, 0}, {0, 1, 0}));
-    sceneData.proj = math::Transpose(math::Perspective(TO_RAD(45.f), (f32)appWidth/(f32)appHeight, 0.1f, 1000.f));
+    ASSERT(IS_ALIGNED(sizeof(SceneData), render::ctx.GetDynamicOffsetAlignment()));
+
+    mem::SetContext(&generalHeap);
+    Array<SceneData> sceneData = MakeArrayAlign<SceneData>(RENDER_CONCURRENT_FRAMES, render::ctx.GetDynamicOffsetAlignment());
+    for(i32 i = 0; i < RENDER_CONCURRENT_FRAMES; i++)
+    {
+        SceneData sceneDataFrame;
+        sceneDataFrame.view = math::Transpose(math::LookAt({0, 0, -5}, {0, 0, 0}, {0, 1, 0}));
+        sceneDataFrame.proj = math::Transpose(math::Perspective(TO_RAD(45.f), (f32)appWidth/(f32)appHeight, 0.1f, 1000.f));
+        sceneData.Push(sceneDataFrame);
+    }
 
     struct PerInstanceData
     {
@@ -160,8 +168,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         math::v4f color = {};
     };
     const i32 instanceCount = 4096;
-    //PerInstanceData instanceData[instanceCount];
-    mem::SetContext(&generalHeap);
     Array<PerInstanceData> instanceData = MakeArray<PerInstanceData>(instanceCount, instanceCount, {});
     // Initializing all instances to have random rotation and color
     for(i32 i = 0; i < instanceCount; i++)
@@ -191,44 +197,45 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
 
     Handle<render::Buffer> hSceneDataBuffer = render::MakeBuffer(
             render::BUFFER_TYPE_UNIFORM, 
-            sizeof(SceneData),
+            sceneData.count * sizeof(SceneData),
             sizeof(SceneData), 
-            &sceneData);
+            sceneData.data);
     Handle<render::Buffer> hInstanceDataBuffer = render::MakeBuffer(
             //render::BUFFER_TYPE_UNIFORM, 
             render::BUFFER_TYPE_STORAGE, 
             sizeof(PerInstanceData) * instanceCount,
-            sizeof(PerInstanceData), 
+            //sizeof(PerInstanceData), 
+            sizeof(PerInstanceData) * instanceCount, 
             instanceData.data);
 
     // Resource binding layouts
     render::ResourceSetLayout::Entry resourceLayoutEntries[3];
-    resourceLayoutEntries[0].resourceType = render::RESOURCE_UNIFORM_BUFFER;
+    resourceLayoutEntries[0].resourceType = render::RESOURCE_DYNAMIC_UNIFORM_BUFFER;
     resourceLayoutEntries[0].shaderStages = render::SHADER_TYPE_VERTEX;
     resourceLayoutEntries[1].resourceType = render::RESOURCE_SAMPLED_TEXTURE;
     resourceLayoutEntries[1].shaderStages = render::SHADER_TYPE_PIXEL;
-    resourceLayoutEntries[2].resourceType = render::RESOURCE_STORAGE_BUFFER;
+    resourceLayoutEntries[2].resourceType = render::RESOURCE_DYNAMIC_STORAGE_BUFFER;
     resourceLayoutEntries[2].shaderStages = ENUM_FLAGS(render::ShaderType, render::SHADER_TYPE_VERTEX | render::SHADER_TYPE_PIXEL);
     Handle<render::ResourceSetLayout> hMainRenderPassResourceLayout = render::MakeResourceSetLayout(3, resourceLayoutEntries);
-    resourceLayoutEntries[0].resourceType = render::RESOURCE_STORAGE_BUFFER;
+    resourceLayoutEntries[0].resourceType = render::RESOURCE_DYNAMIC_STORAGE_BUFFER;
     resourceLayoutEntries[0].shaderStages = render::SHADER_TYPE_COMPUTE;
     Handle<render::ResourceSetLayout> hComputePassResourceLayout = render::MakeResourceSetLayout(1, resourceLayoutEntries);
 
     // Resource binding sets
     render::ResourceSet::Entry resourceSetEntries[3];
     resourceSetEntries[0].binding = 0;
-    resourceSetEntries[0].resourceType = render::RESOURCE_UNIFORM_BUFFER;
+    resourceSetEntries[0].resourceType = render::RESOURCE_DYNAMIC_UNIFORM_BUFFER;
     resourceSetEntries[0].hBuffer = hSceneDataBuffer;
     resourceSetEntries[1].binding = 1;
     resourceSetEntries[1].resourceType = render::RESOURCE_SAMPLED_TEXTURE;
     resourceSetEntries[1].hTexture = hSpotTexture;
     resourceSetEntries[1].hSampler = hDefaultSampler;
     resourceSetEntries[2].binding = 2;
-    resourceSetEntries[2].resourceType = render::RESOURCE_STORAGE_BUFFER;
+    resourceSetEntries[2].resourceType = render::RESOURCE_DYNAMIC_STORAGE_BUFFER;
     resourceSetEntries[2].hBuffer = hInstanceDataBuffer;
     Handle<render::ResourceSet> hMainRenderPassResources = render::MakeResourceSet(hMainRenderPassResourceLayout, 3, resourceSetEntries);
     resourceSetEntries[0].binding = 0;
-    resourceSetEntries[0].resourceType = render::RESOURCE_STORAGE_BUFFER;
+    resourceSetEntries[0].resourceType = render::RESOURCE_DYNAMIC_STORAGE_BUFFER;
     resourceSetEntries[0].hBuffer = hInstanceDataBuffer;
     Handle<render::ResourceSet> hComputePassResources = render::MakeResourceSet(hComputePassResourceLayout, 1, resourceSetEntries);
     
@@ -287,6 +294,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     i32 frame = 0;
     time::Timer frameTimer;
     f32 deltaTime = 0;
+    math::v3f cameraPos = {0, 0, -5};
+    //sceneData[i].view = math::Transpose(math::LookAt({0, 0, -5}, {0, 0, 0}, {0, 1, 0}));
     while(window.state != render::WINDOW_CLOSED)
     {
         PROFILE_FRAME;
@@ -300,6 +309,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         render::BeginCommandBuffer(hCmd);
 
         //egui::BeginFrame();
+
+
+        // Updating frame data
+        cameraPos = cameraPos + (math::v3f{0, 0, -1} * deltaTime);
+        SceneData& sceneDataFrame = sceneData[frame % RENDER_CONCURRENT_FRAMES];
+        sceneDataFrame.view = math::Transpose(math::LookAt(cameraPos, {0, 0, 0}, {0, 1, 0}));
+        CopyMemoryToBuffer(hSceneDataBuffer, sceneData.count * sizeof(SceneData), sceneData.data);
 
         // Frame commands 
         Handle<render::Texture> hRenderPassMainOutput = render::GetRenderPassOutput(hRenderPassMain, 0);
@@ -325,7 +341,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         pushConstants.rotation = math::RotationMatrix(TO_RAD(45.f * deltaTime), {0,1,0});
         pushConstants.dt = deltaTime;
         render::CmdBindComputePipeline(hCmd, hComputePipelineDefault);
-        render::CmdBindComputeResources(hCmd, hComputePassResources, 0, hComputePipelineDefault);
+        u32 computeDynamicOffsets[] = {0};
+        render::CmdBindComputeResources(hCmd, hComputePipelineDefault, hComputePassResources, 0, ARR_LEN(computeDynamicOffsets), computeDynamicOffsets);
         render::CmdUpdatePushConstantRange(hCmd, 0, &pushConstants, hComputePipelineDefault);
         render::CmdDispatch(hCmd, instanceCount / 16, 1, 1);
 
@@ -339,7 +356,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
         render::CmdBindGraphicsPipeline(hCmd, hGraphicsPipelineDefault);
         render::CmdSetViewport(hCmd, hRenderPassMain);
         render::CmdSetScissor(hCmd, hRenderPassMain);
-        render::CmdBindGraphicsResources(hCmd, hMainRenderPassResources, 0, hGraphicsPipelineDefault);
+        u32 mainRenderPassDynamicOffsets[] = {(u32)sizeof(SceneData) * (frame % RENDER_CONCURRENT_FRAMES), 0};
+        render::CmdBindGraphicsResources(hCmd, hGraphicsPipelineDefault, hMainRenderPassResources, 0, ARR_LEN(mainRenderPassDynamicOffsets), mainRenderPassDynamicOffsets);
 
         // Draw all instances
         render::CmdBindVertexBuffer(hCmd, hSpotVB);
@@ -390,13 +408,9 @@ int main()
 }
 
 // TODO(caio): CONTINUE
-// - Improving resource binding*
-//      > Separation between binding layouts and sets**
-//      > Push constants**
-//      > Dynamic binding*
-//      > Buffer offsets*
 // - Upscale when resizing (maximizing)
 //      > Do a render to texture instead of blit?
+// - Stencil buffers
 // - Runtime shader compilation?
 //      > Will likely need a shader asset type
 // - Make typheus into a submodule

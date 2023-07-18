@@ -92,6 +92,28 @@ Array<T> MakeArray(u64 capacity, u64 initialCount, T initialValue)
 }
 
 template<typename T>
+Array<T> MakeArrayAlign(u64 capacity, i64 alignment)
+{
+    Array<T> result;
+    result.allocator = mem::ctxAllocator;
+    result.count = 0;
+    result.data = (T*)mem::AllocAlign(capacity * sizeof(T), alignment);
+    result.capacity = capacity;
+    return result;
+}
+
+template<typename T>
+Array<T> MakeArrayAlign(u64 capacity, u64 initialCount, T initialValue, i64 alignment)
+{
+    Array<T> result = MakeArrayAlign<T>(capacity, alignment);
+    for(u64 i = 0; i < initialCount; i++)
+    {
+        result.Push(initialValue);
+    }
+    return result;
+}
+
+template<typename T>
 void DestroyArray(T* arr)
 {
     ASSERT(arr);

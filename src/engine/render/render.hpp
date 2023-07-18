@@ -227,6 +227,7 @@ struct Context
     VkInstance vkInstance = VK_NULL_HANDLE;
     VkSurfaceKHR vkSurface = VK_NULL_HANDLE;
     VkPhysicalDevice vkPhysicalDevice = VK_NULL_HANDLE;
+    VkPhysicalDeviceProperties vkPhysicalDeviceProperties = {};
     VkDevice vkDevice = VK_NULL_HANDLE;
 #ifdef _DEBUG
     VkDebugUtilsMessengerEXT vkDebugMessenger = VK_NULL_HANDLE;
@@ -245,6 +246,8 @@ struct Context
     Array<VkSemaphore> vkPresentSemaphores;
     Array<VkFence> vkRenderFences;
     VkFence vkImmediateFence = VK_NULL_HANDLE;
+
+    u32 GetDynamicOffsetAlignment();
 };
 Context MakeContext(Window* window);
 void DestroyContext(Context* ctx);
@@ -509,8 +512,8 @@ void CmdCopyBufferToTexture(Handle<CommandBuffer> hCmd, Handle<Buffer> hSrc, Han
 void CmdClearColorTexture(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, f32 r, f32 g, f32 b, f32 a);
 void CmdBindGraphicsPipeline(Handle<CommandBuffer> hCmd, Handle<GraphicsPipeline> hPipeline);
 void CmdBindComputePipeline(Handle<CommandBuffer> hCmd, Handle<ComputePipeline> hPipeline);
-void CmdBindGraphicsResources(Handle<CommandBuffer> hCmd, Handle<ResourceSet> hResourceSet, u32 resourceSetIndex, Handle<GraphicsPipeline> hPipeline);
-void CmdBindComputeResources(Handle<CommandBuffer> hCmd, Handle<ResourceSet> hResourceSet, u32 resourceSetIndex, Handle<ComputePipeline> hPipeline);
+void CmdBindGraphicsResources(Handle<CommandBuffer> hCmd, Handle<GraphicsPipeline> hPipeline, Handle<ResourceSet> hResourceSet, u32 resourceSetIndex, u32 dynamicOffsetCount = 0, u32* dynamicOffsets = NULL);
+void CmdBindComputeResources(Handle<CommandBuffer> hCmd, Handle<ComputePipeline> hPipeline, Handle<ResourceSet> hResourceSet, u32 resourceSetIndex, u32 dynamicOffsetCount = 0, u32* dynamicOffsets = NULL);
 void CmdUpdatePushConstantRange(Handle<CommandBuffer> hCmd, u32 rangeIndex, void* data, Handle<GraphicsPipeline> hPipeline);
 void CmdUpdatePushConstantRange(Handle<CommandBuffer> hCmd, u32 rangeIndex, void* data, Handle<ComputePipeline> hPipeline);
 void CmdSetViewport(Handle<CommandBuffer> hCmd, f32 offsetX, f32 offsetY, f32 width, f32 height, f32 minDepth = 0, f32 maxDepth = 1);

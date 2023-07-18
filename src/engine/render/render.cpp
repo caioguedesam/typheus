@@ -294,6 +294,7 @@ void MakeContext_GetPhysicalDevice(Context* ctx)
     }
     ASSERT(selectedDevice != -1);
     ctx->vkPhysicalDevice = devices[selectedDevice];
+    vkGetPhysicalDeviceProperties(ctx->vkPhysicalDevice, &ctx->vkPhysicalDeviceProperties);
 }
 
 void MakeContext_CreateDeviceAndCommandQueue(Context* ctx)
@@ -579,6 +580,12 @@ void DestroyContext(Context *ctx)
     DestroyArray(&ctx->vkRenderFences);
 
     *ctx = {};
+}
+
+u32 Context::GetDynamicOffsetAlignment()
+{
+    ASSERT(vkPhysicalDevice != VK_NULL_HANDLE);
+    return vkPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
 }
 
 void MakeSwapChain_CreateSwapChain(Context* ctx, SwapChain* swapChain)
@@ -1009,11 +1016,6 @@ Handle<Buffer> MakeBuffer(BufferType type, u64 size, u64 stride, void* data)
 
     VkBufferCreateInfo bufferInfo = {};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    // TODO(caio): CONTINUE
-    // - For dynamic uniform/storage buffers the size needs to be allocated with the required alignment,
-    // which probably means padding the size and stride with the alignment requirements from vulkan.
-    // - Figure out how to pass offset to bind graphics/compute resources
-    // - Also maybe make a base pipeline type and have graphics/compute inherit
     bufferInfo.size = size;
     bufferInfo.usage = (VkBufferUsageFlags)type;
     
@@ -1256,6 +1258,8 @@ Handle<ResourceSet> MakeResourceSet(Handle<ResourceSetLayout> hResourceSetLayout
         {
             case RESOURCE_UNIFORM_BUFFER:
             case RESOURCE_STORAGE_BUFFER:
+            case RESOURCE_DYNAMIC_UNIFORM_BUFFER:
+            case RESOURCE_DYNAMIC_STORAGE_BUFFER:
             {
                 ASSERT(resource.hBuffer.IsValid());
                 Buffer& buffer = buffers[resource.hBuffer];
@@ -1264,7 +1268,8 @@ Handle<ResourceSet> MakeResourceSet(Handle<ResourceSetLayout> hResourceSetLayout
                 *bufferInfo = {};
                 bufferInfo->buffer = buffer.vkHandle;
                 bufferInfo->offset = 0;
-                bufferInfo->range = buffer.size;
+                //bufferInfo->range = buffer.size;
+                bufferInfo->range = buffer.stride;
 
                 write.pBufferInfo = bufferInfo;
             } break;
@@ -1924,7 +1929,7 @@ void CmdBindComputePipeline(Handle<CommandBuffer> hCmd, Handle<ComputePipeline> 
     vkCmdBindPipeline(cmd.vkHandle, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.vkPipeline);
 }
 
-void CmdBindGraphicsResources(Handle<CommandBuffer> hCmd, Handle<ResourceSet> hResourceSet, u32 resourceSetIndex, Handle<GraphicsPipeline> hPipeline)
+void CmdBindGraphicsResources(Handle<CommandBuffer> hCmd, Handle<GraphicsPipeline> hPipeline, Handle<ResourceSet> hResourceSet, u32 resourceSetIndex, u32 dynamicOffsetCount, u32* dynamicOffsets)
 {
     ASSERT(hCmd.IsValid() && hResourceSet.IsValid() && hPipeline.IsValid());
     CommandBuffer& cmd = commandBuffers[hCmd];
@@ -1936,11 +1941,11 @@ void CmdBindGraphicsResources(Handle<CommandBuffer> hCmd, Handle<ResourceSet> hR
             resourceSetIndex, 
             1, 
             &resourceSet.vkDescriptorSet,
-            0,
-            NULL);
+            dynamicOffsetCount,
+            dynamicOffsets);
 }
 
-void CmdBindComputeResources(Handle<CommandBuffer> hCmd, Handle<ResourceSet> hResourceSet, u32 resourceSetIndex, Handle<ComputePipeline> hPipeline)
+void CmdBindComputeResources(Handle<CommandBuffer> hCmd, Handle<ComputePipeline> hPipeline, Handle<ResourceSet> hResourceSet, u32 resourceSetIndex, u32 dynamicOffsetCount, u32* dynamicOffsets)
 {
     ASSERT(hCmd.IsValid() && hResourceSet.IsValid() && hPipeline.IsValid());
     CommandBuffer& cmd = commandBuffers[hCmd];
@@ -1952,8 +1957,8 @@ void CmdBindComputeResources(Handle<CommandBuffer> hCmd, Handle<ResourceSet> hRe
             resourceSetIndex, 
             1, 
             &resourceSet.vkDescriptorSet,
-            0,
-            NULL);
+            dynamicOffsetCount,
+            dynamicOffsets);
 }
 
 void CmdUpdatePushConstantRange(Handle<CommandBuffer> hCmd, u32 rangeIndex, void* data, Handle<GraphicsPipeline> hPipeline)
