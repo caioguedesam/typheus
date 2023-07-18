@@ -18,8 +18,23 @@ namespace asset
 {
 // ========================================================
 // [ASSET TYPES]
-struct BinaryData
+// TODO(caio): Asset types that I really want to support:
+// - GLTF models
+// - JSON
+// - WAV audio
+
+//TODO(caio): Have base asset type which contains path (and what else?)
+
+enum ShaderType
 {
+    SHADER_TYPE_VERTEX,
+    SHADER_TYPE_PIXEL,
+    SHADER_TYPE_COMPUTE,
+};
+
+struct Shader
+{
+    ShaderType type;
     u64 size = 0;
     u8* data = NULL;
 };
@@ -67,7 +82,7 @@ struct Model
 // [ASSET LISTS]
 
 inline mem::HeapAllocator assetHeap;
-inline List<BinaryData> binaryDatas;
+inline List<Shader> shaders;
 inline List<Image> images;
 inline List<Material> materials;
 inline List<Model> models;
@@ -75,27 +90,15 @@ inline List<Model> models;
 // Index asset handles by path
 inline HashMap<String, u32> loadedAssets;
 
-// TODO(caio): Reimplement async loading
-//inline async::Lock assetDatabaseLock = {};
-
 // ========================================================
 // [ASSET OPERATIONS]
 void Init();
 
-Handle<BinaryData>  LoadBinaryFile(file::Path assetPath);
+Handle<Shader>      LoadShader(file::Path assetPath);
 Handle<Image>       LoadImageFile(file::Path assetPath, bool flipVertical = true);
 Handle<Model>       LoadModelOBJ(file::Path assetPath, bool flipVerticalTexcoord = false);
-// TODO(caio): Load model obj with custom parser
 
 inline bool         IsLoaded(file::Path assetPath) { return loadedAssets.HasKey(assetPath.str); }
-// inline BinaryData*  GetBinaryData(Handle<BinaryData> handle) { return &binaryDatas[handle.value]; }
-// inline Image*       GetImage(Handle<Image> handle) { return &images[handle.value]; }
-// inline Model*       GetModel(Handle<Model> handle) { return &models[handle.value]; }
-
-// TODO(caio): Reimplement async loading?
-//ASYNC_CALLBACK(LoadBinaryFileAsync);
-//ASYNC_CALLBACK(LoadImagePNGAsync);
-//ASYNC_CALLBACK(LoadModelOBJAsync);
 
 };
 };

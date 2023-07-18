@@ -35,6 +35,7 @@ elif build_type == 'r':
 elif build_type == 'p':
     l_flags += ' -lbuild/profile/dependencies.lib'
 l_flags += ' -lC:/VulkanSDK/1.3.239.0/Lib/vulkan-1.lib'
+l_flags += ' -lC:/VulkanSDK/1.3.239.0/Lib/shaderc_combined.lib'
 
 # Dependencies build (full build only)
 if full_build:
@@ -42,7 +43,7 @@ if full_build:
     start = time.time()
     if build_type == 'd' or build_type == 'r':  # Debug dependencies are compiled as release
         subfolder = 'debug' if build_type == 'd' else 'release'
-        subprocess.run(f'clang {cc_flags} -D_NDEBUG -Ofast -Wno-nullability-completeness -c ./src/app/dependencies.cpp --output=./build/{subfolder}/dependencies.o', shell=True, stdout=subprocess.DEVNULL)
+        subprocess.run(f'clang {cc_flags} -D_NDEBUG -Ofast -Wno-nullability-completeness -c ./src/app/dependencies.cpp -D_DLL --output=./build/{subfolder}/dependencies.o', shell=True, stdout=subprocess.DEVNULL)
         subprocess.run(f'lib ./build/{subfolder}/dependencies.o', shell=True)
         subprocess.run(f'del ".\\build\\{subfolder}\\dependencies.o\"', shell=True)
     elif build_type == 'p':
@@ -55,9 +56,9 @@ if full_build:
 # Build command (clang)
 build_command = ''
 if build_type == 'd':
-    build_command = f'clang {cc_flags} -D_DEBUG --debug -O0 -include-pch ./build/stdafx.pch ./src/app/main.cpp {l_flags} -Wl,-nodefaultlib:libcmt -lmsvcrtd.lib --output=./build/debug/app.exe'
+    build_command = f'clang {cc_flags} -D_DEBUG --debug -O0 -include-pch ./build/stdafx.pch ./src/app/main.cpp {l_flags} -Wl,-nodefaultlib:libcmt -lmsvcrt.lib --output=./build/debug/app.exe'
 elif build_type == 'r':     # No PCH on release builds
-    build_command = f'clang {cc_flags} -D_NDEBUG -Ofast ./src/app/main.cpp {l_flags} --output=./build/release/app.exe'
+    build_command = f'clang {cc_flags} -D_NDEBUG -Ofast ./src/app/main.cpp {l_flags} -Wl,-nodefaultlib:libcmt -lmsvcrt.lib --output=./build/release/app.exe'
 elif build_type == 'p':     # No PCH on profile builds
     build_command = f'clang {cc_flags} -D_NDEBUG -D_PROFILE -Ofast ./src/app/main.cpp {l_flags} --output=./build/profile/app.exe'
 

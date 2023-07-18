@@ -58,15 +58,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     mem::HeapAllocator generalHeap = mem::MakeHeapAllocator(MB(128));
 
     // Shaders
-    file::Path vsPath = file::MakePath(IStr("./build/default_quad_vert.spv"));
-    file::Path psPath = file::MakePath(IStr("./build/default_quad_frag.spv"));
-    file::Path csPath = file::MakePath(IStr("./build/update_instances_comp.spv"));
-    Handle<asset::BinaryData> hAssetVs = asset::LoadBinaryFile(vsPath);
-    Handle<asset::BinaryData> hAssetPs = asset::LoadBinaryFile(psPath);
-    Handle<asset::BinaryData> hAssetCs = asset::LoadBinaryFile(csPath);
-    asset::BinaryData& assetVs = asset::binaryDatas[hAssetVs];
-    asset::BinaryData& assetPs = asset::binaryDatas[hAssetPs];
-    asset::BinaryData& assetCs = asset::binaryDatas[hAssetCs];
+    file::Path vsPath = file::MakePath(IStr("./resources/shaders/default_quad.vert"));
+    file::Path psPath = file::MakePath(IStr("./resources/shaders/default_quad.frag"));
+    file::Path csPath = file::MakePath(IStr("./resources/shaders/update_instances.comp"));
+    Handle<asset::Shader> hAssetVs = asset::LoadShader(vsPath);
+    Handle<asset::Shader> hAssetPs = asset::LoadShader(psPath);
+    Handle<asset::Shader> hAssetCs = asset::LoadShader(csPath);
+    asset::Shader& assetVs = asset::shaders[hAssetVs];
+    asset::Shader& assetPs = asset::shaders[hAssetPs];
+    asset::Shader& assetCs = asset::shaders[hAssetCs];
     Handle<render::Shader> hVsDefault = render::MakeShader(render::SHADER_TYPE_VERTEX, assetVs.size, assetVs.data);
     Handle<render::Shader> hPsDefault = render::MakeShader(render::SHADER_TYPE_PIXEL, assetPs.size, assetPs.data);
     Handle<render::Shader> hCsDefault = render::MakeShader(render::SHADER_TYPE_COMPUTE, assetCs.size, assetCs.data);
@@ -410,11 +410,11 @@ int main()
 // TODO(caio): CONTINUE
 // - Upscale when resizing (maximizing)
 //      > Do a render to texture instead of blit?
-// - Stencil buffers
-// - Runtime shader compilation?
+// - Runtime shader compilation*
 //      > Will likely need a shader asset type
 // - Make typheus into a submodule
 //
 // FUTURE GOALS
+// - Stencil buffers
 // - GPU driven rendering capability (draw indirect)
 // - Headless render (save images to assets on disk)
