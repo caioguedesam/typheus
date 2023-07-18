@@ -1867,20 +1867,24 @@ void CmdCopyToSwapChain(Handle<CommandBuffer> hCmd, Handle<Texture> hSrc)
             &vkBarrier);
 
     // Blit src to swap chain image
-    VkOffset3D blitSize = {};
-    blitSize.x = swapChain.vkExtents.width;
-    blitSize.y = swapChain.vkExtents.height;
-    blitSize.z = 1;
+    VkOffset3D blitSrcSize = {};
+    blitSrcSize.x = src.desc.width;
+    blitSrcSize.y = src.desc.height;
+    blitSrcSize.z = 1;
+    VkOffset3D blitDstSize = {};
+    blitDstSize.x = swapChain.vkExtents.width;
+    blitDstSize.y = swapChain.vkExtents.height;
+    blitDstSize.z = 1;
     VkImageBlit blitRegion = {};
     blitRegion.srcSubresource.aspectMask = ENUM_HAS_FLAG(src.desc.usageFlags, IMAGE_USAGE_DEPTH_ATTACHMENT)
         ? VK_IMAGE_ASPECT_DEPTH_BIT
         : VK_IMAGE_ASPECT_COLOR_BIT;
     blitRegion.srcSubresource.layerCount = 1;
     blitRegion.srcSubresource.baseArrayLayer = 0;
-    blitRegion.srcOffsets[1] = blitSize;
+    blitRegion.srcOffsets[1] = blitSrcSize;
     blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     blitRegion.dstSubresource.layerCount = 1;
-    blitRegion.dstOffsets[1] = blitSize;
+    blitRegion.dstOffsets[1] = blitDstSize;
 
     vkCmdBlitImage(cmd.vkHandle,
             src.vkHandle,

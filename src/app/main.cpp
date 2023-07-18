@@ -47,8 +47,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR pCmdLine, int nC
     time::Init();
     asset::Init();
 
-    const u32 appWidth = 1280;
-    const u32 appHeight = 720;
+    const u32 appWidth = 1920;
+    const u32 appHeight = 1080;
 
     render::Window window;
     render::MakeWindow(&window, appWidth, appHeight, "Typheus");
@@ -408,10 +408,6 @@ int main()
 }
 
 // TODO(caio): CONTINUE
-// - Upscale when resizing (maximizing)
-//      > Do a render to texture instead of blit?
-// - Runtime shader compilation*
-//      > Will likely need a shader asset type
 // - Make typheus into a submodule
 //
 // FUTURE GOALS
