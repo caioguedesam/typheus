@@ -92,6 +92,7 @@ Handle<Shader> LoadShader(file::Path assetPath)
     shader.type = type;
     shader.size = compiledLen;
     shader.data = resultData;
+    shader.path = file::MakePathAlloc(assetPath.str);
     shaders.Push(shader);
 
     Handle<Shader> result = { (u32)shaders.count - 1 };
@@ -108,6 +109,7 @@ Handle<Image> LoadImageFile(file::Path assetPath, bool flipVertical)
     u8* assetFileData = file::ReadFileToBuffer(assetPath, &assetFileSize);
 
     Image image = {};
+    image.path = file::MakePathAlloc(assetPath.str);
 
     i32 width, height, channels;
     stbi_set_flip_vertically_on_load(flipVertical);

@@ -23,7 +23,11 @@ namespace asset
 // - JSON
 // - WAV audio
 
-//TODO(caio): Have base asset type which contains path (and what else?)
+struct Asset
+{
+    file::Path path;
+    //TODO(caio): Other relevant attributes (load datetime?)
+};
 
 enum ShaderType
 {
@@ -32,14 +36,14 @@ enum ShaderType
     SHADER_TYPE_COMPUTE,
 };
 
-struct Shader
+struct Shader : Asset
 {
     ShaderType type;
     u64 size = 0;
     u8* data = NULL;
 };
 
-struct Image
+struct Image : Asset
 {
     u32 width = 0;
     u32 height = 0;
@@ -47,7 +51,7 @@ struct Image
     u8* data = NULL;
 };
 
-struct Material
+struct Material : Asset
 {
     // Properties
     math::v3f ambientColor = {1,1,1};
@@ -72,7 +76,7 @@ struct ModelGroup
     Handle<Material> material = {};
 };
 
-struct Model
+struct Model : Asset
 {
     List<f32> vertices = {};
     List<ModelGroup> groups = {};
@@ -82,6 +86,7 @@ struct Model
 // [ASSET LISTS]
 
 inline mem::HeapAllocator assetHeap;
+
 inline List<Shader> shaders;
 inline List<Image> images;
 inline List<Material> materials;

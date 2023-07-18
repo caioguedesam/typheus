@@ -544,6 +544,7 @@ Handle<Model> LoadModelOBJ(file::Path assetPath, bool flipVerticalTexcoord)
     if(mtlData) mem::Free(mtlData);
     mem::Free(objData);
 
+    model.path = file::MakePathAlloc(assetPath.str);
     models.Push(model);
     Handle<Model> result = { (u32)models.count - 1 };
     loadedAssets.Insert(assetPath.str, result.value);
