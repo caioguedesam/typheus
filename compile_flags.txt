@@ -1,8 +1,5 @@
 -std=c++17
--I./src/
--I./src/third_party/stb/
--I./src/third_party/optick/
--I./src/third_party/imgui/
+-I./
 -IC:/VulkanSDK/1.3.239.0/Include/
 -DWIN32_LEAN_AND_MEAN
 -DNOMINMAX
