@@ -5,6 +5,7 @@ import sys
 import subprocess
 import time
 import glob
+import os
 
 typheus_lib_name = "ty"
 typheus_dep_lib_name = "ty_dependencies_only"
@@ -71,6 +72,7 @@ elif '-r' in sys.argv:
     output_dir = './build/release'
 
 output_dir = output_dir.replace('\\', '/')
+os.makedirs(output_dir, exist_ok=True)
 
 # Compiler flags
 f = open('compile_flags.txt')
