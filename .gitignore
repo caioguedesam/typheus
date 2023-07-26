@@ -1,16 +1,4 @@
 .vim/
-src/third_party/unused/
 src/third_party/optick/
-build/debug/
-build/lib/
-build/profile/
-build/release/
-build/stdafx.pch
 build/*
-resources/textures/
-resources/models/
-resources/fonts/
-resources/scripts/
-src/engine/old/
-resources/shaders/old/
 imgui.ini
