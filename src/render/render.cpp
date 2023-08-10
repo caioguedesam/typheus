@@ -1409,7 +1409,7 @@ Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, Gr
     depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
     depthStencilInfo.stencilTestEnable = VK_FALSE;
 
-    VkDescriptorSetLayout descriptorSetLayouts[resourceSetLayoutCount];
+    VkDescriptorSetLayout descriptorSetLayouts[RENDER_MAX_RESOURCE_SET_LAYOUTS_PER_PIPELINE];
     for(i32 i = 0; i < resourceSetLayoutCount; i++)
     {
         ASSERT(hResourceSetLayouts[i].IsValid());
