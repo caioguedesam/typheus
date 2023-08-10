@@ -58,7 +58,10 @@ void Update()
     POINT cursorPoint;
     ret = GetCursorPos(&cursorPoint);
     ASSERT(ret);
-    ret = ScreenToClient(GetActiveWindow(), &cursorPoint);
+    HWND activeWindow = GetActiveWindow();
+    if(!activeWindow) return;   // Skip cursor updates entirely when app is minimized
+
+    ret = ScreenToClient(activeWindow, &cursorPoint);
     ASSERT(ret);
 
     math::v2f currentPos  = {(f32)cursorPoint.x,        (f32)cursorPoint.y};
