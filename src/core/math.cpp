@@ -570,39 +570,90 @@ v3f TransformDirection(v3f direction, m4f transform)
     return v.AsXYZ();
 }
 
-m4f LookAt(v3f center, v3f target, v3f up)
+m4f LookAtLH(v3f center, v3f target, v3f up)
 {
-    v3f lookDir     = Normalize(center - target);
-    v3f lookRight   = Normalize(Cross(up, lookDir));
-    v3f lookUp      = Normalize(Cross(lookDir, lookRight));
-    m4f lookRotation =
+    v3f lookZ = Normalize(target - center);
+    v3f lookX = Normalize(Cross(up, lookZ));
+    v3f lookY = Normalize(Cross(lookZ, lookX));
+
+    // View-to-world matrix:
+    // Transform point in view coordinate space to world coordinate space
+    // Columns are view coordinate system axes (and origin)
+    m4f result =
     {
-        lookRight.x,    lookRight.y,    lookRight.z, 0,
-        lookUp.x,       lookUp.y,       lookUp.z, 0,
-        lookDir.x,      lookDir.y,      lookDir.z, 0,
+        lookX.x, lookY.x, lookZ.x, center.x,
+        lookX.y, lookY.y, lookZ.y, center.y,
+        lookX.z, lookY.z, lookZ.z, center.z,
         0, 0, 0, 1,
     };
-    m4f lookTranslation = TranslationMatrix({-center.x, -center.y, -center.z});
-    return lookRotation * lookTranslation;
+    // World-to-view matrix
+    // Transform point in world coordinate space to view coordinate space
+    result = Inverse(result);
+    return result;
 }
 
-m4f Perspective(f32 fov, f32 aspect, f32 nearPlane, f32 farPlane)
+m4f LookAtRH(v3f center, v3f target, v3f up)
 {
-    f32 top = tanf(fov / 2.f) * nearPlane;
-    f32 bottom = -top;
-    f32 right = top * aspect;
-    f32 left = bottom * aspect;
-    m4f result = {};
-    result.m00 = (2.f * nearPlane) / (right - left);
-    result.m11 = -(2.f * nearPlane) / (top - bottom);   // -1 to account for Vulkan coordinate system (this uses left hand, vk uses right hand)
-    result.m32 = -(2.f * nearPlane * farPlane) / (farPlane - nearPlane);
-    result.m20 = (right + left) / (right - left);
-    result.m21 = (top + bottom) / (top - bottom);
-    result.m22 = -(farPlane + nearPlane) / (farPlane - nearPlane);
-    result.m23 = -1;
+    v3f lookZ = Normalize(center - target);
+    v3f lookX = Normalize(Cross(up, lookZ));
+    v3f lookY = Normalize(Cross(lookZ, lookX));
 
-    return Transpose(result);       // TODO(caio): Why do I transpose here? I already transpose when sending
-                                    // to shaders...
+    // View-to-world matrix:
+    // Transform point in view coordinate space to world coordinate space
+    // Columns are view coordinate system axes (and origin)
+    m4f result =
+    {
+        lookX.x, lookY.x, lookZ.x, center.x,
+        lookX.y, lookY.y, lookZ.y, center.y,
+        lookX.z, lookY.z, lookZ.z, center.z,
+        0, 0, 0, 1,
+    };
+    // World-to-view matrix
+    // Transform point in world coordinate space to view coordinate space
+    result = Inverse(result);
+    return result;
+}
+
+m4f PerspectiveLH(f32 fov, f32 aspect, f32 zNear, f32 zFar)
+{
+    // Perspective projection matrix for LH coordinate system
+    // aspect is W/H
+    // fov is fovY
+    f32 a = 1 / aspect;
+    f32 f = 1 / tan(fov/2);
+    m4f result = {};
+    result.m00 = a * f;
+    result.m11 = f;
+
+    result.m22 = zFar / (zFar - zNear);
+    result.m23 = -(zFar * zNear) / (zFar - zNear);
+    result.m32 = 1;
+
+    // Vulkan
+    result.m11 = -result.m11;
+    
+    return result;
+}
+
+m4f PerspectiveRH(f32 fov, f32 aspect, f32 zNear, f32 zFar)
+{
+    // Perspective projection matrix for LH coordinate system
+    // aspect is W/H
+    // fov is fovY
+    f32 a = 1 / aspect;
+    f32 f = 1 / tan(fov/2);
+    m4f result = {};
+    result.m00 = a * f;
+    result.m11 = f;
+
+    result.m22 = zFar / (zNear - zFar);
+    result.m23 = -(zFar * zNear) / (zFar - zNear);
+    result.m32 = -1;
+
+    // Vulkan
+    result.m11 = -result.m11;
+    
+    return result;
 }
 
 f32 Lerp(f32 a, f32 b, f32 t)

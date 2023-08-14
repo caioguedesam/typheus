@@ -175,10 +175,12 @@ m4f TranslationMatrix   (v3f move);
 v3f TransformPosition   (v3f position,  m4f transform);
 v3f TransformDirection  (v3f direction, m4f transform);
 
-m4f LookAt      (v3f center, v3f target, v3f up);
-m4f Perspective (f32 fov, f32 aspect, f32 nearPlane, f32 farPlane);
-//m4f Ortho       (f32 left, f32 right, f32 bottom, f32 top, f32 nearPlane, f32 farPlane);
+m4f LookAtLH        (v3f center, v3f target, v3f up);
+m4f LookAtRH        (v3f center, v3f target, v3f up);
+m4f PerspectiveLH   (f32 fov, f32 aspect, f32 zNear, f32 zFar);
+m4f PerspectiveRH   (f32 fov, f32 aspect, f32 zNear, f32 zFar);
 
+//TODO(caio): Implement orthogonal projection
 //TODO(caio): Implement quaternions
 
 // ========================================================
