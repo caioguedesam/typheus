@@ -46,20 +46,20 @@ Handle<Shader> LoadShader(file::Path assetPath)
     mem::SetContext(&assetHeap);
 
     String shaderStr = file::ReadFileToString(assetPath);
-    String shaderExt = assetPath.GetExtension().str;
+    String shaderExt = assetPath.Extension();
     ShaderType type;
     shaderc_shader_kind shadercType;
-    if(StrEquals(shaderExt, IStr(".vert")))
+    if(shaderExt == IStr(".vert"))
     {
         type = SHADER_TYPE_VERTEX;
         shadercType = shaderc_vertex_shader;
     }
-    else if(StrEquals(shaderExt, IStr(".frag")))
+    else if(shaderExt == IStr(".frag"))
     {
         type = SHADER_TYPE_PIXEL;
         shadercType = shaderc_fragment_shader;
     }
-    else if(StrEquals(shaderExt, IStr(".comp")))
+    else if(shaderExt == IStr(".comp"))
     {
         type = SHADER_TYPE_COMPUTE;
         shadercType = shaderc_compute_shader;
@@ -67,13 +67,12 @@ Handle<Shader> LoadShader(file::Path assetPath)
     else ASSERT(0);
 
     shaderc_compiler_t compiler = shaderc_compiler_initialize();
-    ToCStr(assetPath.str, assetPathCstr);
     shaderc_compilation_result_t compiled = shaderc_compile_into_spv(
             compiler,
             (char*)shaderStr.data,
             shaderStr.len,
             shadercType,
-            assetPathCstr,
+            assetPath.CStr(),
             "main",
             NULL);
     u64 errorCount = shaderc_result_get_num_errors(compiled);
@@ -92,7 +91,9 @@ Handle<Shader> LoadShader(file::Path assetPath)
     shader.type = type;
     shader.size = compiledLen;
     shader.data = resultData;
-    shader.path = file::MakePathAlloc(assetPath.str);
+    MStr(assetPathStr, MAX_PATH);
+    str::Append(assetPathStr, assetPath.str);
+    shader.path = file::MakePath(assetPathStr);
     shaders.Push(shader);
 
     Handle<Shader> result = { (u32)shaders.count - 1 };
@@ -109,11 +110,12 @@ Handle<Image> LoadImageFile(file::Path assetPath, bool flipVertical)
     u8* assetFileData = file::ReadFileToBuffer(assetPath, &assetFileSize);
 
     Image image = {};
-    image.path = file::MakePathAlloc(assetPath.str);
+    MStr(assetPathStr, MAX_PATH);
+    str::Append(assetPathStr, assetPath.str);
+    image.path = file::MakePath(assetPathStr);
 
     i32 width, height, channels;
     stbi_set_flip_vertically_on_load(flipVertical);
-    PathToCStr(assetPath, assetPathCstr);
     u8* data = stbi_load_from_memory(assetFileData, assetFileSize, &width, &height, &channels, STBI_rgb_alpha);     // Hardcoded 4 channels for now
     
     image.width = width;

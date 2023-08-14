@@ -18,20 +18,17 @@ struct Path
 {
     String str = {};
 
-    void CStr(char* output);
+    char* CStr();
     bool Exists();
     bool IsDir();
     
-    Path GetExtension();
-    Path RemoveExtension();
-    Path GetFileName(bool extension = false);
-    Path GetFileDir();
+    String Extension();
+    String WithoutExtension();
+    String FileName(bool extension = false);
+    String FileDir();
 };
+
 Path MakePath(String s);
-Path MakePath(const char* value);
-Path MakePathAlloc(String s);
-Path MakePathAlloc(const char* value);
-Path GetAbsolute(Path path);
 
 u64 GetFileSize(Path path);
 List<Path> GetFilesInDir(Path dir);
@@ -39,12 +36,8 @@ List<Path> GetFilesInDir(Path dir);
 u64     ReadFile(Path path, u8* output);
 String  ReadFileToString(Path path);
 u8*     ReadFileToBuffer(Path path, u64* size = NULL);
-#define ReadFileToStackBuffer(P, bufname)   u8 bufname[GetFileSize((P))];\
-                                            ReadFile((P), bufname)
 
 // TODO(caio): Implement file writing
-
-#define PathToCStr(P, bufname) ToCStr((P).str, bufname)
 
 };
 };

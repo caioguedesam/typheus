@@ -2,6 +2,7 @@
 #include "../core/profile.hpp"
 #include "../core/file.hpp"
 #include "./asset.hpp"
+#include "src/core/string.hpp"
 
 namespace ty
 {
@@ -346,21 +347,27 @@ HashMap<String, Handle<Material>> LoadMaterials(u8* mtlData, u64 mtlDataSize)
                     fp = NextNonWhitespace(++fp);
                     String mapName;
                     fp = ConsumeString(fp, &mapName);
-                    m.ambientMap = file::MakePathAlloc(mapName);
+                    MStr(mapPathStr, MAX_PATH);
+                    str::Append(mapPathStr, mapName);
+                    m.ambientMap = file::MakePath(mapPathStr);
                 }
                 else if(*fp == 'd')     // Diffuse
                 {
                     fp = NextNonWhitespace(++fp);
                     String mapName;
                     fp = ConsumeString(fp, &mapName);
-                    m.diffuseMap = file::MakePathAlloc(mapName);
+                    MStr(mapPathStr, MAX_PATH);
+                    str::Append(mapPathStr, mapName);
+                    m.diffuseMap = file::MakePath(mapPathStr);
                 }
                 else if(*fp == 's')     // Specular
                 {
                     fp = NextNonWhitespace(++fp);
                     String mapName;
                     fp = ConsumeString(fp, &mapName);
-                    m.specularMap = file::MakePathAlloc(mapName);
+                    MStr(mapPathStr, MAX_PATH);
+                    str::Append(mapPathStr, mapName);
+                    m.specularMap = file::MakePath(mapPathStr);
                 }
                 else ASSERT(0);
             }
@@ -370,14 +377,18 @@ HashMap<String, Handle<Material>> LoadMaterials(u8* mtlData, u64 mtlDataSize)
                 fp = NextNonWhitespace(fp);
                 String mapName;
                 fp = ConsumeString(fp, &mapName);
-                m.bumpMap = file::MakePathAlloc(mapName);
+                MStr(mapPathStr, MAX_PATH);
+                str::Append(mapPathStr, mapName);
+                m.bumpMap = file::MakePath(mapPathStr);
             }
             else if(*fp == 'd')         // Alpha
             {
                 fp = NextNonWhitespace(++fp);
                 String mapName;
                 fp = ConsumeString(fp, &mapName);
-                m.alphaMap = file::MakePathAlloc(mapName);
+                MStr(mapPathStr, MAX_PATH);
+                str::Append(mapPathStr, mapName);
+                m.alphaMap = file::MakePath(mapPathStr);
             }
             fp = NextLineStart(fp);
         }
@@ -414,8 +425,12 @@ Handle<Model> LoadModelOBJ(file::Path assetPath, bool flipVerticalTexcoord)
     model.groups = MakeList<ModelGroup>();
 
     // Read mtl data
-    file::Path mtlPath = file::MakePathAlloc(assetPath.RemoveExtension().str);
-    mtlPath.str.Append(".mtl");
+    MStr(mtlPathStr, MAX_PATH);
+    str::Append(mtlPathStr, assetPath.WithoutExtension());
+    str::Append(mtlPathStr, ".mtl");
+    //file::Path mtlPath = file::MakePathAlloc(assetPath.RemoveExtension().str);
+    file::Path mtlPath = file::MakePath(mtlPathStr);
+    //mtlPath.str.Append(".mtl");
     HashMap<String, Handle<Material>> modelMaterials;
     u64 mtlDataSize = 0;
     u8* mtlData = NULL;
@@ -423,7 +438,7 @@ Handle<Model> LoadModelOBJ(file::Path assetPath, bool flipVerticalTexcoord)
     {
         mtlDataSize = 0;
         mtlData = file::ReadFileToBuffer(mtlPath, &mtlDataSize);
-        DestroyMStr(&mtlPath.str);
+        FreeMStr(&mtlPath.str);
 
         // Parse mtl data
         modelMaterials = obj::LoadMaterials(mtlData, mtlDataSize);
@@ -544,7 +559,9 @@ Handle<Model> LoadModelOBJ(file::Path assetPath, bool flipVerticalTexcoord)
     if(mtlData) mem::Free(mtlData);
     mem::Free(objData);
 
-    model.path = file::MakePathAlloc(assetPath.str);
+    MStr(assetPathStr, MAX_PATH);
+    str::Append(assetPathStr, assetPath.str);
+    model.path = file::MakePath(assetPathStr);
     models.Push(model);
     Handle<Model> result = { (u32)models.count - 1 };
     loadedAssets.Insert(assetPath.str, result.value);

@@ -1,240 +1,55 @@
 #include "./string.hpp"
+#include "src/core/memory.hpp"
 #include "string.h"
 
 namespace ty
 {
 
-String MStr(u64 capacity)
+char& String::operator[](u64 index)
 {
-    String result;
-    result.data = (u8*)mem::AllocZero(capacity);
-    result.len = 0;
-    result.capacity = capacity;
-    return result;
-}
+    ASSERT(index < len);
+    return (char&)data[index];
+};
 
-String MStr(u64 capacity, const char* value)
+char* String::CStr()
 {
-    u64 len = strlen(value);
-    ASSERT(len + 1 <= capacity);
-
-    String result = MStr(capacity);
-    result.len = strlen(value);
-    result.capacity = capacity;
-
-    strcpy((char*)result.data, value);
-    return result;
-}
-
-String MStr(u64 capacity, String value)
-{
-    ASSERT(value.len + 1 <= capacity);
-
-    String result = MStr(capacity);
-    result.len = value.len;
-    result.capacity = capacity;
-
-    memcpy(result.data, value.data, value.len);
-    return result;
-}
-
-String MStr(const char* value)
-{
-    return MStr(strlen(value) + 1, value);
-}
-
-String MStr(String value)
-{
-    return MStr(value.len + 1, value);
-}
-
-void DestroyMStr(String* str)
-{
-    ASSERT(str->capacity);
-    mem::Free(str->data);
-    *str = {};
+    return (char*)data;
 }
 
 String IStr(const char* value)
 {
-    String result;
-    result.data = (u8*)value;
-    result.len = strlen(value);
+    String result = {};
     result.capacity = 0;
+    result.len = strlen(value);
+    result.data = (u8*)value;
     return result;
-}
+};
 
 String IStr(String value)
 {
-    String result;
-    result.data = value.data;
+    String result = {};
+    result.capacity = 0;
     result.len = value.len;
-    result.capacity = 0;
+    result.data = value.data;
     return result;
-}
+};
 
-String IStr(u8* data, u64 len)
+void FreeMStr(String* s)
 {
-    String result;
-    result.data = data;
-    result.len = len;
-    result.capacity = 0;
-    return result;
+    ASSERT(IS_MUTABLE(*s));
+    mem::Free(s->data);
+    *s = {};
 }
 
-//const char* String::CStr()
-//{
-    //ASSERT(data);
-    //return (const char*)data;
-//}
-
-void String::CStr(char* output)
+bool operator==(String s1, String s2)
 {
-    ASSERT(data);
-    memcpy(output, data, len);
-    output[len] = 0;    // Null term
-}
+    return s1.len == s2.len && memcmp(s1.data, s2.data, s1.len) == 0;
+};
 
-u8 String::At(u64 i)
+bool operator!=(String s1, String s2)
 {
-    return *(data + i);
-}
-
-bool StrEquals(String a, String b)
-{
-    return a.len == b.len && memcmp(a.data, b.data, a.len) == 0;
-}
-
-bool operator==(String a, String b) { return StrEquals(a, b); }
-bool operator!=(String a, String b) { return !StrEquals(a, b); }
-
-i64 String::Find(char c)
-{
-    for(i64 i = 0; i < len; i++)
-    {
-        if((char)At(i) == c)
-        {
-            return i;
-        }
-    }
-    return -1;
-}
-
-i64 String::Find(String s)
-{
-    ASSERT(s.len);
-    if(s.len > len) return -1;
-
-    // Naive string search. Can definitely be optimized.
-    for(i64 i = 0; i < len - s.len + 1; i++)
-    {
-        if(At(i) == s.At(0))
-        {
-            bool match = true;
-            for(i64 j = 1; j < s.len; j++)
-            {
-                if(At(i + j) != s.At(j))
-                {
-                    match = false;
-                    break;
-                }
-            }
-            if(match) return i;
-        }
-    }
-    return -1;
-}
-
-i64 String::RFind(char c)
-{
-    for(i64 i = len - 1; i >= 0; i--)
-    {
-        if((char)At(i) == c)
-        {
-            return i;
-        }
-    }
-    return -1;
-}
-
-i64 String::RFind(String s)
-{
-    ASSERT(s.len);
-    if(s.len > len) return -1;
-
-    // Naive string search. Can definitely be optimized.
-    for(i64 i = len - 1; i >= s.len - 1; i--)
-    {
-        if(At(i) == s.At(s.len - 1))
-        {
-            bool match = true;
-            for(i64 j = s.len - 2; j >= 0; j--)
-            {
-                if(At(i - j) != s.At(j))
-                {
-                    match = false;
-                    break;
-                }
-            }
-            if(match) return i;
-        }
-    }
-    return -1;
-}
-
-String String::Substr(u64 start)
-{
-    ASSERT(start < len);
-    String result;
-    result.capacity = 0;
-    result.data = data + start;
-    result.len = len - start;
-    return result;
-}
-
-String String::Substr(u64 start, u64 size)
-{
-    ASSERT(start + size <= len);
-    String result;
-    result.capacity = 0;
-    result.len = size;
-    result.data = data + start;
-    return result;
-}
-
-void String::Clear()
-{
-    ASSERT(capacity);
-    memset(data, 0, capacity);
-    len = 0;
-}
-
-void String::Append(const char* other)
-{
-    u64 otherLen = strlen(other);
-    ASSERT(len + otherLen < capacity);
-    strcpy((char*)(data + len), other);
-    len = len + otherLen;
-}
-
-void String::Append(String other)
-{
-    ASSERT(len + other.len < capacity);
-    memcpy((char*)(data + len), other.data, other.len);
-    len = len + other.len;
-}
-
-// djb2 string hash
-u32 Hash(const char* cstr)
-{
-    u32 result = 5381;
-    u32 slen = strlen(cstr);
-    for(u32 i = 0; i < slen; i++)
-    {
-        result = ((result << 5) + result) + cstr[i];
-    }
-    return result;
-}
+    return s1.len != s2.len || memcmp(s1.data, s2.data, s1.len) != 0;
+};
 
 // djb2 string hash
 u32 Hash(String str)
@@ -242,9 +57,170 @@ u32 Hash(String str)
     u32 result = 5381;
     for(u32 i = 0; i < str.len; i++)
     {
-        result = ((result << 5) + result) + str.At(i);
+        result = ((result << 5) + result) + (u8)str[i];
     }
     return result;
 }
 
+u32 Hash(const char* value)
+{
+    return Hash(IStr(value));
+}
+
+namespace str
+{
+
+i64 Find(String s, char target)
+{
+    for(i64 i = 0; i < s.len; i++)
+    {
+        if(s[i] == target)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+i64 Find(String s, String target)
+{
+    ASSERT(target.len);
+    if(target.len > s.len) return -1;
+
+    // Naive string search. Can definitely be optimized.
+    for(i64 i = 0; i < s.len - target.len + 1; i++)
+    {
+        if(s[i] == target[0])
+        {
+            bool match = true;
+            for(i64 j = 1; j < target.len; j++)
+            {
+                if(s[i + j] != target[j])
+                {
+                    match = false;
+                    break;
+                }
+            }
+            if(match) return i;
+        }
+    }
+    return -1;
+}
+
+i64 Find(String s, const char* target)
+{
+    return Find(s, IStr(target));
+}
+
+i64 RFind(String s, char target)
+{
+    for(i64 i = s.len - 1; i >= 0; i--)
+    {
+        if(s[i] == target)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+i64 RFind(String s, String target)
+{
+    ASSERT(target.len);
+    if(target.len > s.len) return -1;
+
+    // Naive string search. Can definitely be optimized.
+    for(i64 i = s.len - 1; i >= target.len - 1; i--)
+    {
+        if(s[i] == target[target.len - 1])
+        {
+            bool match = true;
+            for(i64 j = target.len - 2; j >= 0; j--)
+            {
+                if(s[i - j] != target[j])
+                {
+                    match = false;
+                    break;
+                }
+            }
+            if(match) return i;
+        }
+    }
+    return -1;
+}
+
+i64 RFind(String s, const char* target)
+{
+    return RFind(s, IStr(target));
+}
+
+String Substr(String s, u64 start)
+{
+    ASSERT(start < s.len);
+    String result;
+    result.capacity = 0;
+    result.data = s.data + start;
+    result.len = s.len - start;
+    return result;
+}
+
+String Substr(String s, u64 start, u64 length)
+{
+    ASSERT(start + length <= s.len);
+    String result;
+    result.capacity = 0;
+    result.len = length;
+    result.data = s.data + start;
+    return result;
+}
+
+Array<String> Split(String s, char delimiter)
+{
+    //TODO(caio): Implement me!
+    ASSERT(0);
+    return {};
+}
+
+String Concat(String s1, String s2)
+{
+    //TODO(caio): Implement me!
+    ASSERT(0);
+    return {};
+}
+
+void Clear(String s)
+{
+    ASSERT(IS_MUTABLE(s));
+    memset(s.data, 0, s.capacity);
+    s.len = 0;
+}
+
+void Append(String s, String other)
+{
+    ASSERT(IS_MUTABLE(s));
+    ASSERT(s.len + other.len < s.capacity);
+    memcpy((char*)(s.data + s.len), other.data, other.len);
+    s.len = s.len + other.len;
+}
+
+void Append(String s, const char* other)
+{
+    return Append(s, IStr(other));
+}
+
+void Format(String s, const char* fmt, ...)
+{
+    ASSERT(IS_MUTABLE(s));
+    va_list args;
+    va_start(args, fmt);
+
+    Clear(s);
+    i64 length = vsnprintf((char*)s.data, s.capacity, fmt, args);
+    ASSERT(length > 0);
+    s.len = length;
+
+    va_end(args);
+}
+
+};
 };

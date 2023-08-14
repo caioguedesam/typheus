@@ -176,37 +176,37 @@ void TestString()
 
     const char* test1_cstr = "test 1";
     const char* test2_cstr = "test 22";
-    String a = MStr(1024, test1_cstr);
+    //String a = MStr(1024, test1_cstr);
+    MStr(a, 1024);
+    str::Format(a, "%s", test1_cstr);
     ASSERT(a.len == strlen(test1_cstr));
-    ToCStr(a, a_cstr);
-    ASSERT(strcmp(a_cstr, test1_cstr) == 0);
+    ASSERT(strcmp(a.CStr(), test1_cstr) == 0);
     String b = IStr(a);
     ASSERT(b.len == strlen(test1_cstr));
-    ToCStr(b, b_cstr);
-    ASSERT(strcmp(b_cstr, test1_cstr) == 0);
-    ASSERT(StrEquals(a, b));
+    ASSERT(strcmp(b.CStr(), test1_cstr) == 0);
+    ASSERT(a == b);
 
     String c = IStr(test2_cstr);
-    ASSERT(!StrEquals(a, c));
+    ASSERT(a != c);
 
-    ASSERT(a.Find('s') == 2);
-    ASSERT(c.Find(IStr("t 2")) == 3);
-    ASSERT(a.RFind('t') == 3);
-    ASSERT(c.RFind(IStr("2")) == 6);
-    ASSERT(c.Find(IStr("2")) == 5);
+    ASSERT(str::Find(a, 's') == 2);
+    ASSERT(str::Find(c, IStr("t 2")) == 3);
+    ASSERT(str::RFind(a, 't') == 3);
+    ASSERT(str::RFind(c, IStr("2")) == 6);
+    ASSERT(str::Find(c, IStr("2")) == 5);
 
-    String sa = a.Substr(2);
-    ASSERT(StrEquals(sa, IStr("st 1")));
-    String sc = c.Substr(2, 4);
-    ASSERT(StrEquals(sc, IStr("st 2")));
-    ASSERT(StrEquals(IStr(""), a.Substr(0,0)));
+    String sa = str::Substr(a, 2);
+    ASSERT(sa == IStr("st 1"));
+    String sc = str::Substr(c, 2, 4);
+    ASSERT(sc == IStr("st 2"));
+    ASSERT(IStr("") == str::Substr(a, 0,0));
 
-    a.Clear();
-    ASSERT(StrEquals(IStr(""), a));
-    a.Append("a");
-    ASSERT(StrEquals(IStr("a"), a));
-    a.Append(c);
-    ASSERT(StrEquals(IStr("atest 22"), a));
+    str::Clear(a);
+    ASSERT(IStr("") == a);
+    str::Append(a, "a");
+    ASSERT(IStr("a") == a);
+    str::Append(a, c);
+    ASSERT(IStr("atest 22") == a);
 
     mem::DestroyArenaAllocator(&stringArena);
 }
@@ -216,33 +216,30 @@ void TestFile()
     mem::ArenaAllocator fileArena = mem::MakeArenaAllocator(MB(32));
     mem::SetContext(&fileArena);
 
-    const char* filePath = "./resources/test.txt";
+    const char* filePath = "./temp/test.txt";
 
     file::Path path1 = file::MakePath(IStr(filePath));
-    ASSERT(StrEquals(path1.str, IStr(filePath)));
+    ASSERT(path1.str == IStr(filePath));
     ASSERT(path1.Exists());
     ASSERT(!path1.IsDir());
-    file::Path path1Dir = path1.GetFileDir();
+    file::Path path1Dir = file::MakePath(path1.FileDir());
     ASSERT(path1Dir.Exists());
     ASSERT(path1Dir.IsDir());
-    ASSERT(StrEquals(path1Dir.str, IStr("./resources/")));
-    file::Path path1Name = path1.GetFileName();
-    ASSERT(StrEquals(path1Name.str, IStr("test")));
-    path1Name = path1.GetFileName(true);
-    ASSERT(StrEquals(path1Name.str, IStr("test.txt")));
-    file::Path path1Ext = path1.GetExtension();
-    ASSERT(StrEquals(path1Ext.str, IStr(".txt")));
+    ASSERT(path1Dir.str == IStr("./temp/"));
+    String path1Name = path1.FileName();
+    ASSERT(path1Name == IStr("test"));
+    path1Name = path1.FileName(true);
+    ASSERT(path1Name == IStr("test.txt"));
+    String path1Ext = path1.Extension();
+    ASSERT(path1Ext == IStr(".txt"));
 
-    file::Path path2 = file::MakePathAlloc(filePath);
-    ASSERT(StrEquals(path2.str, IStr(filePath)));
-    u64 fSize = file::GetFileSize(path2);
+    u64 fSize = file::GetFileSize(path1);
     ASSERT(fSize);
-    String fileStr = file::ReadFileToString(path2);
-    ASSERT(StrEquals(fileStr, IStr("This is a test file!")));
-    file::Path bunnyPath = file::MakePath(IStr("./resources/models/bunny/bunny.obj"));
-    u64 bunnySize = file::GetFileSize(bunnyPath);
-    u8* bunnyBuffer = (u8*)mem::Alloc(bunnySize);
-    file::ReadFile(bunnyPath, bunnyBuffer);
+    String fileStr = file::ReadFileToString(path1);
+    ASSERT(fileStr == IStr("This is a test file!"));
+    u64 fSize2 = 0;
+    u8* fData = file::ReadFileToBuffer(path1, &fSize2);
+    ASSERT(fSize == fSize2);
 
     mem::DestroyArenaAllocator(&fileArena);
 }

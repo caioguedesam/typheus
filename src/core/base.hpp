@@ -55,6 +55,8 @@ typedef double      f64;
 #define STMT(S) do { S; } while(0)
 
 #define STRINGIFY(S) #S     // For macro arg expansion
+#define CONCATENATE_IMPL(A, B) A##B
+#define CONCATENATE(A, B) CONCATENATE_IMPL(A, B)
 
 //TODO(caio): Verify and test alignment macros further
 #define IS_POW2(V) (((V) & ((V) - 1)) == 0)

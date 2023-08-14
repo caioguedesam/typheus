@@ -104,69 +104,58 @@ void SameLine()
 
 void Text(String text)
 {
-    ToCStr(text, cstr);
-    ImGui::Text("%s", cstr);
+    ImGui::Text("%s", text.CStr());
 }
 
 bool Button(String label)
 {
-    ToCStr(label, labelcstr);
-    return ImGui::Button(labelcstr);
+    return ImGui::Button(label.CStr());
 }
 
 void Checkbox(String label, bool* result)
 {
-    ToCStr(label, labelcstr);
-    ImGui::Checkbox(labelcstr, result);
+    ImGui::Checkbox(label.CStr(), result);
 }
 
 void DragI32(String label, i32* result, f32 speed, i32 start, i32 end)
 {
-    ToCStr(label, labelcstr);
-    ImGui::DragInt(labelcstr, result, speed, start, end);
+    ImGui::DragInt(label.CStr(), result, speed, start, end);
 }
 
 void DragF32(String label, f32* result, f32 speed, f32 start, f32 end)
 {
-    ToCStr(label, labelcstr);
-    ImGui::DragFloat(labelcstr, result, speed, start, end);
+    ImGui::DragFloat(label.CStr(), result, speed, start, end);
 }
 
 void SliderI32(String label, i32* result, i32 start, i32 end)
 {
-    ToCStr(label, labelcstr);
-    ImGui::SliderInt(labelcstr, result, start, end);
+    ImGui::SliderInt(label.CStr(), result, start, end);
 }
 
 void SliderF32(String label, f32* result, f32 start, f32 end)
 {
-    ToCStr(label, labelcstr);
-    ImGui::SliderFloat(labelcstr, result, start, end);
+    ImGui::SliderFloat(label.CStr(), result, start, end);
 }
 
 void SliderV2F(String label, math::v2f* result, f32 start, f32 end)
 {
-    ToCStr(label, labelcstr);
-    ImGui::SliderFloat2(labelcstr, result->data, start, end);
+    ImGui::SliderFloat2(label.CStr(), result->data, start, end);
 }
 
 void SliderV3F(String label, math::v3f* result, f32 start, f32 end)
 {
-    ToCStr(label, labelcstr);
-    ImGui::SliderFloat3(labelcstr, result->data, start, end);
+    ImGui::SliderFloat3(label.CStr(), result->data, start, end);
 }
 
 void SliderAngle(String label, f32* result_radians)
 {
-    ToCStr(label, labelcstr);
-    ImGui::SliderAngle(labelcstr, result_radians);
+    ImGui::SliderAngle(label.CStr(), result_radians);
 }
 
 void Color(String label, f32* r, f32* g, f32* b)
 {
-    ToCStr(label, labelcstr);
     f32 color[3] = {*r, *g, *b};
-    ImGui::ColorEdit3(labelcstr, color);
+    ImGui::ColorEdit3(label.CStr(), color);
     *r = color[0];
     *g = color[1];
     *b = color[2];
@@ -174,9 +163,8 @@ void Color(String label, f32* r, f32* g, f32* b)
 
 void Color(String label, f32* r, f32* g, f32* b, f32* a)
 {
-    ToCStr(label, labelcstr);
     f32 color[4] = {*r, *g, *b, *a};
-    ImGui::ColorEdit4(labelcstr, color);
+    ImGui::ColorEdit4(label.CStr(), color);
     *r = color[0];
     *g = color[1];
     *b = color[2];
@@ -187,8 +175,7 @@ void Tooltip(String text)
 {
     if(ImGui::IsItemHovered())
     {
-        ToCStr(text, textcstr);
-        ImGui::SetTooltip("%s", textcstr);
+        ImGui::SetTooltip("%s", text.CStr());
     }
 }
 

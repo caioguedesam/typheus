@@ -5,110 +5,76 @@ namespace ty
 namespace file
 {
 
-void Path::CStr(char* output) { return str.CStr(output); }
+char* Path::CStr()
+{
+    return str.CStr();
+}
 
 Path MakePath(String s)
 {
-    return { s };
-}
-
-Path MakePath(const char* value)
-{
-    return { IStr(value) };
-}
-
-Path MakePathAlloc(const char* value)
-{
-    return
-    {
-        MStr(MAX_PATH, value)
-    };
-}
-
-Path MakePathAlloc(String s)
-{
-    return
-    {
-        MStr(MAX_PATH, s)
-    };
-}
-
-Path GetAbsolute(Path path)
-{
-    ASSERT(path.Exists());
-    PathToCStr(path, cstr);
-    Path result = {};
-    char resultBuffer[MAX_PATH];
-    DWORD ret = GetFullPathName(
-            cstr,
-            MAX_PATH, resultBuffer, NULL);
-    ASSERT(ret);
-    result.str = MStr(MAX_PATH, resultBuffer);
-    return result;
+    return { .str = s };
 }
 
 bool Path::Exists()
 {
-    PathToCStr(*this, cstr);
-    DWORD fileAttributes = GetFileAttributes(cstr);
+    DWORD fileAttributes = GetFileAttributes(CStr());
     return fileAttributes != INVALID_FILE_ATTRIBUTES;
 }
 
 bool Path::IsDir()
 {
-    PathToCStr(*this, cstr);
-    DWORD fileAttributes = GetFileAttributes(cstr);
+    DWORD fileAttributes = GetFileAttributes(CStr());
     return fileAttributes & FILE_ATTRIBUTE_DIRECTORY;
 }
 
-Path Path::GetExtension()
+String Path::Extension()
 {
     ASSERT(Exists());
     ASSERT(!IsDir());
-    u64 extStart = str.RFind('.');
+    u64 extStart = str::RFind(str, '.');
     ASSERT(extStart != -1);
-    return MakePath(str.Substr(extStart));
+    return str::Substr(str, extStart);
 }
 
-Path Path::RemoveExtension()
+String Path::WithoutExtension()
 {
     ASSERT(Exists());
     ASSERT(!IsDir());
-    u64 extStart = str.RFind('.');
+    u64 extStart = str::RFind(str, '.');
     ASSERT(extStart != -1);
-    return MakePath(str.Substr(0, extStart));
+    return str::Substr(str, 0, extStart);
 }
 
-Path Path::GetFileName(bool extension)
+String Path::FileName(bool extension)
 {   
     ASSERT(Exists());
     ASSERT(!IsDir());
 
-    u64 lastSlash = str.RFind('\\');
-    if(lastSlash == -1) lastSlash = str.RFind('/');
+    u64 lastSlash = str::RFind(str, '\\');
+    if(lastSlash == -1) lastSlash = str::RFind(str, '/');
 
     String result;
     if(lastSlash == -1)
-        result = str.Substr(0);
+        result = str::Substr(str, 0);
     else
-        result = str.Substr(lastSlash + 1);
+        result = str::Substr(str, lastSlash + 1);
 
     if(!extension)
-        result = result.Substr(0, result.len - GetExtension().str.len);
+        result = str::Substr(result, 0, result.len - Extension().len);
 
-    return MakePath(result);
+    return result;
 }
 
-Path Path::GetFileDir()
+String Path::FileDir()
 {   
     ASSERT(Exists());
     ASSERT(!IsDir());
 
-    u64 lastSlash = str.RFind('\\');
-    if(lastSlash == -1) lastSlash = str.RFind('/');
+    u64 lastSlash = str::RFind(str, '\\');
+    if(lastSlash == -1) lastSlash = str::RFind(str, '/');
     ASSERT(lastSlash != -1);
 
-    return MakePath(str.Substr(0, lastSlash + 1));
+    return str::Substr(str, 0, lastSlash + 1);
 }
 
 u64 GetFileSize(Path path)
@@ -116,9 +82,8 @@ u64 GetFileSize(Path path)
     ASSERT(path.Exists());
     ASSERT(!path.IsDir());
 
-    PathToCStr(path, cstr);
     HANDLE hFile = CreateFile(
-            cstr,
+            path.CStr(),
             GENERIC_READ,
             FILE_SHARE_READ,
             NULL,
@@ -132,7 +97,6 @@ u64 GetFileSize(Path path)
     return (u64)fSize;
 }
 
-//std::vector<Path> GetFilesInDir(mem::AllocatorArena* arena, Path dir)
 List<Path> GetFilesInDir(Path dir)
 {
     ASSERT(dir.Exists());
@@ -140,8 +104,7 @@ List<Path> GetFilesInDir(Path dir)
 
     // Create a temp buffer to store query string
     char queryBuffer[MAX_PATH];
-    PathToCStr(dir, cstr);
-    sprintf(queryBuffer, "%s\\*", cstr);
+    sprintf(queryBuffer, "%s\\*", dir.CStr());
 
     // Make query for files
     HANDLE fileHandle;
@@ -153,8 +116,10 @@ List<Path> GetFilesInDir(Path dir)
     do
     {
         char fBuffer[MAX_PATH];
-        sprintf(fBuffer, "%s\\%s", cstr, fileData.cFileName);
-        Path fPath = MakePathAlloc(fBuffer);
+        sprintf(fBuffer, "%s\\%s", dir.CStr(), fileData.cFileName);
+
+        MStr(fPathStr, MAX_PATH);
+        Path fPath = MakePath(fPathStr);
         if(!fPath.IsDir())
         {
             result.Push(fPath);
@@ -166,9 +131,8 @@ List<Path> GetFilesInDir(Path dir)
 
 u64 ReadFile(Path path, u8* output)
 {
-    PathToCStr(path, cstr);
     HANDLE hFile = CreateFile(
-            cstr,
+            path.CStr(),
             GENERIC_READ,
             FILE_SHARE_READ,
             NULL,
@@ -194,7 +158,7 @@ u64 ReadFile(Path path, u8* output)
 String ReadFileToString(Path path)
 {
     u64 fSize = GetFileSize(path);
-    String result = MStr(fSize + 1); // +1 for null terminator
+    MStr(result, fSize + 1);
     u64 bytesRead = ReadFile(path, result.data);
     ASSERT(bytesRead == fSize);
     result.len = bytesRead;
