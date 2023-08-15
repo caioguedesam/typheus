@@ -28,12 +28,14 @@ namespace render
 #define RENDER_CONTEXT_MEMORY MB(1)
 #define RENDER_CONCURRENT_FRAMES 2
 #define RENDER_MAX_COMMAND_BUFFERS 16
-#define RENDER_MAX_RENDER_PASSES 8
-#define RENDER_MAX_VERTEX_LAYOUTS 8
 #define RENDER_MAX_SHADERS 32
 #define RENDER_MAX_BUFFERS 256
 #define RENDER_MAX_TEXTURES 1024
 #define RENDER_MAX_SAMPLERS 16
+#define RENDER_MAX_RENDER_TARGETS 32
+#define RENDER_MAX_FORMATS_PER_RENDER_TARGET 8
+#define RENDER_MAX_RENDER_PASSES 8
+#define RENDER_MAX_VERTEX_LAYOUTS 8
 #define RENDER_MAX_RESOURCE_SETS 256
 #define RENDER_MAX_RESOURCE_SET_LAYOUTS 256
 #define RENDER_MAX_RESOURCE_SET_LAYOUTS_PER_PIPELINE 8
@@ -390,10 +392,28 @@ struct ResourceSet
 Handle<ResourceSet> MakeResourceSet(Handle<ResourceSetLayout> hResourceSetLayout, i32 resourceCount, ResourceSet::Entry* resources);
 void DestroyResourceSet(ResourceSet* resourceSet);
 
+struct RenderTargetDesc
+{
+    u32 width   = 0;
+    u32 height  = 0;
+    u32 colorImageCount = 0;
+    Format colorImageFormats[RENDER_MAX_FORMATS_PER_RENDER_TARGET];
+    Format depthImageFormat = FORMAT_INVALID;
+};
+
+struct RenderTarget
+{
+    RenderTargetDesc desc = {};
+    Array<Handle<Texture>> outputs;
+};
+
+Handle<RenderTarget> MakeRenderTarget(RenderTargetDesc desc);
+void DestroyRenderTarget(RenderTarget* renderTarget);
+Handle<Texture> GetColorOutput(Handle<RenderTarget> hRenderTarget, u32 outputIndex);
+Handle<Texture> GetDepthOutput(Handle<RenderTarget> hRenderTarget);
+
 struct RenderPassDesc
 {
-    u32         width           = 0;
-    u32         height          = 0;
     LoadOp      loadOp          = LOAD_OP_DONT_CARE;
     StoreOp     storeOp         = STORE_OP_DONT_CARE;
     ImageLayout initialLayout   = IMAGE_LAYOUT_UNDEFINED;
@@ -406,14 +426,11 @@ struct RenderPass
     VkFramebuffer vkFramebuffer = VK_NULL_HANDLE;
 
     RenderPassDesc desc = {};
-
-    u32 colorImageCount = 0;
-    Array<Handle<Texture>> outputs;
+    Handle<RenderTarget> hRenderTarget;
 };
 
-Handle<RenderPass> MakeRenderPass(RenderPassDesc desc, u32 colorImageCount, Format* colorImageFormats, Format depthImageFormat);
+Handle<RenderPass> MakeRenderPass(RenderPassDesc desc, Handle<RenderTarget> hRenderTarget);
 void DestroyRenderPass(RenderPass* renderPass);
-Handle<Texture> GetRenderPassOutput(Handle<RenderPass> hRenderPass, u32 outputIndex);
 
 struct PushConstantRange
 {
@@ -476,13 +493,13 @@ inline Context ctx;
 inline SwapChain swapChain;
 
 inline Array<CommandBuffer> commandBuffers;
-inline Array<RenderPass> renderPasses;
-inline Array<VertexLayout> vertexLayouts;
 inline Array<Shader> shaders;
 inline Array<Buffer> buffers;
 inline Array<Texture> textures;
 inline Array<Sampler> samplers;
-//inline Array<BindGroup> bindGroups;
+inline Array<RenderTarget> renderTargets;
+inline Array<RenderPass> renderPasses;
+inline Array<VertexLayout> vertexLayouts;
 inline Array<ResourceSetLayout> resourceSetLayouts;
 inline Array<ResourceSet> resourceSets;
 inline Array<GraphicsPipeline> graphicsPipelines;

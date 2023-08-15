@@ -62,13 +62,13 @@ void Init(Window* window)
     swapChain = MakeSwapChain(window);
 
     commandBuffers = MakeArray<CommandBuffer>(RENDER_MAX_COMMAND_BUFFERS);
-    renderPasses = MakeArray<RenderPass>(RENDER_MAX_RENDER_PASSES);
-    vertexLayouts = MakeArray<VertexLayout>(RENDER_MAX_VERTEX_LAYOUTS);
     shaders = MakeArray<Shader>(RENDER_MAX_SHADERS);
     buffers = MakeArray<Buffer>(RENDER_MAX_BUFFERS);
     textures = MakeArray<Texture>(RENDER_MAX_TEXTURES);
     samplers = MakeArray<Sampler>(RENDER_MAX_SAMPLERS);
-    //bindGroups = MakeArray<BindGroup>(RENDER_MAX_RESOURCE_BINDING_SETS);
+    renderTargets = MakeArray<RenderTarget>(RENDER_MAX_RENDER_TARGETS);
+    renderPasses = MakeArray<RenderPass>(RENDER_MAX_RENDER_PASSES);
+    vertexLayouts = MakeArray<VertexLayout>(RENDER_MAX_VERTEX_LAYOUTS);
     resourceSetLayouts = MakeArray<ResourceSetLayout>(RENDER_MAX_RESOURCE_SET_LAYOUTS);
     resourceSets = MakeArray<ResourceSet>(RENDER_MAX_RESOURCE_SETS);
     graphicsPipelines = MakeArray<GraphicsPipeline>(RENDER_MAX_GRAPHICS_PIPELINES);
@@ -82,14 +82,6 @@ void Shutdown()
     mem::SetContext(&renderHeap);
 
     vkDeviceWaitIdle(ctx.vkDevice);
-    for(i32 i = 0; i < renderPasses.count; i++)
-    {
-        DestroyRenderPass(&renderPasses[i]);
-    }
-    for(i32 i = 0; i < vertexLayouts.count; i++)
-    {
-        DestroyVertexLayout(&vertexLayouts[i]);
-    }
     for(i32 i = 0; i < shaders.count; i++)
     {
         DestroyShader(&shaders[i]);
@@ -105,6 +97,18 @@ void Shutdown()
     for(i32 i = 0; i < samplers.count; i++)
     {
         DestroySampler(&samplers[i]);
+    }
+    for(i32 i = 0; i < renderTargets.count; i++)
+    {
+        DestroyRenderTarget(&renderTargets[i]);
+    }
+    for(i32 i = 0; i < renderPasses.count; i++)
+    {
+        DestroyRenderPass(&renderPasses[i]);
+    }
+    for(i32 i = 0; i < vertexLayouts.count; i++)
+    {
+        DestroyVertexLayout(&vertexLayouts[i]);
     }
     for(i32 i = 0; i < resourceSetLayouts.count; i++)
     {
@@ -758,16 +762,84 @@ void ResizeSwapChain(Window* window, SwapChain* swapChain)
     window->state = WINDOW_IDLE;
 }
 
-void MakeRenderPass_CreateRenderPass(Context* ctx, RenderPassDesc desc, u32 colorImageCount, Format* colorImageFormats, Format depthImageFormat, RenderPass* renderPass)
+Handle<RenderTarget> MakeRenderTarget(RenderTargetDesc desc)
+{
+    mem::SetContext(&renderHeap);
+    RenderTarget result = {};
+
+    result.outputs = MakeArray<Handle<Texture>>(desc.colorImageCount + 1);
+    // Create images for color attachments
+    for(i32 i = 0; i < desc.colorImageCount; i++)
+    {
+        TextureDesc colorOutputDesc = {};
+        colorOutputDesc.width = desc.width;
+        colorOutputDesc.height = desc.height;
+        colorOutputDesc.depth = 1;
+        colorOutputDesc.type = IMAGE_TYPE_2D;
+        colorOutputDesc.viewType = IMAGE_VIEW_TYPE_2D;
+        colorOutputDesc.usageFlags = ENUM_FLAGS(ImageUsageFlags, 
+                IMAGE_USAGE_COLOR_ATTACHMENT
+                | IMAGE_USAGE_TRANSFER_SRC
+                | IMAGE_USAGE_TRANSFER_DST
+                | IMAGE_USAGE_SAMPLED);
+        colorOutputDesc.format = desc.colorImageFormats[i];
+        colorOutputDesc.layout = IMAGE_LAYOUT_UNDEFINED;
+        Handle<Texture> hColorOutput = MakeTexture(colorOutputDesc);
+
+        result.outputs.Push(hColorOutput);
+    }
+    // Then create image for depth attachment (currently all RTs have depth targets)
+    TextureDesc depthOutputDesc = {};
+    depthOutputDesc.width = desc.width;
+    depthOutputDesc.height = desc.height;
+    depthOutputDesc.depth = 1;
+    depthOutputDesc.type = IMAGE_TYPE_2D;
+    depthOutputDesc.viewType = IMAGE_VIEW_TYPE_2D;
+    depthOutputDesc.usageFlags = ENUM_FLAGS(ImageUsageFlags, IMAGE_USAGE_DEPTH_ATTACHMENT);
+    depthOutputDesc.format = desc.depthImageFormat;
+    depthOutputDesc.layout = IMAGE_LAYOUT_UNDEFINED;
+    Handle<Texture> hDepthOutput = MakeTexture(depthOutputDesc);
+
+    result.outputs.Push(hDepthOutput);
+    result.desc = desc;
+
+    renderTargets.Push(result);
+    return { (u32)renderTargets.count - 1 };
+}
+
+void DestroyRenderTarget(RenderTarget* renderTarget)
+{
+    ASSERT(renderTarget);
+    // Render target textures are destroyed along with all other textures
+    DestroyArray(&renderTarget->outputs);
+    *renderTarget = {};
+}
+
+Handle<Texture> GetColorOutput(Handle<RenderTarget> hRenderTarget, u32 outputIndex)
+{
+    ASSERT(hRenderTarget.IsValid());
+    RenderTarget& rt = renderTargets[hRenderTarget];
+    ASSERT(outputIndex < rt.desc.colorImageCount);
+    return rt.outputs[outputIndex];
+}
+
+Handle<Texture> GetDepthOutput(Handle<RenderTarget> hRenderTarget)
+{
+    ASSERT(hRenderTarget.IsValid());
+    RenderTarget& rt = renderTargets[hRenderTarget];
+    return rt.outputs[rt.desc.colorImageCount];
+}
+
+void MakeRenderPass_CreateRenderPass(Context* ctx, RenderPassDesc desc, RenderTarget* renderTarget, RenderPass* renderPass)
 {
     ASSERT(ctx && renderPass);
     // Color attachments
-    VkAttachmentDescription colorAttachments[colorImageCount];
-    VkAttachmentReference colorAttachmentRefs[colorImageCount];
-    for(i32 i = 0; i < colorImageCount; i++)
+    VkAttachmentDescription colorAttachments[renderTarget->desc.colorImageCount];
+    VkAttachmentReference colorAttachmentRefs[renderTarget->desc.colorImageCount];
+    for(i32 i = 0; i < renderTarget->desc.colorImageCount; i++)
     {
         colorAttachments[i] = {};
-        colorAttachments[i].format = (VkFormat)colorImageFormats[i];
+        colorAttachments[i].format = (VkFormat)renderTarget->desc.colorImageFormats[i];
         colorAttachments[i].initialLayout = (VkImageLayout)desc.initialLayout;
         colorAttachments[i].finalLayout = (VkImageLayout)desc.finalLayout;
         colorAttachments[i].loadOp = (VkAttachmentLoadOp)desc.loadOp;
@@ -784,7 +856,7 @@ void MakeRenderPass_CreateRenderPass(Context* ctx, RenderPassDesc desc, u32 colo
     // Depth attachment
     VkAttachmentDescription depthAttachment = {};
     VkAttachmentReference depthAttachmentRef = {};
-    depthAttachment.format = (VkFormat)depthImageFormat;
+    depthAttachment.format = (VkFormat)renderTarget->desc.depthImageFormat;
     depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -792,13 +864,13 @@ void MakeRenderPass_CreateRenderPass(Context* ctx, RenderPassDesc desc, u32 colo
     depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    depthAttachmentRef.attachment = colorImageCount;    // Depth comes after all color attachments
+    depthAttachmentRef.attachment = renderTarget->desc.colorImageCount;    // Depth comes after all color attachments
     depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     // Subpass (only supports a single subpass)
     VkSubpassDescription subpass = {};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = colorImageCount;
+    subpass.colorAttachmentCount = renderTarget->desc.colorImageCount;
     subpass.pColorAttachments = colorAttachmentRefs;
     subpass.pDepthStencilAttachment = &depthAttachmentRef;
     VkSubpassDependency subpassDependency = {};
@@ -810,18 +882,18 @@ void MakeRenderPass_CreateRenderPass(Context* ctx, RenderPassDesc desc, u32 colo
     subpassDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
     // Render pass
-    VkAttachmentDescription attachments[colorImageCount + 1];
-    for(i32 i = 0; i < colorImageCount; i++)
+    VkAttachmentDescription attachments[renderTarget->desc.colorImageCount + 1];
+    for(i32 i = 0; i < renderTarget->desc.colorImageCount; i++)
     {
         attachments[i] = colorAttachments[i];
     }
-    attachments[colorImageCount] = depthAttachment;
+    attachments[renderTarget->desc.colorImageCount] = depthAttachment;
 
     VkRenderPassCreateInfo renderPassInfo = {};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = &subpass;
-    renderPassInfo.attachmentCount = colorImageCount + 1;
+    renderPassInfo.attachmentCount = renderTarget->desc.colorImageCount + 1;
     renderPassInfo.pAttachments = attachments;
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies = &subpassDependency;
@@ -831,63 +903,22 @@ void MakeRenderPass_CreateRenderPass(Context* ctx, RenderPassDesc desc, u32 colo
 
     renderPass->vkHandle = handle;
     renderPass->desc = desc;
-    renderPass->colorImageCount = colorImageCount;
 }
 
-void MakeRenderPass_CreateOutputImages(Context* ctx, Format* colorImageFormats, Format depthImageFormat, RenderPass* renderPass)
-{
-    ASSERT(ctx && renderPass);
-    renderPass->outputs = MakeArray<Handle<Texture>>(renderPass->colorImageCount + 1);
-
-    // Create images for color attachments
-    for(i32 i = 0; i < renderPass->colorImageCount; i++)
-    {
-        TextureDesc colorOutputDesc = {};
-        colorOutputDesc.width = renderPass->desc.width;
-        colorOutputDesc.height = renderPass->desc.height;
-        colorOutputDesc.depth = 1;
-        colorOutputDesc.type = IMAGE_TYPE_2D;
-        colorOutputDesc.viewType = IMAGE_VIEW_TYPE_2D;
-        colorOutputDesc.usageFlags = ENUM_FLAGS(ImageUsageFlags, 
-                IMAGE_USAGE_COLOR_ATTACHMENT
-                | IMAGE_USAGE_TRANSFER_SRC
-                | IMAGE_USAGE_TRANSFER_DST
-                | IMAGE_USAGE_SAMPLED);
-        colorOutputDesc.format = colorImageFormats[i];
-        colorOutputDesc.layout = IMAGE_LAYOUT_UNDEFINED;
-        Handle<Texture> hColorOutput = MakeTexture(colorOutputDesc);
-
-        renderPass->outputs.Push(hColorOutput);
-    }
-
-    TextureDesc depthOutputDesc = {};
-    depthOutputDesc.width = renderPass->desc.width;
-    depthOutputDesc.height = renderPass->desc.height;
-    depthOutputDesc.depth = 1;
-    depthOutputDesc.type = IMAGE_TYPE_2D;
-    depthOutputDesc.viewType = IMAGE_VIEW_TYPE_2D;
-    depthOutputDesc.usageFlags = ENUM_FLAGS(ImageUsageFlags, IMAGE_USAGE_DEPTH_ATTACHMENT);
-    depthOutputDesc.format = depthImageFormat;
-    depthOutputDesc.layout = IMAGE_LAYOUT_UNDEFINED;
-    Handle<Texture> hDepthOutput = MakeTexture(depthOutputDesc);
-
-    renderPass->outputs.Push(hDepthOutput);
-}
-
-void MakeRenderPass_CreateFramebuffer(Context* ctx, RenderPass* renderPass)
+void MakeRenderPass_CreateFramebuffer(Context* ctx, RenderTarget* renderTarget, RenderPass* renderPass)
 {
     ASSERT(ctx && renderPass);
     VkFramebufferCreateInfo framebufferInfo = {};
     framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     framebufferInfo.renderPass = renderPass->vkHandle;
-    framebufferInfo.width = renderPass->desc.width;
-    framebufferInfo.height = renderPass->desc.height;
+    framebufferInfo.width = renderTarget->desc.width;
+    framebufferInfo.height = renderTarget->desc.height;
     framebufferInfo.layers = 1;
-    framebufferInfo.attachmentCount = renderPass->colorImageCount + 1;
-    VkImageView attachmentViews[renderPass->colorImageCount + 1];
-    for(i32 i = 0; i < renderPass->colorImageCount + 1; i++)
+    framebufferInfo.attachmentCount = renderTarget->desc.colorImageCount + 1;
+    VkImageView attachmentViews[renderTarget->desc.colorImageCount + 1];
+    for(i32 i = 0; i < renderTarget->desc.colorImageCount + 1; i++)
     {
-        Texture& texture = textures[renderPass->outputs[i]];
+        Texture& texture = textures[renderTarget->outputs[i]];
         attachmentViews[i] = texture.vkImageView;
     }
     framebufferInfo.pAttachments = attachmentViews;
@@ -899,16 +930,17 @@ void MakeRenderPass_CreateFramebuffer(Context* ctx, RenderPass* renderPass)
     renderPass->vkFramebuffer = framebuffer;
 }
 
-Handle<RenderPass> MakeRenderPass(RenderPassDesc desc, u32 colorImageCount, Format* colorImageFormats, Format depthImageFormat)
+Handle<RenderPass> MakeRenderPass(RenderPassDesc desc, Handle<RenderTarget> hRenderTarget)
 {
-    ASSERT(colorImageFormats);
+    ASSERT(hRenderTarget.IsValid());
+    RenderTarget& renderTarget = renderTargets[hRenderTarget];
     mem::SetContext(&renderHeap);
 
     RenderPass result = {};
 
-    MakeRenderPass_CreateRenderPass(&ctx, desc, colorImageCount, colorImageFormats, depthImageFormat, &result);
-    MakeRenderPass_CreateOutputImages(&ctx, colorImageFormats, depthImageFormat, &result);
-    MakeRenderPass_CreateFramebuffer(&ctx, &result);
+    MakeRenderPass_CreateRenderPass(&ctx, desc, &renderTarget, &result);
+    MakeRenderPass_CreateFramebuffer(&ctx, &renderTarget, &result);
+    result.hRenderTarget = hRenderTarget;
 
     renderPasses.Push(result);
     return { (u32)renderPasses.count - 1 };
@@ -921,17 +953,7 @@ void DestroyRenderPass(RenderPass *renderPass)
     vkDestroyFramebuffer(ctx.vkDevice, renderPass->vkFramebuffer, NULL);
     vkDestroyRenderPass(ctx.vkDevice, renderPass->vkHandle, NULL);
 
-    DestroyArray(&renderPass->outputs);
-
     *renderPass = {};
-}
-
-Handle<Texture> GetRenderPassOutput(Handle<RenderPass> hRenderPass, u32 i)
-{
-    ASSERT(hRenderPass.IsValid());
-    RenderPass& renderPass = renderPasses[hRenderPass];
-    ASSERT(i <= renderPass.colorImageCount);
-    return renderPass.outputs[i];
 }
 
 Handle<VertexLayout> MakeVertexLayout(u32 attrCount, VertexAttribute* attributes)
@@ -1584,6 +1606,7 @@ void BeginRenderPass(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass)
     ASSERT(hCmd.IsValid() && hRenderPass.IsValid());
     CommandBuffer& cmd = commandBuffers[hCmd];
     RenderPass& renderPass = renderPasses[hRenderPass];
+    RenderTarget& renderTarget = renderTargets[renderPass.hRenderTarget];
 
     VkRenderPassBeginInfo beginInfo = {};
     beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -1593,8 +1616,8 @@ void BeginRenderPass(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass)
     beginInfo.renderArea.offset.y = 0;
     beginInfo.renderArea.extent =
     {
-        renderPass.desc.width,
-        renderPass.desc.height,
+        renderTarget.desc.width,
+        renderTarget.desc.height,
     };
     VkClearValue clearValues[2];
     clearValues[0].color = {0, 0, 0, 1};
@@ -1607,17 +1630,17 @@ void BeginRenderPass(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass)
     // Color image layouts are automatically transitioned within render passes.
     // When vkCmdBeginRenderPass is called, color outputs transition to initial layout,
     // then subpass 0 starts and they transition to COLOR_OUTPUT.
-    for(i32 i = 0; i < renderPass.colorImageCount; i++)
+    for(i32 i = 0; i < renderTarget.desc.colorImageCount; i++)
     {
-        ASSERT(renderPass.outputs[i].IsValid());
-        Texture& colorOutput = textures[renderPass.outputs[i]];
+        ASSERT(GetColorOutput(renderPass.hRenderTarget, i).IsValid());
+        Texture& colorOutput = textures[GetColorOutput(renderPass.hRenderTarget, i)];
         //colorOutput.desc.layout = renderPass.desc.initialLayout;
         colorOutput.desc.layout = IMAGE_LAYOUT_COLOR_OUTPUT;
     }
     // Depth image layouts are hardcoded in render passes. Initial is always
     // UNDEFINED, then subpass 0 sets it to DEPTH_STENCIL_OUTPUT.
-    ASSERT(renderPass.outputs[renderPass.colorImageCount].IsValid());
-    Texture& depthOutput = textures[renderPass.outputs[renderPass.colorImageCount]];
+    ASSERT(GetDepthOutput(renderPass.hRenderTarget).IsValid());
+    Texture& depthOutput = textures[GetDepthOutput(renderPass.hRenderTarget)];
     depthOutput.desc.layout = IMAGE_LAYOUT_DEPTH_STENCIL_OUTPUT;
 }
 
@@ -1626,22 +1649,23 @@ void EndRenderPass(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass)
     ASSERT(hCmd.IsValid() && hRenderPass.IsValid());
     CommandBuffer& cmd = commandBuffers[hCmd];
     RenderPass& renderPass = renderPasses[hRenderPass];
+    RenderTarget& renderTarget = renderTargets[renderPass.hRenderTarget];
 
     vkCmdEndRenderPass(cmd.vkHandle);
 
     // Color image layouts are automatically transitioned within render passes.
     // When vkCmdEndRenderPass is called, color outputs transition to final layout.
-    for(i32 i = 0; i < renderPass.colorImageCount; i++)
+    for(i32 i = 0; i < renderTarget.desc.colorImageCount; i++)
     {
-        ASSERT(renderPass.outputs[i].IsValid());
-        Texture& colorOutput = textures[renderPass.outputs[i]];
+        ASSERT(GetColorOutput(renderPass.hRenderTarget, i).IsValid());
+        Texture& colorOutput = textures[GetColorOutput(renderPass.hRenderTarget, i)];
         colorOutput.desc.layout = renderPass.desc.finalLayout;
     }
 
     // Depth image layouts are hardcoded in render passes.
     // Final layout is always DEPTH_STENCIL_OUTPUT.
-    ASSERT(renderPass.outputs[renderPass.colorImageCount].IsValid());
-    Texture& depthOutput = textures[renderPass.outputs[renderPass.colorImageCount]];
+    ASSERT(GetDepthOutput(renderPass.hRenderTarget).IsValid());
+    Texture& depthOutput = textures[GetDepthOutput(renderPass.hRenderTarget)];
     depthOutput.desc.layout = IMAGE_LAYOUT_DEPTH_STENCIL_OUTPUT;
 }
 
@@ -2016,9 +2040,11 @@ void CmdSetViewport(Handle<CommandBuffer> hCmd, f32 offsetX, f32 offsetY, f32 wi
 
 void CmdSetViewport(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass)
 {
+    //TODO(caio): Should this use RenderPass or RenderTarget as arg?
     ASSERT(hRenderPass.IsValid());
     RenderPass& renderPass = renderPasses[hRenderPass];
-    CmdSetViewport(hCmd, 0, 0, renderPass.desc.width, renderPass.desc.height);
+    RenderTarget& renderTarget = renderTargets[renderPass.hRenderTarget];
+    CmdSetViewport(hCmd, 0, 0, renderTarget.desc.width, renderTarget.desc.height);
 }
 
 void CmdSetScissor(Handle<CommandBuffer> hCmd, i32 offsetX, i32 offsetY, i32 width, i32 height)
@@ -2035,9 +2061,11 @@ void CmdSetScissor(Handle<CommandBuffer> hCmd, i32 offsetX, i32 offsetY, i32 wid
 
 void CmdSetScissor(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass)
 {
+    //TODO(caio): Should this use RenderPass or RenderTarget as arg?
     ASSERT(hRenderPass.IsValid());
     RenderPass& renderPass = renderPasses[hRenderPass];
-    CmdSetScissor(hCmd, 0, 0, renderPass.desc.width, renderPass.desc.height);
+    RenderTarget& renderTarget = renderTargets[renderPass.hRenderTarget];
+    CmdSetScissor(hCmd, 0, 0, renderTarget.desc.width, renderTarget.desc.height);
 }
 
 void CmdBindVertexBuffer(Handle<CommandBuffer> hCmd, Handle<Buffer> hVB)
