@@ -67,6 +67,10 @@ Handle<Shader> LoadShader(file::Path assetPath)
     else ASSERT(0);
 
     shaderc_compiler_t compiler = shaderc_compiler_initialize();
+    shaderc_compile_options_t options = shaderc_compile_options_initialize();
+#if TY_DEBUG
+    shaderc_compile_options_set_generate_debug_info(options);
+#endif
     shaderc_compilation_result_t compiled = shaderc_compile_into_spv(
             compiler,
             (char*)shaderStr.data,
@@ -74,7 +78,7 @@ Handle<Shader> LoadShader(file::Path assetPath)
             shadercType,
             assetPath.CStr(),
             "main",
-            NULL);
+            options);
     u64 errorCount = shaderc_result_get_num_errors(compiled);
     ASSERT(errorCount == 0);
     //TODO(caio): Error and warning formatting
@@ -85,6 +89,7 @@ Handle<Shader> LoadShader(file::Path assetPath)
     memcpy(resultData, compiledData, compiledLen);
 
     shaderc_result_release(compiled);
+    shaderc_compile_options_release(options);
     shaderc_compiler_release(compiler);
 
     Shader shader = {};

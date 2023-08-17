@@ -188,14 +188,14 @@ String Concat(String s1, String s2)
     return {};
 }
 
-void Clear(String s)
+void Clear(String& s)
 {
     ASSERT(IS_MUTABLE(s));
     memset(s.data, 0, s.capacity);
     s.len = 0;
 }
 
-void Append(String s, String other)
+void Append(String& s, String other)
 {
     ASSERT(IS_MUTABLE(s));
     ASSERT(s.len + other.len < s.capacity);
@@ -203,12 +203,12 @@ void Append(String s, String other)
     s.len = s.len + other.len;
 }
 
-void Append(String s, const char* other)
+void Append(String& s, const char* other)
 {
     return Append(s, IStr(other));
 }
 
-void Format(String s, const char* fmt, ...)
+void Format(String& s, const char* fmt, ...)
 {
     ASSERT(IS_MUTABLE(s));
     va_list args;

@@ -231,7 +231,7 @@ struct Context
     VkPhysicalDevice vkPhysicalDevice = VK_NULL_HANDLE;
     VkPhysicalDeviceProperties vkPhysicalDeviceProperties = {};
     VkDevice vkDevice = VK_NULL_HANDLE;
-#ifdef _DEBUG
+#ifdef TY_DEBUG
     VkDebugUtilsMessengerEXT vkDebugMessenger = VK_NULL_HANDLE;
 #endif
     VmaAllocator vkAllocator = VK_NULL_HANDLE;
@@ -308,7 +308,7 @@ struct Buffer
 
 Handle<Buffer> MakeBuffer(BufferType type, u64 size, u64 stride, void* data = NULL);
 void DestroyBuffer(Buffer* buffer);
-void CopyMemoryToBuffer(Handle<Buffer> hDstBuffer, u64 size, void* data);
+void CopyMemoryToBuffer(Handle<Buffer> hDstBuffer, u64 dstOffset, u64 srcSize, void* srcData);
 u32 GetBufferTypeAlignment(BufferType type);
 
 struct TextureDesc

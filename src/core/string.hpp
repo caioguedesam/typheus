@@ -85,10 +85,10 @@ String Concat(String s1, String s2);
 
 // Mutable-only string operations
 // In-place:
-void Clear(String s);
-void Format(String s, const char* fmt, ...);
-void Append(String s, String other);
-void Append(String s, const char* other);
+void Clear(String& s);
+void Format(String& s, const char* fmt, ...);
+void Append(String& s, String other);
+void Append(String& s, const char* other);
 
 };
 };

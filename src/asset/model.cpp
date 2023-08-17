@@ -85,6 +85,7 @@ u8* ConsumeString(u8* p, String* out)
 // Consumes a float of the form "(+/-)(number).(fraction)(e/E)(exponent)"
 u8* ConsumeFloat(u8* p, f32* out)
 {
+    //TODO(caio): Should this deal with double precision floats?
     ASSERT(out);
     f32 result = 0;
     f32 sign = 1;
@@ -409,6 +410,7 @@ HashMap<String, Handle<Material>> LoadMaterials(u8* mtlData, u64 mtlDataSize)
 
 Handle<Model> LoadModelOBJ(file::Path assetPath, bool flipVerticalTexcoord)
 {
+    //TODO(caio): Check this for leaks when allocating strings or arrays
     PROFILE_SCOPE;
     if(IsLoaded(assetPath)) return { loadedAssets[assetPath.str] };
     mem::SetContext(&assetHeap);

@@ -3,6 +3,7 @@
 #include "../core/ds.hpp"
 #include "../core/memory.hpp"
 #include "./render.hpp"
+#include "vma/vk_mem_alloc.h"
 #include "vulkan/vulkan_core.h"
 #include <vcruntime_string.h>
 
@@ -164,13 +165,13 @@ void MakeContext_CreateInstance(Context* ctx)
     {
         VK_KHR_SURFACE_EXTENSION_NAME,
         VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
-#ifdef _DEBUG
+#ifdef TY_DEBUG
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 #endif
     };
     instanceInfo.enabledExtensionCount = ARR_LEN(extensionNames);
     instanceInfo.ppEnabledExtensionNames = extensionNames;
-#ifdef _DEBUG
+#ifdef TY_DEBUG
     //      Validation layers
     const char* layerNames[] =
     {
@@ -200,7 +201,7 @@ void MakeContext_CreateInstance(Context* ctx)
 
 void MakeContext_SetupValidation(Context* ctx)
 {
-#ifdef _DEBUG
+#ifdef TY_DEBUG
     ASSERT(ctx);
     VkDebugUtilsMessengerCreateInfoEXT messengerInfo = {};
     messengerInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -573,7 +574,7 @@ void DestroyContext(Context *ctx)
     vmaDestroyAllocator(ctx->vkAllocator);
     vkDestroyDevice(ctx->vkDevice, NULL);
     vkDestroySurfaceKHR(ctx->vkInstance, ctx->vkSurface, NULL);
-#ifdef _DEBUG
+#ifdef TY_DEBUG
     auto fn = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(ctx->vkInstance, "vkDestroyDebugUtilsMessengerEXT");
     ASSERT(fn);
     fn(ctx->vkInstance, ctx->vkDebugMessenger, NULL);
@@ -1055,7 +1056,7 @@ Handle<Buffer> MakeBuffer(BufferType type, u64 size, u64 stride, void* data)
     buffers.Push(result);
 
     Handle<Buffer> hResult = { (u32) buffers.count - 1 };
-    if(data) CopyMemoryToBuffer(hResult, size, data);
+    if(data) CopyMemoryToBuffer(hResult, 0, size, data);
     return hResult;
 }
 
@@ -1067,17 +1068,18 @@ void DestroyBuffer(Buffer* buffer)
     *buffer = {};
 }
 
-void CopyMemoryToBuffer(Handle<Buffer> hDstBuffer, u64 size, void* data)
+void CopyMemoryToBuffer(Handle<Buffer> hDstBuffer, u64 dstOffset, u64 srcSize, void* srcData)
 {
     ASSERT(hDstBuffer.IsValid());
     ASSERT(ctx.vkAllocator != VK_NULL_HANDLE);
-    ASSERT(data);
+    ASSERT(srcData);
 
     Buffer& buffer = buffers[hDstBuffer];
     void* mapping = NULL;
     VkResult ret = vmaMapMemory(ctx.vkAllocator, buffer.vkAllocation, &mapping);
-    memcpy(mapping, data, size);
+    //memcpy(mapping, data, size);
     ASSERTVK(ret);
+    memcpy((void*)((u64)mapping + dstOffset), srcData, srcSize);
     vmaUnmapMemory(ctx.vkAllocator, buffer.vkAllocation);
 }
 
