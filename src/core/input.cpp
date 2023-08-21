@@ -1,5 +1,6 @@
 #include "./input.hpp"
 #include "./debug.hpp"
+#include <vcruntime_string.h>
 
 namespace ty
 {
@@ -10,28 +11,30 @@ InputState state = {};
 
 bool IsKeyDown(InputKey key) 
 { 
-    return state.buttons[key] & 0x80;
+    return state.currentKeys[key] & 0x80;
 }
 
 bool IsKeyUp(InputKey key) 
 { 
-    return !(state.buttons[key] & 0x80);
+    return !(state.currentKeys[key] & 0x80);
 }
 
 bool IsKeyJustDown(InputKey key)
 {
-    return (state.buttons[key] & 0x80)
-        && !(state.buttons[key] & 0x80);
+    return (state.currentKeys[key] & 0x80)
+        && !(state.previousKeys[key] & 0x80);
 }
 
 bool IsKeyJustUp(InputKey key)
 {
-    return !(state.buttons[key] & 0x80)
-        && (state.buttons[key] & 0x80);
+    return !(state.currentKeys[key] & 0x80)
+        && (state.previousKeys[key] & 0x80);
 }
 
 math::v2i GetMouseScreenPosition() { return state.mouse.pos; }
 math::v2f GetMouseDelta() { return state.mouse.delta; }
+bool IsMouseLocked() { return state.mouse.locked; }
+bool IsMouseHidden() { return state.mouse.hidden; }
 
 void SetMouseLock(bool lock) { state.mouse.locked = lock; }
 void ToggleMouseLock() { SetMouseLock(!state.mouse.locked); }
@@ -51,7 +54,8 @@ void Init()
 void Update()
 {
     // Update keyboard button state
-    BOOL ret = GetKeyboardState(state.buttons);
+    memcpy(state.previousKeys, state.currentKeys, TY_KEY_COUNT * sizeof(u8));
+    BOOL ret = GetKeyboardState(state.currentKeys);
     ASSERT(ret);
 
     // Update mouse state

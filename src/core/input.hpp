@@ -97,12 +97,16 @@ void ToggleMouseHide();
 
 math::v2i GetMouseScreenPosition();
 math::v2f GetMouseDelta();
+bool IsMouseLocked();
+bool IsMouseHidden();
 
 // ========================================================
 // [GENERAL]
+#define TY_KEY_COUNT 256
 struct InputState
 {
-    u8 buttons[256];
+    u8 currentKeys[TY_KEY_COUNT];
+    u8 previousKeys[TY_KEY_COUNT];
     MouseState mouse;
 };
 
