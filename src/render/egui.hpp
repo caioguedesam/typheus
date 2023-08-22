@@ -9,13 +9,14 @@
 #include "../core/string.hpp"
 #include "../core/math.hpp"
 #include "./render.hpp"
+#include "./window.hpp"
 
 namespace ty
 {
 namespace egui
 {
 
-void Init(Handle<render::RenderPass> hRenderPass);
+void Init(render::Window* window, Handle<render::RenderPass> hRenderPass);
 void Shutdown();
 
 void SameLine();
