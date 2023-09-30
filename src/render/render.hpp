@@ -426,7 +426,7 @@ struct RenderPass
     VkFramebuffer vkFramebuffer = VK_NULL_HANDLE;
 
     RenderPassDesc desc = {};
-    Handle<RenderTarget> hRenderTarget;
+    Handle<RenderTarget> hRenderTarget = HANDLE_INVALID_VALUE;
 };
 
 Handle<RenderPass> MakeRenderPass(RenderPassDesc desc, Handle<RenderTarget> hRenderTarget);
@@ -443,11 +443,11 @@ struct PushConstantRange
 struct GraphicsPipelineDesc
 {
     // Programmable pipeline
-    Handle<Shader> hShaderVertex;
-    Handle<Shader> hShaderPixel;
+    Handle<Shader> hShaderVertex = HANDLE_INVALID_VALUE;
+    Handle<Shader> hShaderPixel = HANDLE_INVALID_VALUE;
 
     // Fixed pipeline
-    Handle<VertexLayout> hVertexLayout;
+    Handle<VertexLayout> hVertexLayout = HANDLE_INVALID_VALUE;
     Primitive primitive = PRIMITIVE_TRIANGLE_LIST;
     FillMode fillMode = FILL_MODE_SOLID;
     CullMode cullMode = CULL_MODE_BACK;
@@ -471,7 +471,7 @@ void DestroyGraphicsPipeline(GraphicsPipeline* pipeline);
 
 struct ComputePipelineDesc
 {
-    Handle<Shader> hShaderCompute;
+    Handle<Shader> hShaderCompute = HANDLE_INVALID_VALUE;
 
     u32 pushConstantRangeCount = 0;
     PushConstantRange pushConstantRanges[RENDER_MAX_PUSH_CONSTANT_RANGES];

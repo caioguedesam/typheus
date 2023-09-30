@@ -495,7 +495,7 @@ Handle<CommandBuffer> GetAvailableCommandBuffer(CommandBufferType type, i32 fram
     }
     
     ASSERT(0);
-    return {};
+    return HANDLE_INVALID_VALUE;
 }
 
 void MakeContext_CreateSyncPrimitives(Context* ctx)

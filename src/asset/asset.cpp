@@ -42,7 +42,7 @@ void Init()
 
 Handle<Shader> LoadShader(file::Path assetPath)
 {
-    if(IsLoaded(assetPath)) return { .data = loadedAssets[assetPath.str] };
+    if(IsLoaded(assetPath)) return Handle<Shader>(loadedAssets[assetPath.str]);
     mem::SetContext(&assetHeap);
 
     String shaderStr = file::ReadFileToString(assetPath);
@@ -101,13 +101,13 @@ Handle<Shader> LoadShader(file::Path assetPath)
     shader.path = file::MakePath(assetPathStr);
     Handle<Shader> result = shaders.Insert(shader);
 
-    loadedAssets.Insert(assetPath.str, result.data);
+    loadedAssets.Insert(assetPath.str, result.GetData());
     return result;
 }
 
 Handle<Image> LoadImageFile(file::Path assetPath, bool flipVertical)
 {
-    if(IsLoaded(assetPath)) return { .data = loadedAssets[assetPath.str] };
+    if(IsLoaded(assetPath)) return Handle<Image>(loadedAssets[assetPath.str]);
     mem::SetContext(&assetHeap);
 
     u64 assetFileSize = 0;
@@ -128,7 +128,7 @@ Handle<Image> LoadImageFile(file::Path assetPath, bool flipVertical)
     image.data = data;
 
     Handle<Image> result = images.Insert(image);
-    loadedAssets.Insert(assetPath.str, result.data);
+    loadedAssets.Insert(assetPath.str, result.GetData());
 
     mem::Free(assetFileData);
 

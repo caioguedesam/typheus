@@ -73,7 +73,7 @@ struct Material : Asset
 struct ModelGroup
 {
     List<u32> indices = {};
-    Handle<Material> material = {};
+    Handle<Material> material = HANDLE_INVALID_VALUE;
 };
 
 struct Model : Asset

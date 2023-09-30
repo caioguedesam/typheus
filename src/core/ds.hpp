@@ -34,19 +34,19 @@ struct Array
         return data[index];
     }
 
-    T& operator[](Handle<T> handle)
-    {
-        ASSERT(handle.IsValid());
-        ASSERT(handle.value < count);
-        return data[handle.value];
-    }
+    //T& operator[](Handle<T> handle)
+    //{
+        //ASSERT(handle.IsValid());
+        //ASSERT(handle.value < count);
+        //return data[handle.value];
+    //}
 
-    const T& operator[](Handle<T> handle) const
-    {
-        ASSERT(handle.IsValid());
-        ASSERT(handle.value < count);
-        return data[handle.value];
-    }
+    //const T& operator[](Handle<T> handle) const
+    //{
+        //ASSERT(handle.IsValid());
+        //ASSERT(handle.value < count);
+        //return data[handle.value];
+    //}
 
     void Push(const T& value)
     {
@@ -146,17 +146,17 @@ struct List
         return data[index];
     }
 
-    T& operator[](Handle<T> index)
-    {
-        ASSERT(index.value < count);
-        return data[index.value];
-    }
+    //T& operator[](Handle<T> index)
+    //{
+        //ASSERT(index.value < count);
+        //return data[index.value];
+    //}
 
-    const T& operator[](Handle<T> index) const
-    {
-        ASSERT(index.value < count);
-        return data[index.value];
-    }
+    //const T& operator[](Handle<T> index) const
+    //{
+        //ASSERT(index.value < count);
+        //return data[index.value];
+    //}
 
     void Push(const T& value)
     {
@@ -232,29 +232,25 @@ struct HArray
     T& operator[](Handle<T> handle)
     {
         ASSERT(handle.IsValid());
-        ASSERT(handle.index < elements.count);
-        HandleMetadata md = metadata[handle.index];
-        ASSERT(md == handle.metadata);   // This handle is an invalid reference, either slot is free or generation doesn't match.
-        return elements[handle.index];
+        ASSERT(handle.GetIndex() < elements.count);
+        HandleMetadata md = metadata[handle.GetIndex()];
+        ASSERT(md == handle.GetMetadata());   // This handle is an invalid reference, either slot is free or generation doesn't match.
+        return elements[handle.GetIndex()];
     }
 
     const T& operator[](Handle<T> handle) const
     {
         ASSERT(handle.IsValid());
-        ASSERT(handle.index < elements.count);
+        ASSERT(handle.GetIndex() < elements.count);
         HandleMetadata md = metadata[handle.index];
-        ASSERT(md == handle.metadata);   // This handle is an invalid reference, either slot is free or generation doesn't match.
-        return elements[handle.index];
+        ASSERT(md == handle.GetMetadata());   // This handle is an invalid reference, either slot is free or generation doesn't match.
+        return elements[handle.GetIndex()];
     }
 
     Handle<T> At(const i32& index)
     {
         ASSERT(index >= 0 && index < elements.count);
-        return
-        {
-            .metadata = metadata[index],
-            .index = index,
-        };
+        return Handle<T>(metadata[index], index);
     }
 
     Handle<T> Insert(const T& value)
@@ -272,11 +268,7 @@ struct HArray
                     elements[i] = value;
                     metadata[i].valid = HANDLE_VALID_METADATA;
                     metadata[i].gen += 1;
-                    return
-                    {
-                        .metadata = metadata[i],
-                        .index = i,
-                    };
+                    return Handle<T>(metadata[i], i);
                 }
             }
 
@@ -291,17 +283,13 @@ struct HArray
                     .gen = 0,
                 });
 
-        return
-        {
-            .metadata = metadata[(i32)elements.count - 1],
-            .index = (i32)elements.count - 1,
-        };
+        return Handle<T>(metadata[(i32)elements.count - 1], (i32)elements.count - 1);
     }
 
     T Remove(Handle<T> handle)
     {
         T value = (*this)[handle];
-        metadata[handle.index].valid = HANDLE_INVALID_METADATA;
+        metadata[handle.GetIndex()].valid = HANDLE_INVALID_METADATA;
         return value;
     }
 
@@ -319,50 +307,33 @@ struct HArray
         {
             if(metadata[i].IsValid())
             {
-                return
-                {
-                    .metadata = metadata[i],
-                    .index = i,
-                };
+                return Handle<T>(metadata[i], i);
             }
         }
 
-        return
-        {
-            .data = HANDLE_INVALID_VALUE
-        };
+        return Handle<T>(HANDLE_INVALID_VALUE);
     }
 
     Handle<T> Next(Handle<T> handle)
     {
         ASSERT(handle.IsValid());
-        if(handle.index + 1 >= metadata.count)
+        if(handle.GetIndex() + 1 >= metadata.count)
         {
-            return 
-            {
-                .data = HANDLE_INVALID_VALUE,
-            };
+            return Handle<T>(HANDLE_INVALID_VALUE);
         }
 
-        for(i32 i = handle.index + 1; i < metadata.count; i++)
+        for(i32 i = handle.GetIndex() + 1; i < metadata.count; i++)
         {
             if(metadata[i].IsValid())
             {
-                return
-                {
-                    .metadata = metadata[i],
-                    .index = i,
-                };
+                return Handle<T>(metadata[i], i);
             }
         }
 
-        return
-        {
-            .data = HANDLE_INVALID_VALUE
-        };
+        return Handle<T>(HANDLE_INVALID_VALUE);
     }
 
-#define ForHArray(arr, handle) for(auto handle = arr.Start(); handle.data != HANDLE_INVALID_VALUE; handle = arr.Next(handle))
+#define ForHArray(arr, handle) for(auto handle = arr.Start(); handle.GetData() != HANDLE_INVALID_VALUE; handle = arr.Next(handle))
 };
 
 template<typename T>
@@ -423,29 +394,25 @@ struct HList
     T& operator[](Handle<T> handle)
     {
         ASSERT(handle.IsValid());
-        ASSERT(handle.index < elements.count);
-        HandleMetadata md = metadata[handle.index];
-        ASSERT(md == handle.metadata);   // This handle is an invalid reference, either slot is free or generation doesn't match.
-        return elements[handle.index];
+        ASSERT(handle.GetIndex() < elements.count);
+        HandleMetadata md = metadata[handle.GetIndex()];
+        ASSERT(md == handle.GetMetadata());   // This handle is an invalid reference, either slot is free or generation doesn't match.
+        return elements[handle.GetIndex()];
     }
 
     const T& operator[](Handle<T> handle) const
     {
         ASSERT(handle.IsValid());
-        ASSERT(handle.index < elements.count);
-        HandleMetadata md = metadata[handle.index];
-        ASSERT(md == handle.metadata);   // This handle is an invalid reference, either slot is free or generation doesn't match.
-        return elements[handle.index];
+        ASSERT(handle.GetIndex() < elements.count);
+        HandleMetadata md = metadata[handle.GetIndex()];
+        ASSERT(md == handle.GetMetadata());   // This handle is an invalid reference, either slot is free or generation doesn't match.
+        return elements[handle.GetIndex()];
     }
 
     Handle<T> At(const i32& index)
     {
         ASSERT(index >= 0 && index < elements.count);
-        return
-        {
-            .metadata = metadata[index],
-            .index = index,
-        };
+        return Handle<T>(metadata[index], index);
     }
 
     Handle<T> Insert(const T& value)
@@ -463,11 +430,7 @@ struct HList
                     elements[i] = value;
                     metadata[i].valid = HANDLE_VALID_METADATA;
                     metadata[i].gen += 1;
-                    return
-                    {
-                        .metadata = metadata[i],
-                        .index = i,
-                    };
+                    return Handle<T>(metadata[i], i);
                 }
             }
         }
@@ -480,17 +443,13 @@ struct HList
                     .gen = 0,
                 });
 
-        return
-        {
-            .metadata = metadata[(i32)elements.count - 1],
-            .index = (i32)elements.count - 1,
-        };
+        return Handle<T>(metadata[(i32)elements.count - 1], (i32)elements.count - 1);
     }
 
     T Remove(Handle<T> handle)
     {
         T value = (*this)[handle];
-        metadata[handle.index].valid = HANDLE_INVALID_METADATA;
+        metadata[handle.GetIndex()].valid = HANDLE_INVALID_METADATA;
         return value;
     }
 
@@ -508,49 +467,32 @@ struct HList
         {
             if(metadata[i].IsValid())
             {
-                return
-                {
-                    .metadata = metadata[i],
-                    .index = i,
-                };
+                return Handle<T>(metadata[i], i);
             }
         }
 
-        return
-        {
-            .data = HANDLE_INVALID_VALUE
-        };
+        return Handle<T>(HANDLE_INVALID_VALUE);
     }
 
     Handle<T> Next(Handle<T> handle)
     {
         ASSERT(handle.IsValid());
-        if(handle.index + 1 >= metadata.count)
+        if(handle.GetIndex() + 1 >= metadata.count)
         {
-            return 
-            {
-                .data = HANDLE_INVALID_VALUE,
-            };
+            return Handle<T>(HANDLE_INVALID_VALUE);
         }
 
-        for(i32 i = handle.index + 1; i < metadata.count; i++)
+        for(i32 i = handle.GetIndex() + 1; i < metadata.count; i++)
         {
             if(metadata[i].IsValid())
             {
-                return
-                {
-                    .metadata = metadata[i],
-                    .index = i,
-                };
+                return Handle<T>(metadata[i], i);
             }
         }
 
-        return
-        {
-            .data = HANDLE_INVALID_VALUE
-        };
+        return Handle<T>(HANDLE_INVALID_VALUE);
     }
-#define ForHList(arr, handle) for(auto handle = arr.Start(); handle.data != HANDLE_INVALID_VALUE; handle = arr.Next(handle))
+#define ForHList(arr, handle) for(auto handle = arr.Start(); handle.u.data != HANDLE_INVALID_VALUE; handle = arr.Next(handle))
 };
 
 template<typename T>

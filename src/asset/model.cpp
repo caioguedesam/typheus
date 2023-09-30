@@ -268,7 +268,7 @@ HashMap<String, Handle<Material>> LoadMaterials(u8* mtlData, u64 mtlDataSize)
     u8* fp = mtlData;
     u8* fEnd = fp + mtlDataSize;
 
-    Handle<Material> material = {};
+    Handle<Material> material = HANDLE_INVALID_VALUE;
     while(true)
     {
         if(fp == fEnd) break;   // EOF
@@ -281,7 +281,8 @@ HashMap<String, Handle<Material>> LoadMaterials(u8* mtlData, u64 mtlDataSize)
             String mtlName;
             fp = ConsumeString(fp, &mtlName);
 
-            material = materials.Insert({});
+            Material mat = {};
+            material = materials.Insert(mat);
             result.Insert(mtlName, material);
 
             ////TODO(caio): Should I be indexing materials via string on loaded assets?
@@ -411,7 +412,7 @@ Handle<Model> LoadModelOBJ(file::Path assetPath, bool flipVerticalTexcoord)
 {
     //TODO(caio): Check this for leaks when allocating strings or arrays
     PROFILE_SCOPE;
-    if(IsLoaded(assetPath)) return { .data = loadedAssets[assetPath.str] };
+    if(IsLoaded(assetPath)) return Handle<Model>(loadedAssets[assetPath.str]);
     mem::SetContext(&assetHeap);
 
     Model model = {};
@@ -564,7 +565,7 @@ Handle<Model> LoadModelOBJ(file::Path assetPath, bool flipVerticalTexcoord)
     str::Append(assetPathStr, assetPath.str);
     model.path = file::MakePath(assetPathStr);
     Handle<Model> result = models.Insert(model);
-    loadedAssets.Insert(assetPath.str, result.data);
+    loadedAssets.Insert(assetPath.str, result.GetData());
     
     return result;
 }

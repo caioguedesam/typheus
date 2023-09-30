@@ -89,14 +89,14 @@ struct HandleMetadata
     u16 valid = HANDLE_INVALID_METADATA;
     u16 gen = 0;
 
-    inline bool IsValid() { return valid != HANDLE_INVALID_METADATA; }
+    inline bool IsValid() const { return valid != HANDLE_INVALID_METADATA; }
 };
 inline bool operator==(const HandleMetadata a, const HandleMetadata b) { return a.valid == b.valid && a.gen == b.gen; }
 
 template <typename T>
 struct Handle
 {
-    union
+    union U
     {
         struct
         {
@@ -104,15 +104,37 @@ struct Handle
             i32 index;
         };
         u64 data = HANDLE_INVALID_VALUE;
+
+        U() { data = HANDLE_INVALID_VALUE; }
+    } u;
+
+
+    inline Handle(HandleMetadata metadata, i32 index)
+    {
+        u.metadata = metadata;
+        u.index = index;
     };
 
-    inline bool IsValid() { return metadata.IsValid(); }
+    inline Handle(u64 data)
+    {
+        u.data = data;
+    };
+
+    inline Handle() 
+    {
+        u.data = HANDLE_INVALID_VALUE;
+    }
+
+    inline bool IsValid() const { return u.metadata.IsValid(); }
+    inline u64 GetData() const { return u.data; }
+    inline HandleMetadata GetMetadata() const { return u.metadata; }
+    inline i32 GetIndex() const { return u.index; }
 };
 
 template<typename T>
-inline bool operator==(const Handle<T> a, const Handle<T> b) { return a.data == b.data; }
+inline bool operator==(const Handle<T> a, const Handle<T> b) { return a.GetData() == b.GetData(); }
 template<typename T>
-inline bool operator!=(const Handle<T> a, const Handle<T> b) { return a.data != b.data; }
+inline bool operator!=(const Handle<T> a, const Handle<T> b) { return a.GetData() != b.GetData(); }
 
 //#define HANDLE_INVALID MAX_U32
 
