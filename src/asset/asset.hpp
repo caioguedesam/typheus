@@ -87,13 +87,13 @@ struct Model : Asset
 
 inline mem::HeapAllocator assetHeap;
 
-inline List<Shader> shaders;
-inline List<Image> images;
-inline List<Material> materials;
-inline List<Model> models;
+inline HList<Shader> shaders;
+inline HList<Image> images;
+inline HList<Material> materials;
+inline HList<Model> models;
 
 // Index asset handles by path
-inline HashMap<String, u32> loadedAssets;
+inline HashMap<String, u64> loadedAssets;
 
 // ========================================================
 // [ASSET OPERATIONS]

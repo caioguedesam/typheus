@@ -219,6 +219,369 @@ void DestroyList(T* list)
 }
 
 // ========================================================
+// [HARRAY]
+// Same as array, but operates with handle types.
+// When elements are deleted, they open up slots for other elements
+// by bumping up the handle metadata.
+template <typename T>
+struct HArray
+{
+    Array<T> elements;
+    Array<HandleMetadata> metadata;
+
+    T& operator[](Handle<T> handle)
+    {
+        ASSERT(handle.IsValid());
+        ASSERT(handle.index < elements.count);
+        HandleMetadata md = metadata[handle.index];
+        ASSERT(md == handle.metadata);   // This handle is an invalid reference, either slot is free or generation doesn't match.
+        return elements[handle.index];
+    }
+
+    const T& operator[](Handle<T> handle) const
+    {
+        ASSERT(handle.IsValid());
+        ASSERT(handle.index < elements.count);
+        HandleMetadata md = metadata[handle.index];
+        ASSERT(md == handle.metadata);   // This handle is an invalid reference, either slot is free or generation doesn't match.
+        return elements[handle.index];
+    }
+
+    Handle<T> At(const i32& index)
+    {
+        ASSERT(index >= 0 && index < elements.count);
+        return
+        {
+            .metadata = metadata[index],
+            .index = index,
+        };
+    }
+
+    Handle<T> Insert(const T& value)
+    {
+        // Only perform linear search for free handles if capacity
+        // is full.
+        if(elements.count + 1 > elements.capacity)
+        {
+            // TODO(caio): Profile this
+            // First, try to add in any already freed array slot
+            for(i32 i = 0; i < metadata.count; i++)
+            {
+                if(!metadata[i].IsValid())
+                {
+                    elements[i] = value;
+                    metadata[i].valid = HANDLE_VALID_METADATA;
+                    metadata[i].gen += 1;
+                    return
+                    {
+                        .metadata = metadata[i],
+                        .index = i,
+                    };
+                }
+            }
+
+            ASSERT(0);  // Can't insert new elements into array.
+        }
+
+        // When capacity isn't full, push to array regularly
+        elements.Push(value);
+        metadata.Push(
+                {
+                    .valid = HANDLE_VALID_METADATA,
+                    .gen = 0,
+                });
+
+        return
+        {
+            .metadata = metadata[(i32)elements.count - 1],
+            .index = (i32)elements.count - 1,
+        };
+    }
+
+    T Remove(Handle<T> handle)
+    {
+        T value = (*this)[handle];
+        metadata[handle.index].valid = HANDLE_INVALID_METADATA;
+        return value;
+    }
+
+    void Clear()
+    {
+        elements.Clear();
+        metadata.Clear();
+    }
+
+    // Iterator (for performing operations in HArray ignoring invalid elements).
+    // Can't use count for this, since an element here can be freed
+    Handle<T> Start()
+    {
+        for(i32 i = 0; i < metadata.count; i++)
+        {
+            if(metadata[i].IsValid())
+            {
+                return
+                {
+                    .metadata = metadata[i],
+                    .index = i,
+                };
+            }
+        }
+
+        return
+        {
+            .data = HANDLE_INVALID_VALUE
+        };
+    }
+
+    Handle<T> Next(Handle<T> handle)
+    {
+        ASSERT(handle.IsValid());
+        if(handle.index + 1 >= metadata.count)
+        {
+            return 
+            {
+                .data = HANDLE_INVALID_VALUE,
+            };
+        }
+
+        for(i32 i = handle.index + 1; i < metadata.count; i++)
+        {
+            if(metadata[i].IsValid())
+            {
+                return
+                {
+                    .metadata = metadata[i],
+                    .index = i,
+                };
+            }
+        }
+
+        return
+        {
+            .data = HANDLE_INVALID_VALUE
+        };
+    }
+
+#define ForHArray(arr, handle) for(auto handle = arr.Start(); handle.data != HANDLE_INVALID_VALUE; handle = arr.Next(handle))
+};
+
+template<typename T>
+HArray<T> MakeHArray(u64 capacity)
+{
+    HArray<T> result;
+    result.elements = MakeArray<T>(capacity);
+    result.metadata = MakeArray<HandleMetadata>(capacity);
+    return result;
+}
+
+template<typename T>
+HArray<T> MakeHArray(u64 capacity, u64 initialCount, T initialValue)
+{
+    HArray<T> result;
+    result.elements = MakeArray<T>(capacity, initialCount, initialValue);
+    result.metadata = MakeArray<HandleMetadata>(capacity, initialCount, {});
+    return result;
+}
+
+template<typename T>
+HArray<T> MakeHArrayAlign(u64 capacity, i64 alignment)
+{
+    HArray<T> result;
+    result.elements = MakeArrayAlign<T>(capacity);
+    result.metadata = MakeArrayAlign<HandleMetadata>(capacity);
+    return result;
+}
+
+template<typename T>
+HArray<T> MakeHArrayAlign(u64 capacity, u64 initialCount, T initialValue, i64 alignment)
+{
+    HArray<T> result;
+    result.elements = MakeArrayAlign<T>(capacity, initialCount, initialValue);
+    result.metadata = MakeArrayAlign<HandleMetadata>(capacity, initialCount, {});
+    return result;
+}
+
+template<typename T>
+void DestroyHArray(T* arr)
+{
+    DestroyArray(&arr->elements);
+    DestroyArray(&arr->metadata);
+    *arr = {};
+}
+
+// ========================================================
+// [HLIST]
+// Same as dynamic array, but operates with handle types.
+// When elements are deleted, they open up slots for other elements
+// by bumping up the handle metadata.
+template <typename T>
+struct HList
+{
+    List<T> elements;
+    List<HandleMetadata> metadata;
+
+    T& operator[](Handle<T> handle)
+    {
+        ASSERT(handle.IsValid());
+        ASSERT(handle.index < elements.count);
+        HandleMetadata md = metadata[handle.index];
+        ASSERT(md == handle.metadata);   // This handle is an invalid reference, either slot is free or generation doesn't match.
+        return elements[handle.index];
+    }
+
+    const T& operator[](Handle<T> handle) const
+    {
+        ASSERT(handle.IsValid());
+        ASSERT(handle.index < elements.count);
+        HandleMetadata md = metadata[handle.index];
+        ASSERT(md == handle.metadata);   // This handle is an invalid reference, either slot is free or generation doesn't match.
+        return elements[handle.index];
+    }
+
+    Handle<T> At(const i32& index)
+    {
+        ASSERT(index >= 0 && index < elements.count);
+        return
+        {
+            .metadata = metadata[index],
+            .index = index,
+        };
+    }
+
+    Handle<T> Insert(const T& value)
+    {
+        // Only perform linear search for free handles if capacity
+        // is full.
+        if(elements.count + 1 > elements.capacity)
+        {
+            // TODO(caio): Profile this
+            // First, try to add in any already freed array slot
+            for(i32 i = 0; i < metadata.count; i++)
+            {
+                if(!metadata[i].IsValid())
+                {
+                    elements[i] = value;
+                    metadata[i].valid = HANDLE_VALID_METADATA;
+                    metadata[i].gen += 1;
+                    return
+                    {
+                        .metadata = metadata[i],
+                        .index = i,
+                    };
+                }
+            }
+        }
+
+        // When capacity isn't full, push to array regularly
+        elements.Push(value);
+        metadata.Push(
+                {
+                    .valid = HANDLE_VALID_METADATA,
+                    .gen = 0,
+                });
+
+        return
+        {
+            .metadata = metadata[(i32)elements.count - 1],
+            .index = (i32)elements.count - 1,
+        };
+    }
+
+    T Remove(Handle<T> handle)
+    {
+        T value = (*this)[handle];
+        metadata[handle.index].valid = HANDLE_INVALID_METADATA;
+        return value;
+    }
+
+    void Clear()
+    {
+        elements.Clear();
+        metadata.Clear();
+    }
+
+    // Iterator (for performing operations in HArray ignoring invalid elements).
+    // Can't use count for this, since an element here can be freed
+    Handle<T> Start()
+    {
+        for(i32 i = 0; i < metadata.count; i++)
+        {
+            if(metadata[i].IsValid())
+            {
+                return
+                {
+                    .metadata = metadata[i],
+                    .index = i,
+                };
+            }
+        }
+
+        return
+        {
+            .data = HANDLE_INVALID_VALUE
+        };
+    }
+
+    Handle<T> Next(Handle<T> handle)
+    {
+        ASSERT(handle.IsValid());
+        if(handle.index + 1 >= metadata.count)
+        {
+            return 
+            {
+                .data = HANDLE_INVALID_VALUE,
+            };
+        }
+
+        for(i32 i = handle.index + 1; i < metadata.count; i++)
+        {
+            if(metadata[i].IsValid())
+            {
+                return
+                {
+                    .metadata = metadata[i],
+                    .index = i,
+                };
+            }
+        }
+
+        return
+        {
+            .data = HANDLE_INVALID_VALUE
+        };
+    }
+#define ForHList(arr, handle) for(auto handle = arr.Start(); handle.data != HANDLE_INVALID_VALUE; handle = arr.Next(handle))
+};
+
+template<typename T>
+HList<T> MakeHList(u64 initialCapacity = 16)
+{
+    HList<T> result;
+    result.elements = MakeList<T>(initialCapacity);
+    result.metadata = MakeList<HandleMetadata>(initialCapacity);
+    return result;
+}
+
+template<typename T>
+HList<T> MakeHList(u64 initialCount, T initialValue)
+{
+    HList<T> result;
+    result.elements = MakeList<T>(initialCount, initialValue);
+    result.metadata = MakeList<HandleMetadata>(initialCount, {});
+    return result;
+}
+
+template<typename T>
+void DestroyHList(T* list)
+{
+    DestroyList(&list->elements);
+    DestroyList(&list->metadata);
+    *list = {};
+}
+
+
+
+// ========================================================
 // [HASH MAP]
 // Fixed capacity bucket array, linear probing
 // Requires Key type to implement Hash() and operator==()

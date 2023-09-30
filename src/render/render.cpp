@@ -62,18 +62,18 @@ void Init(Window* window)
     ctx = MakeContext(window);
     swapChain = MakeSwapChain(window);
 
-    commandBuffers = MakeArray<CommandBuffer>(RENDER_MAX_COMMAND_BUFFERS);
-    shaders = MakeArray<Shader>(RENDER_MAX_SHADERS);
-    buffers = MakeArray<Buffer>(RENDER_MAX_BUFFERS);
-    textures = MakeArray<Texture>(RENDER_MAX_TEXTURES);
-    samplers = MakeArray<Sampler>(RENDER_MAX_SAMPLERS);
-    renderTargets = MakeArray<RenderTarget>(RENDER_MAX_RENDER_TARGETS);
-    renderPasses = MakeArray<RenderPass>(RENDER_MAX_RENDER_PASSES);
-    vertexLayouts = MakeArray<VertexLayout>(RENDER_MAX_VERTEX_LAYOUTS);
-    resourceSetLayouts = MakeArray<ResourceSetLayout>(RENDER_MAX_RESOURCE_SET_LAYOUTS);
-    resourceSets = MakeArray<ResourceSet>(RENDER_MAX_RESOURCE_SETS);
-    graphicsPipelines = MakeArray<GraphicsPipeline>(RENDER_MAX_GRAPHICS_PIPELINES);
-    computePipelines = MakeArray<ComputePipeline>(RENDER_MAX_COMPUTE_PIPELINES);
+    commandBuffers = MakeHArray<CommandBuffer>(RENDER_MAX_COMMAND_BUFFERS);
+    shaders = MakeHArray<Shader>(RENDER_MAX_SHADERS);
+    buffers = MakeHArray<Buffer>(RENDER_MAX_BUFFERS);
+    textures = MakeHArray<Texture>(RENDER_MAX_TEXTURES);
+    samplers = MakeHArray<Sampler>(RENDER_MAX_SAMPLERS);
+    renderTargets = MakeHArray<RenderTarget>(RENDER_MAX_RENDER_TARGETS);
+    renderPasses = MakeHArray<RenderPass>(RENDER_MAX_RENDER_PASSES);
+    vertexLayouts = MakeHArray<VertexLayout>(RENDER_MAX_VERTEX_LAYOUTS);
+    resourceSetLayouts = MakeHArray<ResourceSetLayout>(RENDER_MAX_RESOURCE_SET_LAYOUTS);
+    resourceSets = MakeHArray<ResourceSet>(RENDER_MAX_RESOURCE_SETS);
+    graphicsPipelines = MakeHArray<GraphicsPipeline>(RENDER_MAX_GRAPHICS_PIPELINES);
+    computePipelines = MakeHArray<ComputePipeline>(RENDER_MAX_COMPUTE_PIPELINES);
 
     MakeCommandBuffers();
 }
@@ -83,60 +83,56 @@ void Shutdown()
     mem::SetContext(&renderHeap);
 
     vkDeviceWaitIdle(ctx.vkDevice);
-    for(i32 i = 0; i < shaders.count; i++)
+    ForHArray(renderPasses, hRenderPass)
     {
-        DestroyShader(&shaders[i]);
+        DestroyRenderPass(&renderPasses[hRenderPass]);
     }
-    for(i32 i = 0; i < buffers.count; i++)
+    ForHArray(vertexLayouts, hVertexLayout)
     {
-        DestroyBuffer(&buffers[i]);
+        DestroyVertexLayout(&vertexLayouts[hVertexLayout]);
     }
-    for(i32 i = 0; i < textures.count; i++)
+    ForHArray(shaders, hShader)
     {
-        DestroyTexture(&textures[i]);
+        DestroyShader(&shaders[hShader]);
     }
-    for(i32 i = 0; i < samplers.count; i++)
+    ForHArray(buffers, hBuffer)
     {
-        DestroySampler(&samplers[i]);
+        DestroyBuffer(&buffers[hBuffer]);
     }
-    for(i32 i = 0; i < renderTargets.count; i++)
+    ForHArray(textures, hTexture)
     {
-        DestroyRenderTarget(&renderTargets[i]);
+        DestroyTexture(&textures[hTexture]);
     }
-    for(i32 i = 0; i < renderPasses.count; i++)
+    ForHArray(samplers, hSampler)
     {
-        DestroyRenderPass(&renderPasses[i]);
+        DestroySampler(&samplers[hSampler]);
     }
-    for(i32 i = 0; i < vertexLayouts.count; i++)
+    ForHArray(resourceSetLayouts, hResourceSetLayout)
     {
-        DestroyVertexLayout(&vertexLayouts[i]);
+        DestroyResourceSetLayout(&resourceSetLayouts[hResourceSetLayout]);
     }
-    for(i32 i = 0; i < resourceSetLayouts.count; i++)
+    ForHArray(resourceSets, hResourceSet)
     {
-        DestroyResourceSetLayout(&resourceSetLayouts[i]);
+        DestroyResourceSet(&resourceSets[hResourceSet]);
     }
-    for(i32 i = 0; i < resourceSets.count; i++)
+    ForHArray(graphicsPipelines, hGraphicsPipeline)
     {
-        DestroyResourceSet(&resourceSets[i]);
+        DestroyGraphicsPipeline(&graphicsPipelines[hGraphicsPipeline]);
     }
-    for(i32 i = 0; i < graphicsPipelines.count; i++)
+    ForHArray(computePipelines, hComputePipeline)
     {
-        DestroyGraphicsPipeline(&graphicsPipelines[i]);
+        DestroyComputePipeline(&computePipelines[hComputePipeline]);
     }
-    for(i32 i = 0; i < computePipelines.count; i++)
-    {
-        DestroyComputePipeline(&computePipelines[i]);
-    }
-    DestroyArray(&commandBuffers);
-    DestroyArray(&renderPasses);
-    DestroyArray(&vertexLayouts);
-    DestroyArray(&shaders);
-    DestroyArray(&buffers);
-    DestroyArray(&textures);
-    DestroyArray(&resourceSetLayouts);
-    DestroyArray(&resourceSets);
-    DestroyArray(&graphicsPipelines);
-    DestroyArray(&computePipelines);
+    DestroyHArray(&commandBuffers);
+    DestroyHArray(&renderPasses);
+    DestroyHArray(&vertexLayouts);
+    DestroyHArray(&shaders);
+    DestroyHArray(&buffers);
+    DestroyHArray(&textures);
+    DestroyHArray(&resourceSetLayouts);
+    DestroyHArray(&resourceSets);
+    DestroyHArray(&graphicsPipelines);
+    DestroyHArray(&computePipelines);
 
     DestroySwapChain(&swapChain);
     DestroyContext(&ctx);
@@ -438,7 +434,7 @@ void MakeCommandBuffers()
         result.vkHandle = commandBuffer;
         result.vkFence = VK_NULL_HANDLE;
         result.state = COMMAND_BUFFER_IDLE;
-        commandBuffers.Push(result);
+        commandBuffers.Insert(result);
     }
 }
 
@@ -462,9 +458,9 @@ Handle<CommandBuffer> GetAvailableCommandBuffer(CommandBufferType type, i32 fram
     }
 
     // First look for an IDLE command buffer
-    for(i32 i = 0; i < commandBuffers.count; i++)
+    ForHArray(commandBuffers, hCmd)
     {
-        CommandBuffer& commandBuffer = commandBuffers[i];
+        CommandBuffer& commandBuffer = commandBuffers[hCmd];
         if(commandBuffer.state == COMMAND_BUFFER_IDLE)
         {
             ret = vkResetCommandBuffer(commandBuffer.vkHandle, 0);
@@ -472,15 +468,15 @@ Handle<CommandBuffer> GetAvailableCommandBuffer(CommandBufferType type, i32 fram
             commandBuffer.vkFence = resultFence;
             ret = vkResetFences(ctx.vkDevice, 1, &commandBuffer.vkFence);
             ASSERTVK(ret);
-            return { (u32)i };
+            return hCmd;
         }
     }
 
     // If no IDLE command buffers left, look for a PENDING one which has already
     // finished submission and should be IDLE.
-    for(i32 i = 0; i < commandBuffers.count; i++)
+    ForHArray(commandBuffers, hCmd)
     {
-        CommandBuffer& commandBuffer = commandBuffers[i];
+        CommandBuffer& commandBuffer = commandBuffers[hCmd];
         if(commandBuffer.state == COMMAND_BUFFER_PENDING)
         {
             ASSERT(commandBuffer.vkFence);
@@ -493,7 +489,7 @@ Handle<CommandBuffer> GetAvailableCommandBuffer(CommandBufferType type, i32 fram
                 commandBuffer.state = COMMAND_BUFFER_IDLE;
                 ret = vkResetFences(ctx.vkDevice, 1, &commandBuffer.vkFence);
                 ASSERTVK(ret);
-                return { (u32)i };
+                return hCmd;
             }
         }
     }
@@ -804,8 +800,7 @@ Handle<RenderTarget> MakeRenderTarget(RenderTargetDesc desc)
     result.outputs.Push(hDepthOutput);
     result.desc = desc;
 
-    renderTargets.Push(result);
-    return { (u32)renderTargets.count - 1 };
+    return renderTargets.Insert(result);
 }
 
 void DestroyRenderTarget(RenderTarget* renderTarget)
@@ -943,8 +938,7 @@ Handle<RenderPass> MakeRenderPass(RenderPassDesc desc, Handle<RenderTarget> hRen
     MakeRenderPass_CreateFramebuffer(&ctx, &renderTarget, &result);
     result.hRenderTarget = hRenderTarget;
 
-    renderPasses.Push(result);
-    return { (u32)renderPasses.count - 1 };
+    return renderPasses.Insert(result);
 }
 
 void DestroyRenderPass(RenderPass *renderPass)
@@ -985,8 +979,7 @@ Handle<VertexLayout> MakeVertexLayout(u32 attrCount, VertexAttribute* attributes
         result.vkAttributeDescriptions.Push(attributeDesc);
     }
 
-    vertexLayouts.Push(result);
-    return { (u32)vertexLayouts.count - 1 };
+    return vertexLayouts.Insert(result);
 }
 
 void DestroyVertexLayout(VertexLayout* vertexLayout)
@@ -1014,8 +1007,7 @@ Handle<Shader> MakeShader(ShaderType type, u64 bytecodeSize, u8* bytecode)
     result.type = type;
     result.vkShaderModule = shaderModule;
 
-    shaders.Push(result);
-    return { (u32) shaders.count - 1 };
+    return shaders.Insert(result);
 }
 
 void DestroyShader(Shader* shader)
@@ -1053,9 +1045,8 @@ Handle<Buffer> MakeBuffer(BufferType type, u64 size, u64 stride, void* data)
     result.stride = stride;
     result.count = size / stride;
 
-    buffers.Push(result);
+    Handle<Buffer> hResult = buffers.Insert(result);
 
-    Handle<Buffer> hResult = { (u32) buffers.count - 1 };
     if(data) CopyMemoryToBuffer(hResult, 0, size, data);
     return hResult;
 }
@@ -1147,8 +1138,7 @@ Handle<Texture> MakeTexture(TextureDesc desc)
     result.vkAllocation = allocation;
     result.desc = desc;
 
-    textures.Push(result);
-    return { (u32)textures.count - 1 };
+    return textures.Insert(result);
 }
 
 void DestroyTexture(Texture* texture)
@@ -1198,8 +1188,7 @@ Handle<Sampler> MakeSampler(SamplerDesc desc)
     result.vkHandle = sampler;
     result.desc = desc;
 
-    samplers.Push(result);
-    return { (u32)samplers.count - 1 };
+    return samplers.Insert(result);
 }
 
 void DestroySampler(Sampler* sampler)
@@ -1242,8 +1231,7 @@ Handle<ResourceSetLayout> MakeResourceSetLayout(i32 entryCount, ResourceSetLayou
         result.entries.Push(entries[i]);
     }
 
-    resourceSetLayouts.Push(result);
-    return { (u32)resourceSetLayouts.count - 1 };
+    return resourceSetLayouts.Insert(result);
 }
 
 void DestroyResourceSetLayout(ResourceSetLayout *resourceSetLayout)
@@ -1331,8 +1319,7 @@ Handle<ResourceSet> MakeResourceSet(Handle<ResourceSetLayout> hResourceSetLayout
         result.resources.Push(resources[i]);
     }
 
-    resourceSets.Push(result);
-    return { (u32)resourceSets.count - 1 };
+    return resourceSets.Insert(result);
 }
 
 void DestroyResourceSet(ResourceSet *resourceSet)
@@ -1482,8 +1469,7 @@ Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, Gr
     result.vkPipelineLayout = pipelineLayout;
     result.desc = desc;
 
-    graphicsPipelines.Push(result);
-    return { (u32)graphicsPipelines.count - 1 };
+    return graphicsPipelines.Insert(result);
 }
 
 void DestroyGraphicsPipeline(GraphicsPipeline* pipeline)
@@ -1545,8 +1531,7 @@ Handle<ComputePipeline> MakeComputePipeline(ComputePipelineDesc desc, u32 resour
     result.vkPipelineLayout = pipelineLayout;
     result.desc = desc;
 
-    computePipelines.Push(result);
-    return { (u32)computePipelines.count - 1 };
+    return computePipelines.Insert(result);
 }
 
 void DestroyComputePipeline(ComputePipeline* pipeline)

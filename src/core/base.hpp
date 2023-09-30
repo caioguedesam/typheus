@@ -80,24 +80,58 @@ typedef double      f64;
 // [HANDLES]
 // These are useful for any system that needs type-specific simple handles.
 
-#define HANDLE_INVALID MAX_U32
+#define HANDLE_INVALID_VALUE MAX_U64
+#define HANDLE_INVALID_METADATA MAX_U16
+#define HANDLE_VALID_METADATA 0
+
+struct HandleMetadata
+{
+    u16 valid = HANDLE_INVALID_METADATA;
+    u16 gen = 0;
+
+    inline bool IsValid() { return valid != HANDLE_INVALID_METADATA; }
+};
+inline bool operator==(const HandleMetadata a, const HandleMetadata b) { return a.valid == b.valid && a.gen == b.gen; }
 
 template <typename T>
 struct Handle
 {
-    u32 value = HANDLE_INVALID;
+    union
+    {
+        struct
+        {
+            HandleMetadata metadata;
+            i32 index;
+        };
+        u64 data = HANDLE_INVALID_VALUE;
+    };
 
-    inline bool IsValid() { return value != HANDLE_INVALID; }
+    inline bool IsValid() { return metadata.IsValid(); }
 };
 
 template<typename T>
-inline bool operator==(const Handle<T> a, const Handle<T> b) { return a.value == b.value; }
+inline bool operator==(const Handle<T> a, const Handle<T> b) { return a.data == b.data; }
 template<typename T>
-inline bool operator!=(const Handle<T> a, const Handle<T> b) { return a.value != b.value; }
-template<typename T>
-inline bool operator<(const Handle<T> a, const Handle<T> b) { return a.value < b.value; }
-template<typename T>
-inline bool operator>(const Handle<T> a, const Handle<T> b) { return a.value > b.value; }
+inline bool operator!=(const Handle<T> a, const Handle<T> b) { return a.data != b.data; }
+
+//#define HANDLE_INVALID MAX_U32
+
+//template <typename T>
+//struct Handle
+//{
+    //u32 value = HANDLE_INVALID;
+
+    //inline bool IsValid() { return value != HANDLE_INVALID; }
+//};
+
+//template<typename T>
+//inline bool operator==(const Handle<T> a, const Handle<T> b) { return a.value == b.value; }
+//template<typename T>
+//inline bool operator!=(const Handle<T> a, const Handle<T> b) { return a.value != b.value; }
+//template<typename T>
+//inline bool operator<(const Handle<T> a, const Handle<T> b) { return a.value < b.value; }
+//template<typename T>
+//inline bool operator>(const Handle<T> a, const Handle<T> b) { return a.value > b.value; }
 //template<typename T>
 //struct HandleHash
 //{

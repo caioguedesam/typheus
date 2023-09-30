@@ -33,16 +33,16 @@ void Init()
     assetHeap = mem::MakeHeapAllocator(ASSET_MEMORY);
     mem::SetContext(&assetHeap);
 
-    loadedAssets = MakeMap<String, u32>(ASSET_MAX_ASSETS);
-    shaders = MakeList<Shader>(ASSET_MAX_SHADERS);
-    images = MakeList<Image>(ASSET_MAX_IMAGES);
-    materials = MakeList<Material>(ASSET_MAX_MATERIALS);
-    models = MakeList<Model>(ASSET_MAX_MODELS);
+    loadedAssets = MakeMap<String, u64>(ASSET_MAX_ASSETS);
+    shaders = MakeHList<Shader>(ASSET_MAX_SHADERS);
+    images = MakeHList<Image>(ASSET_MAX_IMAGES);
+    materials = MakeHList<Material>(ASSET_MAX_MATERIALS);
+    models = MakeHList<Model>(ASSET_MAX_MODELS);
 }
 
 Handle<Shader> LoadShader(file::Path assetPath)
 {
-    if(IsLoaded(assetPath)) return { loadedAssets[assetPath.str] };
+    if(IsLoaded(assetPath)) return { .data = loadedAssets[assetPath.str] };
     mem::SetContext(&assetHeap);
 
     String shaderStr = file::ReadFileToString(assetPath);
@@ -99,16 +99,15 @@ Handle<Shader> LoadShader(file::Path assetPath)
     MStr(assetPathStr, MAX_PATH);
     str::Append(assetPathStr, assetPath.str);
     shader.path = file::MakePath(assetPathStr);
-    shaders.Push(shader);
+    Handle<Shader> result = shaders.Insert(shader);
 
-    Handle<Shader> result = { (u32)shaders.count - 1 };
-    loadedAssets.Insert(assetPath.str, result.value);
+    loadedAssets.Insert(assetPath.str, result.data);
     return result;
 }
 
 Handle<Image> LoadImageFile(file::Path assetPath, bool flipVertical)
 {
-    if(IsLoaded(assetPath)) return { loadedAssets[assetPath.str] };
+    if(IsLoaded(assetPath)) return { .data = loadedAssets[assetPath.str] };
     mem::SetContext(&assetHeap);
 
     u64 assetFileSize = 0;
@@ -128,9 +127,8 @@ Handle<Image> LoadImageFile(file::Path assetPath, bool flipVertical)
     image.channels = channels;
     image.data = data;
 
-    images.Push(image);
-    Handle<Image> result = { (u32)images.count - 1 };
-    loadedAssets.Insert(assetPath.str, result.value);
+    Handle<Image> result = images.Insert(image);
+    loadedAssets.Insert(assetPath.str, result.data);
 
     mem::Free(assetFileData);
 
