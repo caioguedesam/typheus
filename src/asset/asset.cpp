@@ -4,7 +4,6 @@
 #include "../core/memory.hpp"
 #include "../core/string.hpp"
 #include "./asset.hpp"
-#include "./model.cpp"
 
 #define STB_IMAGE_IMPLEMENTATION    // Just this file (needs to be here for malloc redefines)
 #define STBI_MALLOC(sz) ty::mem::Alloc(sz)
@@ -36,9 +35,6 @@ void Init()
     loadedAssets = MakeMap<String, u64>(ASSET_MAX_ASSETS);
     shaders = MakeHList<Shader>(ASSET_MAX_SHADERS);
     images = MakeHList<Image>(ASSET_MAX_IMAGES);
-    materials = MakeHList<Material>(ASSET_MAX_MATERIALS);
-    models = MakeHList<Model>(ASSET_MAX_MODELS);
-
 
     gltfSamplers = MakeHList<GltfSampler>();
     gltfMaterials = MakeHList<GltfMaterial>();

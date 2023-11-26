@@ -19,13 +19,13 @@ namespace asset
 // ========================================================
 // [ASSET TYPES]
 // TODO(caio): Asset types that I really want to support:
-// - GLTF models*
 // - WAV audio
 
 struct Asset
 {
     file::Path path;
     //TODO(caio): Other relevant attributes (load datetime?)
+    //TODO(caio): Maybe store these paths as hashes?
 };
 
 enum ShaderType
@@ -48,37 +48,6 @@ struct Image : Asset
     u32 height = 0;
     u32 channels = 0;
     u8* data = NULL;
-};
-
-struct Material : Asset
-{
-    // Properties
-    math::v3f ambientColor = {1,1,1};
-    math::v3f diffuseColor = {1,1,1};
-    math::v3f specularColor = {0,0,0};
-    f32 specularExponent = 1.f;
-
-    // Maps
-    file::Path ambientMap = {};
-    file::Path diffuseMap = {};
-    file::Path specularMap = {};
-    file::Path alphaMap = {};
-    file::Path bumpMap = {};
-
-    // TODO(caio): PBR properties (emissive, roughness, metallic...)
-    // TODO(caio): Other properties (transparency, refraction, ...)
-};
-
-struct ModelGroup
-{
-    List<u32> indices = {};
-    Handle<Material> material = HANDLE_INVALID_VALUE;
-};
-
-struct Model : Asset
-{
-    List<f32> vertices = {};
-    List<ModelGroup> groups = {};
 };
 
 // ========================================================
@@ -171,8 +140,6 @@ inline mem::HeapAllocator assetHeap;
 
 inline HList<Shader> shaders;
 inline HList<Image> images;
-inline HList<Material> materials;
-inline HList<Model> models;
 
 inline Shader& GetShader(Handle<Shader> hAsset) { return shaders[hAsset]; }
 inline Image& GetImage(Handle<Image> hAsset)    { return images[hAsset]; }
@@ -198,7 +165,6 @@ void Init();
 
 Handle<Shader>      LoadShader(file::Path assetPath);
 Handle<Image>       LoadImageFile(file::Path assetPath, bool flipVertical = true);
-Handle<Model>       LoadModelOBJ(file::Path assetPath, bool flipVerticalTexcoord = false);
 Handle<GltfModel>   LoadGltfModel(file::Path assetPath);
 
 void                UnloadImage(Handle<Image> hImage);
@@ -207,7 +173,6 @@ void                UnloadGltfModel(Handle<GltfModel> hModel);
 inline bool         IsLoaded(file::Path assetPath) { return loadedAssets.HasKey(assetPath.str); }
 
 // TODO(caio):
-// - Deprecate old model asset type in favor of gltf model
 // - Freeing asset memory
 //      - Shaders
 

@@ -47,19 +47,6 @@ void TestAssets()
 
     // Handle<asset::BinaryData> h_shaderBytecode2 = asset::LoadBinaryFile(assetPath);
     // ASSERT(h_shaderBytecode2 == h_shaderBytecode);
-
-    // Test model loading
-    time::Timer timer = {};
-    assetPath = file::MakePath(IStr("./resources/models/sponza/sponza.obj"));
-    //assetPath = file::MakePath(IStr("./resources/models/room/breakfast_room.obj"));
-    timer.Start();
-    Handle<asset::Model> h_sponzaModel = asset::LoadModelOBJ(assetPath);
-    timer.Stop();
-    f32 loadTime = (f32)timer.GetElapsedS();
-    LOGF("Model load took %.4f seconds", loadTime);
-    LOGLF("ASSET", "Asset memory after loading: %llu bytes", asset::assetHeap.used);
-    Handle<asset::Model> h_sponzaModel2 = asset::LoadModelOBJ(assetPath);
-    ASSERT(h_sponzaModel == h_sponzaModel2);
 }
 
 }
