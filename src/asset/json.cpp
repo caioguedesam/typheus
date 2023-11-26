@@ -1,4 +1,6 @@
 #include "../asset/json.hpp"
+#include "src/core/ds.hpp"
+#include "src/core/string.hpp"
 
 namespace ty
 {
@@ -17,40 +19,130 @@ JsonValue* JsonObject::GetValue(const String& key)
     return NULL;
 }
 
-String& JsonObject::GetString(const String& key)
+String JsonValue::AsString()
 {
-    JsonValue* value = GetValue(key);
-    ASSERT(value && value->type == JsonValue_String);
-    return *(String*)(value->data);
-}
-
-f64 JsonObject::GetNumber(const String& key)
-{
-    JsonValue* value = GetValue(key);
-    ASSERT(value && value->type == JsonValue_Number);
-    f64 result = *(f64*)&(value->data);
+    ASSERT(type == JsonValue_String);
+    String result = *(String*)data;
     return result;
 }
 
-bool JsonObject::GetBool(const String& key)
+f64 JsonValue::AsNumber()
 {
-    JsonValue* value = GetValue(key);
-    ASSERT(value && value->type == JsonValue_Bool);
-    return (bool)(value->data);
+    ASSERT(type == JsonValue_Number);
+    f64 result = *(f64*)&(data);
+    return result;
 }
 
-JsonObject* JsonObject::GetObject(const String& key)
+bool JsonValue::AsBool()
 {
-    JsonValue* value = GetValue(key);
-    ASSERT(value && value->type == JsonValue_Object);
-    return (JsonObject*)(value->data);
+    ASSERT(type == JsonValue_Bool);
+    return (bool)(data);
 }
 
-List<JsonValue>* JsonObject::GetArray(const String& key)
+JsonObject* JsonValue::AsObject()
+{
+    ASSERT(type == JsonValue_Object);
+    return (JsonObject*)(data);
+}
+
+JsonArray* JsonValue::AsArray()
+{
+    ASSERT(type == JsonValue_Array);
+    return (JsonArray*)(data);
+}
+
+String JsonObject::GetStringValue(const String& key)
 {
     JsonValue* value = GetValue(key);
-    ASSERT(value && value->type == JsonValue_Array);
-    return (List<JsonValue>*)(value->data);
+    ASSERT(value);
+    return value->AsString();
+}
+
+f64 JsonObject::GetNumberValue(const String& key)
+{
+    JsonValue* value = GetValue(key);
+    ASSERT(value);
+    return value->AsNumber();
+}
+
+bool JsonObject::GetBoolValue(const String& key)
+{
+    JsonValue* value = GetValue(key);
+    ASSERT(value);
+    return value->AsBool();
+}
+
+JsonObject* JsonObject::GetObjectValue(const String& key)
+{
+    JsonValue* value = GetValue(key);
+    ASSERT(value);
+    return value->AsObject();
+}
+
+JsonArray* JsonObject::GetArrayValue(const String& key)
+{
+    JsonValue* value = GetValue(key);
+    ASSERT(value);
+    return value->AsArray();
+}
+
+bool JsonObject::GetStringValue(const String& key, String* out)
+{
+    ASSERT(out);
+    JsonValue* value = GetValue(key);
+    if(!value) return false;
+
+    *out = value->AsString();
+
+    return true;
+}
+
+bool JsonObject::GetObjectValue(const String& key, JsonObject* out)
+{
+    ASSERT(out);
+    JsonValue* value = GetValue(key);
+    if(!value) return false;
+
+    *out = *value->AsObject();
+
+    return true;
+}
+
+#define TY_JSON_SET_NUMBER_VALUE_BODY \
+    ASSERT(out); \
+    JsonValue* value = GetValue(key); \
+    if(!value) return false; \
+    *out = value->AsNumber(); \
+    return true;
+
+bool JsonObject::GetNumberValue(const String& key, f32* out)
+{
+    TY_JSON_SET_NUMBER_VALUE_BODY
+}
+
+bool JsonObject::GetNumberValue(const String& key, f64* out)
+{
+    TY_JSON_SET_NUMBER_VALUE_BODY
+}
+
+bool JsonObject::GetNumberValue(const String& key, u32* out)
+{
+    TY_JSON_SET_NUMBER_VALUE_BODY
+}
+
+bool JsonObject::GetNumberValue(const String& key, u64* out)
+{
+    TY_JSON_SET_NUMBER_VALUE_BODY
+}
+
+bool JsonObject::GetNumberValue(const String& key, i32* out)
+{
+    TY_JSON_SET_NUMBER_VALUE_BODY
+}
+
+bool JsonObject::GetNumberValue(const String& key, i64* out)
+{
+    TY_JSON_SET_NUMBER_VALUE_BODY
 }
 
 u8* JsonSkipWhitespace(u8* p)
@@ -148,6 +240,7 @@ u8* JsonParseString(u8* p, String* out)
         *out = IStr("");
         return p;
     }
+
     MStr(result, size + 1);
     while(true)
     {
@@ -221,9 +314,11 @@ u8* JsonParseValue(u8* p, JsonValue* out)
     {
         // String
         result.type = JsonValue_String;
-        String dataStr;
-        p = JsonParseString(p, &dataStr);
-        result.data = &dataStr;
+        String parsedStr;
+        p = JsonParseString(p, &parsedStr);
+        String* dataStr = (String*)mem::Alloc(sizeof(String));
+        *dataStr = parsedStr;
+        result.data = dataStr;
     }
     else if(*p == 't')
     {
@@ -261,10 +356,10 @@ u8* JsonParseValue(u8* p, JsonValue* out)
     {
         // Array
         result.type = JsonValue_Array;
-        List<JsonValue> resultArray;
+        JsonArray resultArray;
         p = JsonParseArray(p, &resultArray);
-        List<JsonValue>* pResult = (List<JsonValue>*)mem::Alloc(sizeof(List<JsonValue>));
-        memcpy(pResult, &resultArray, sizeof(List<JsonValue>));
+        JsonArray* pResult = (JsonArray*)mem::Alloc(sizeof(JsonArray));
+        memcpy(pResult, &resultArray, sizeof(JsonArray));
         result.data = pResult;
     }
     else
@@ -282,12 +377,12 @@ u8* JsonParseValue(u8* p, JsonValue* out)
     return p;
 }
 
-u8* JsonParseArray(u8* p, List<JsonValue>* out)
+u8* JsonParseArray(u8* p, JsonArray* out)
 {
     ASSERT(*p == '[');
     p++;
 
-    List<JsonValue> result = MakeList<JsonValue>();
+    JsonArray result = MakeList<JsonValue>();
     p = JsonSkipWhitespace(p);
     if(*p == ']')
     {
@@ -345,6 +440,95 @@ u8* JsonParseObject(u8* p, JsonObject* out)
     *out = result;
     p++;
     return p;
+}
+
+void JsonFreeValue(JsonValue *value)
+{
+    ASSERT(value);
+
+    switch(value->type)
+    {
+    case JsonValue_String:
+    {
+        String jsonString = value->AsString();
+        FreeMStr(&jsonString);
+        mem::Free(value->data);
+    } break;
+    case JsonValue_Array:
+    {
+        JsonArray* jsonArray = value->AsArray();
+        JsonFreeArray(jsonArray);
+    } break;
+    case JsonValue_Object:
+    {
+        JsonObject* jsonObject = value->AsObject();
+        JsonFreeObject(jsonObject);
+    } break;
+    case JsonValue_Number:
+    case JsonValue_Bool:
+    case JsonValue_Null:
+        break;
+    default: ASSERT(0);
+    }
+
+    value = NULL;
+}
+
+void JsonFreeArray(JsonArray* jsonArray)
+{
+    for(i64 i = 0; i < jsonArray->count; i++)
+    {
+        JsonValue& value = (*jsonArray)[i];
+        JsonFreeValue(&value);
+    }
+    DestroyList(jsonArray);
+    mem::Free(jsonArray);
+}
+
+void JsonFreeObject(JsonObject* jsonObject)
+{
+    ASSERT(jsonObject);
+    ASSERT(jsonObject->values.count == jsonObject->keys.count);
+
+    // Destroy all values
+    for(i64 i = 0; i < jsonObject->values.count; i++)
+    {
+        String& key = jsonObject->keys[i];
+        FreeMStr(&key);
+        JsonValue& value = jsonObject->values[i];
+        JsonFreeValue(&value);
+    }
+
+    // Destroy main lists
+    DestroyList(&jsonObject->keys);
+    DestroyList(&jsonObject->values);
+
+    // Finally, destroy base object
+    mem::Free(jsonObject);
+    *jsonObject = {};
+}
+
+JsonObject* MakeJson(String jsonStr)
+{
+    JsonObject* result = (JsonObject*)mem::Alloc(sizeof(JsonObject));
+    u8* jsonCursor = (u8*)jsonStr.CStr();
+    JsonParseObject(jsonCursor, result);
+    return result;
+}
+
+JsonObject* MakeJson(file::Path jsonPath)
+{
+    u8* jsonBuffer = file::ReadFileToBuffer(jsonPath);
+    u8* jsonCursor = jsonBuffer;
+    JsonObject* result = (JsonObject*)mem::Alloc(sizeof(JsonObject));
+    JsonParseObject(jsonCursor, result);
+    mem::Free(jsonBuffer);
+    return result;
+}
+
+void DestroyJson(JsonObject *jsonObject)
+{
+    JsonFreeObject(jsonObject);
 }
 
 }

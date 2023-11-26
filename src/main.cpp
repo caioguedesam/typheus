@@ -31,6 +31,7 @@
 #include "./core/tests.cpp"
 #include "./asset/json.cpp"
 #include "./asset/asset.cpp"
+#include "./asset/gltf.cpp"
 #include "./asset/tests.cpp"
 #include "./render/window.cpp"
 #include "./render/render.cpp"

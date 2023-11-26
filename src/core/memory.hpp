@@ -108,6 +108,8 @@ struct HeapAllocator
     void*   Realloc(void* data, i64 size, i64 alignment = 1);
     void    Free(void* data);
     void    FreeAll();
+
+    void    DebugPrint();
 };
 HeapAllocator   MakeHeapAllocator(i64 capacity);
 void            DestroyHeapAllocator(HeapAllocator* heap);

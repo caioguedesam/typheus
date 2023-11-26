@@ -5,7 +5,6 @@
 #include "./render.hpp"
 #include "vma/vk_mem_alloc.h"
 #include "vulkan/vulkan_core.h"
-#include <vcruntime_string.h>
 
 namespace ty
 {

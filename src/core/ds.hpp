@@ -12,6 +12,17 @@ namespace ty
 {
 
 // ========================================================
+// [RANGE]
+// A range of elements for a given type
+struct Range
+{
+    i64 start = -1;
+    i64 len = 0;
+
+    bool IsValid() { return start != -1; }
+};
+
+// ========================================================
 // [ARRAY]
 // Fixed capacity only, no dynamic resize
 template <typename T>
@@ -187,7 +198,7 @@ struct List
 };
 
 template<typename T>
-List<T> MakeList(u64 initialCapacity = 16)
+List<T> MakeList(u64 initialCapacity = 1) //TODO(caio): Should I start this at 0?
 {
     List<T> result;
     result.allocator = mem::ctxAllocator;

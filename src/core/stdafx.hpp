@@ -8,9 +8,6 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <float.h>
-//#include <string>
-//#include <string_view>
-//#include <vector>
-#include <unordered_map>
-//#include <algorithm>
+#include <math.h>

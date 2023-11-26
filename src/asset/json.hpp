@@ -15,7 +15,7 @@ namespace ty
 namespace asset
 {
 
-enum JsonValueType : u8
+enum JsonValueType
 {
     JsonValue_Null,         // data = NULL
     JsonValue_String,       // data = Str*
@@ -25,10 +25,20 @@ enum JsonValueType : u8
     JsonValue_Array,        // data = List<JsonValue>*
 };
 
+struct JsonValue;
+struct JsonObject;
+typedef List<JsonValue> JsonArray;
+
 struct JsonValue
 {
     JsonValueType type = JsonValue_Null;
     void* data = NULL;
+
+    String AsString();
+    f64 AsNumber();
+    bool AsBool();
+    JsonObject* AsObject();
+    JsonArray* AsArray();
 };
 
 struct JsonObject
@@ -41,31 +51,36 @@ struct JsonObject
     
     JsonValue* GetValue(const String& key);
 
-    String& GetString(const String& key);
-    f64 GetNumber(const String& key);
-    bool GetBool(const String& key);
-    JsonObject* GetObject(const String& key);
-    List<JsonValue>* GetArray(const String& key);
-};
+    String      GetStringValue(const String& key);
+    f64         GetNumberValue(const String& key);
+    bool        GetBoolValue(const String& key);
+    JsonObject* GetObjectValue(const String& key);
+    JsonArray*  GetArrayValue(const String& key);
 
-//void JsonSkipWhitespace(u8* p);
-//f64 JsonParseNumber(u8* p);
-//String JsonParseString(u8* p);
-//JsonValue JsonParseValue(u8* p);
-//List<JsonValue> JsonParseArray(u8* p);
-//JsonObject JsonParseObject(u8* p);
+    bool GetStringValue(const String& key, String* out);
+    bool GetObjectValue(const String& key, JsonObject* out);
+    bool GetNumberValue(const String& key, f32* out);
+    bool GetNumberValue(const String& key, f64* out);
+    bool GetNumberValue(const String& key, u32* out);
+    bool GetNumberValue(const String& key, u64* out);
+    bool GetNumberValue(const String& key, i32* out);
+    bool GetNumberValue(const String& key, i64* out);
+};
 
 u8* JsonSkipWhitespace(u8* p);
 u8* JsonParseNumber(u8* p, f64* out);
 u8* JsonParseString(u8* p, String* out);
 u8* JsonParseValue(u8* p, JsonValue* out);
-u8* JsonParseArray(u8* p, List<JsonValue>* out);
+u8* JsonParseArray(u8* p, JsonArray* out);
 u8* JsonParseObject(u8* p, JsonObject* out);
 
-// TODO(caio): CONTINUE
-//  - Test json parse*
-//  - Implement freeing json memory
-//  - Test freeing json memory
+void JsonFreeValue(JsonValue* value);
+void JsonFreeArray(JsonArray* jsonArray);
+void JsonFreeObject(JsonObject* jsonObject);
+
+JsonObject* MakeJson(String jsonStr);
+JsonObject* MakeJson(file::Path jsonPath);
+void DestroyJson(JsonObject* jsonObject);
 
 }
 }

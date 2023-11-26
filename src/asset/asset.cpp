@@ -38,6 +38,13 @@ void Init()
     images = MakeHList<Image>(ASSET_MAX_IMAGES);
     materials = MakeHList<Material>(ASSET_MAX_MATERIALS);
     models = MakeHList<Model>(ASSET_MAX_MODELS);
+
+
+    gltfSamplers = MakeHList<GltfSampler>();
+    gltfMaterials = MakeHList<GltfMaterial>();
+    gltfMeshes = MakeHList<GltfMesh>();
+    gltfNodes = MakeHList<GltfNode>();
+    gltfModels = MakeHList<GltfModel>();
 }
 
 Handle<Shader> LoadShader(file::Path assetPath)
@@ -133,6 +140,16 @@ Handle<Image> LoadImageFile(file::Path assetPath, bool flipVertical)
     mem::Free(assetFileData);
 
     return result;
+}
+
+void UnloadImage(Handle<Image> hImage)
+{
+    ASSERT(hImage.IsValid());
+    mem::SetContext(&assetHeap);
+
+    Image& image = images[hImage];
+    mem::Free(image.data);
+    images.Remove(hImage);
 }
 
 };

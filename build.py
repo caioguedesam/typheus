@@ -16,10 +16,25 @@ def clean(output_dir):
     for file in object_files:
         subprocess.run(f'del "{file}"', shell=True)
 
+def build_pch(output_dir, cc_flags, optimize=False):
+    print(f'Starting precompiled header build...')
+    build_command = f'clang {cc_flags} -c ./src/stdafx.hpp -emit-pch'
+    if optimize:
+        build_command += f' -Ofast --output={output_dir}/stdafx_r.hpp.pch'
+    else:
+        build_command += f' -O0 --output={output_dir}/stdafx_d.hpp.pch'
+
+    start = time.time()
+    subprocess.run(build_command, shell=True, stdout=subprocess.DEVNULL)
+    end = time.time()
+
+    print(f'Finished precompiled header build in {end - start} seconds.')
+
 def build_engine_dependencies(output_dir, cc_flags):
     # Debug dependencies are compiled as release for speed
     print(f'Starting engine dependencies build...')
     build_command = f'clang {cc_flags} -Ofast -Wno-nullability-completeness -c'
+    build_command += f' -include-pch {output_dir}/stdafx_r.hpp.pch'
     build_command += f' ./src/dependencies.cpp'
     build_command += f' -fms-runtime-lib=dll'
     build_command += f' --output={output_dir}/{typheus_dep_lib_name}.obj'
@@ -39,6 +54,7 @@ def build_engine(output_dir, build_type, cc_flags):
     elif build_type == 'r':
         build_command += f' -Ofast'
         build_command += f' -DTY_NDEBUG=1'
+    build_command += f' -include-pch {output_dir}/stdafx_d.hpp.pch'
     build_command += f' ./src/main.cpp'
     build_command += f' -fms-runtime-lib=dll'
     build_command += f' --output={output_dir}/{typheus_lib_name}.obj'
@@ -80,6 +96,9 @@ cc_flags = ' '.join(f.read().splitlines())
 f.close()
 
 if '--full' in sys.argv:
+    print('full build')
+    build_pch(output_dir, cc_flags, False)
+    build_pch(output_dir, cc_flags, True)
     build_engine_dependencies(output_dir, cc_flags)
 
 build_engine(output_dir, build_type, cc_flags)

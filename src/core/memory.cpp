@@ -180,6 +180,9 @@ void HeapAllocator::Free(void* data)
 
     // Create free block where allocation was
     HeapAllocator::AllocationHeader* allocHeader = (HeapAllocator::AllocationHeader*)((i64)data - sizeof(HeapAllocator::AllocationHeader));
+
+    //LOGLF("HEAP FREE", "%p(%d)", data, allocHeader->size);
+
     i64 blockSize = allocHeader->size + allocHeader->offset + sizeof(HeapAllocator::AllocationHeader);
     HeapAllocator::FreeHeader* freeHeader = (HeapAllocator::FreeHeader*)((i64)allocHeader - allocHeader->offset);
     freeHeader->size = blockSize - sizeof(HeapAllocator::FreeHeader);
@@ -304,8 +307,11 @@ void* HeapAllocator::Alloc(i64 size, i64 alignment)
     used += size + sizeof(HeapAllocator::AllocationHeader) + allocHeaderOffset;
     ASSERT(oldUsed <= used);  // Guard from overflow
 
+
     ASSERT(IS_ALIGNED((void*)((i64)header + sizeof(HeapAllocator::AllocationHeader)), alignment));
-    return (void*)((i64)header + sizeof(HeapAllocator::AllocationHeader));
+    void* result = (void*)((i64)header + sizeof(HeapAllocator::AllocationHeader));
+    //LOGLF("HEAP ALLOC", "%p(%d)", result, size);
+    return result;
 }
 
 void* HeapAllocator::Realloc(void* data, i64 size, i64 alignment)
@@ -473,46 +479,46 @@ void DestroyHeapAllocator(HeapAllocator* heap)
     *heap = {};
 }
 
-//void HeapAllocator::DebugPrint()
-//{
-    //// Clear console
-    //system("cls");
+void HeapAllocator::DebugPrint()
+{
+    // Clear console
+    system("cls");
 
-    //LOGLF("HEAP_ALLOC", "Heap allocator [%llu] (%llu bytes used of %llu)", (i64)region.start, used, region.capacity);
-    //FreeHeader* current = head;
+    LOGLF("HEAP_ALLOC", "Heap allocator [%llu] (%llu bytes used of %llu)", (i64)region.start, used, region.capacity);
+    FreeHeader* current = head;
 
-    //if((i64)current != (i64)region.start)
-    //{
-        //i64 distance = (i64)current - (i64)region.start;
-        //for(i32 i = 0; i < distance; i++)
-        //{
-            //printf("/");
-        //}
-    //}
+    if((i64)current != (i64)region.start)
+    {
+        i64 distance = (i64)current - (i64)region.start;
+        for(i32 i = 0; i < distance; i++)
+        {
+            printf("/");
+        }
+    }
 
-    //while(current)
-    //{
-        //printf("|");
-        //for(i32 i = 0; i < sizeof(FreeHeader); i++)
-        //{
-            //printf("#");
-        //}
-        //for(i32 i = 0; i < current->size; i++)
-        //{
-            //printf("-");
-        //}
-        //if(current->next)
-        //{
-            //i64 distance = (i64)current->next - ((i64)current + current->size + sizeof(FreeHeader));
-            //for(i32 i = 0; i < distance; i++)
-            //{
-                //printf("/");
-            //}
-        //}
-        //current = current->next;
-    //}
-    //printf("\n");
-//}
+    while(current)
+    {
+        printf("|");
+        for(i32 i = 0; i < sizeof(FreeHeader); i++)
+        {
+            printf("#");
+        }
+        for(i32 i = 0; i < current->size; i++)
+        {
+            printf("-");
+        }
+        if(current->next)
+        {
+            i64 distance = (i64)current->next - ((i64)current + current->size + sizeof(FreeHeader));
+            for(i32 i = 0; i < distance; i++)
+            {
+                printf("/");
+            }
+        }
+        current = current->next;
+    }
+    printf("\n");
+}
 
 };
 };

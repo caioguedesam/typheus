@@ -5,6 +5,14 @@
 namespace ty
 {
 
+String::String()
+{}
+
+String::String(const char* value)
+{
+    *this = IStr(value);
+}
+
 char& String::operator[](u64 index)
 {
     ASSERT(index < len);
@@ -50,6 +58,26 @@ bool operator!=(String s1, String s2)
 {
     return s1.len != s2.len || memcmp(s1.data, s2.data, s1.len) != 0;
 };
+
+bool operator==(String s1, const char* s2)
+{
+    return s1 == IStr(s2);
+}
+
+bool operator==(const char* s1, String s2)
+{
+    return IStr(s1) == s2;
+}
+
+bool operator!=(String s1, const char* s2)
+{
+    return s1 != IStr(s2);
+}
+
+bool operator!=(const char* s1, String s2)
+{
+    return IStr(s1) != s2;
+}
 
 // djb2 string hash
 u32 Hash(String str)
@@ -201,6 +229,8 @@ void Append(String& s, String other)
     ASSERT(s.len + other.len < s.capacity);
     memcpy((char*)(s.data + s.len), other.data, other.len);
     s.len = s.len + other.len;
+    // Null term so string is always CStr compatible
+    *(s.data + s.len) = 0;
 }
 
 void Append(String& s, const char* other)

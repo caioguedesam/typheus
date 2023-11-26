@@ -23,9 +23,16 @@ struct String
     char& operator[](u64 index);
 
     char* CStr();
+
+    String();
+    String(const char* value);
 };
 bool operator==(String s1, String s2);
 bool operator!=(String s1, String s2);
+bool operator==(String s1, const char* s2);
+bool operator==(const char* s1, String s2);
+bool operator!=(String s1, const char* s2);
+bool operator!=(const char* s1, String s2);
 u32 Hash(String s);
 u32 Hash(const char* value);
 

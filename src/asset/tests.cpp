@@ -1,5 +1,7 @@
 #include "../core/time.hpp"
 #include "./asset.hpp"
+#include "./json.hpp"
+#include "src/core/memory.hpp"
 
 namespace ty
 {
