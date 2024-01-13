@@ -343,6 +343,7 @@ struct SamplerDesc
 {
     SamplerFilter minFilter = SAMPLER_FILTER_LINEAR;
     SamplerFilter magFilter = SAMPLER_FILTER_LINEAR;
+    SamplerFilter mipFilter = SAMPLER_FILTER_LINEAR;
     SamplerAddressMode addressModeU = SAMPLER_ADDRESS_REPEAT;
     SamplerAddressMode addressModeV = SAMPLER_ADDRESS_REPEAT;
     SamplerAddressMode addressModeW = SAMPLER_ADDRESS_REPEAT;

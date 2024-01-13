@@ -734,6 +734,7 @@ void DestroySwapChain(SwapChain* swapChain)
     {
         vkDestroyImageView(ctx.vkDevice, swapChain->vkImageViews[i], NULL);
     }
+    mem::SetContext(&renderHeap);
     DestroyArray(&swapChain->vkImageViews);
     DestroyArray(&swapChain->vkImages);
     vkDestroySwapchainKHR(ctx.vkDevice, swapChain->vkHandle, NULL);
@@ -1173,8 +1174,7 @@ Handle<Sampler> MakeSampler(SamplerDesc desc)
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
     samplerInfo.compareEnable = VK_FALSE;
     samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-    //TODO(caio): Support mipmapping
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.mipmapMode = (VkSamplerMipmapMode)desc.mipFilter;
     samplerInfo.mipLodBias = 0.f;
     samplerInfo.minLod = 0.f;
     samplerInfo.maxLod = 1000.f;    // Just for clamping purposes.
@@ -1335,6 +1335,7 @@ Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, Gr
 
     RenderPass& renderPass = renderPasses[hRenderPass];
     VertexLayout& vertexLayout = vertexLayouts[desc.hVertexLayout];
+    RenderTarget& renderTarget = renderTargets[renderPass.hRenderTarget];
     Shader& vs = shaders[desc.hShaderVertex];
     Shader& ps = shaders[desc.hShaderPixel];
     ASSERT(vs.type == SHADER_TYPE_VERTEX);
@@ -1396,19 +1397,36 @@ Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, Gr
     rasterizationInfo.depthBiasClamp = VK_FALSE;
 
     // Blending
-    // //TODO(caio): support other blend modes rather than overwrite
-    VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
-    colorBlendAttachment.colorWriteMask =
-        VK_COLOR_COMPONENT_R_BIT |
-        VK_COLOR_COMPONENT_G_BIT |
-        VK_COLOR_COMPONENT_B_BIT |
-        VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;     // No blending, overwrite color
+    //VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+    //colorBlendAttachment.colorWriteMask =
+    //    VK_COLOR_COMPONENT_R_BIT |
+    //    VK_COLOR_COMPONENT_G_BIT |
+    //    VK_COLOR_COMPONENT_B_BIT |
+    //    VK_COLOR_COMPONENT_A_BIT;
+    //colorBlendAttachment.blendEnable = VK_FALSE;     // No blending, overwrite color
+    //VkPipelineColorBlendStateCreateInfo colorBlendInfo = {};
+    //colorBlendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    //colorBlendInfo.logicOpEnable = VK_FALSE;
+    //colorBlendInfo.attachmentCount = 1;
+    //colorBlendInfo.pAttachments = &colorBlendAttachment;
+    
+    VkPipelineColorBlendAttachmentState colorBlendAttachments[renderTarget.desc.colorImageCount];
+    for(i32 i = 0; i < renderTarget.desc.colorImageCount; i++)
+    {
+        //TODO(caio): support other blend modes rather than overwrite
+        colorBlendAttachments[i] = {};
+        colorBlendAttachments[i].colorWriteMask =
+            VK_COLOR_COMPONENT_R_BIT |
+            VK_COLOR_COMPONENT_G_BIT |
+            VK_COLOR_COMPONENT_B_BIT |
+            VK_COLOR_COMPONENT_A_BIT;
+        colorBlendAttachments[i].blendEnable = VK_FALSE;     // No blending, overwrite color
+    }
     VkPipelineColorBlendStateCreateInfo colorBlendInfo = {};
     colorBlendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     colorBlendInfo.logicOpEnable = VK_FALSE;
-    colorBlendInfo.attachmentCount = 1;
-    colorBlendInfo.pAttachments = &colorBlendAttachment;
+    colorBlendInfo.attachmentCount = renderTarget.desc.colorImageCount;
+    colorBlendInfo.pAttachments = colorBlendAttachments;
 
     // Depth state
     VkPipelineDepthStencilStateCreateInfo depthStencilInfo = {};
@@ -1605,10 +1623,19 @@ void BeginRenderPass(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass)
         renderTarget.desc.width,
         renderTarget.desc.height,
     };
-    VkClearValue clearValues[2];
-    clearValues[0].color = {0, 0, 0, 1};
-    clearValues[1].depthStencil = {1, 0};
-    beginInfo.clearValueCount = ARR_LEN(clearValues);
+
+    //VkClearValue clearValues[2];
+    //clearValues[0].color = {0, 0, 0, 1};
+    //clearValues[1].depthStencil = {1, 0};
+    //beginInfo.clearValueCount = ARR_LEN(clearValues);
+    //beginInfo.pClearValues = clearValues;
+    VkClearValue clearValues[renderTarget.desc.colorImageCount + 1];
+    for(i32 i = 0; i < renderTarget.desc.colorImageCount; i++)
+    {
+        clearValues[i].color = {0,0,0,1};
+    }
+    clearValues[renderTarget.desc.colorImageCount].depthStencil = {1, 0};
+    beginInfo.clearValueCount = renderTarget.desc.colorImageCount + 1;
     beginInfo.pClearValues = clearValues;
 
     vkCmdBeginRenderPass(cmd.vkHandle, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);

@@ -25,6 +25,8 @@ typedef uint64_t    u64;
 typedef float       f32;
 typedef double      f64;
 
+typedef char        byte;
+
 // ========================================================
 // [GENERAL DEFINES AND MACROS]
 
@@ -130,35 +132,21 @@ struct Handle
     inline HandleMetadata GetMetadata() const { return u.metadata; }
     inline i32 GetIndex() const { return u.index; }
 };
+typedef u64 HANDLE_SIZE;
 
 template<typename T>
 inline bool operator==(const Handle<T> a, const Handle<T> b) { return a.GetData() == b.GetData(); }
 template<typename T>
 inline bool operator!=(const Handle<T> a, const Handle<T> b) { return a.GetData() != b.GetData(); }
 
-//#define HANDLE_INVALID MAX_U32
-
-//template <typename T>
-//struct Handle
-//{
-    //u32 value = HANDLE_INVALID;
-
-    //inline bool IsValid() { return value != HANDLE_INVALID; }
-//};
-
-//template<typename T>
-//inline bool operator==(const Handle<T> a, const Handle<T> b) { return a.value == b.value; }
-//template<typename T>
-//inline bool operator!=(const Handle<T> a, const Handle<T> b) { return a.value != b.value; }
-//template<typename T>
-//inline bool operator<(const Handle<T> a, const Handle<T> b) { return a.value < b.value; }
-//template<typename T>
-//inline bool operator>(const Handle<T> a, const Handle<T> b) { return a.value > b.value; }
-//template<typename T>
-//struct HandleHash
-//{
-    ////TODO(caio): ?
-    //size_t operator()(Handle<T> handle) const { return (handle.value * 0xdeece66d + 0xb); }
-//};
+template<typename T>
+u32 Hash(Handle<T> handle)
+{
+    u64 seed = handle.GetData();
+    seed ^= seed >> 12;
+    seed ^= seed << 25;
+    seed ^= seed >> 27;
+    return (u32)(seed * 0x2545F4914F6CDD1DULL);
+}
 
 };

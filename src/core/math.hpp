@@ -203,4 +203,10 @@ i32 RandomUniformI32(i32 start, i32 end);
 //TODO(caio): More random distributions if needed
 
 };
+
+typedef math::v2f v2f;
+typedef math::v2i v2i;
+typedef math::v3f v3f;
+typedef math::v4f v4f;
+typedef math::m4f m4f;
 };
