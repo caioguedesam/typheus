@@ -209,4 +209,6 @@ typedef math::v2i v2i;
 typedef math::v3f v3f;
 typedef math::v4f v4f;
 typedef math::m4f m4f;
+typedef math::v3f Color3f;
+typedef math::v4f Color4f;
 };
