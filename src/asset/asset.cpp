@@ -83,8 +83,11 @@ Handle<Shader> LoadShader(file::Path assetPath)
             "main",
             options);
     u64 errorCount = shaderc_result_get_num_errors(compiled);
-    ASSERT(errorCount == 0);
-    //TODO(caio): Error and warning formatting
+    if(errorCount != 0)
+    {
+        LOGLF("SHADER COMPILE", "%s", shaderc_result_get_error_message(compiled));
+        ASSERT(0);
+    }
 
     u64 compiledLen = shaderc_result_get_length(compiled);
     u8* compiledData = (u8*)shaderc_result_get_bytes(compiled);

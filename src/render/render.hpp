@@ -145,8 +145,9 @@ enum ResourceType
     RESOURCE_DYNAMIC_UNIFORM_BUFFER     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
     RESOURCE_STORAGE_BUFFER             = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
     RESOURCE_DYNAMIC_STORAGE_BUFFER     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
-    RESOURCE_SAMPLED_TEXTURE            = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-    RESOURCE_SAMPLER                    = VK_DESCRIPTOR_TYPE_SAMPLER,
+    //RESOURCE_SAMPLED_TEXTURE            = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+    //RESOURCE_SAMPLER                    = VK_DESCRIPTOR_TYPE_SAMPLER,
+    RESOURCE_SAMPLED_TEXTURE            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 };
 
 enum Primitive
@@ -387,6 +388,7 @@ struct ResourceSet
         i32 binding = -1;       // TODO(caio): Multiple descriptors per binding
         ResourceType type;
         i32 index = -1;
+        i32 index2 = -1;        // Used for samplers when using combined texture samplers
         i32 len = 0;
     };
 
@@ -402,9 +404,9 @@ struct ResourceSet
 
 Handle<ResourceSet> MakeResourceSet(Handle<ResourceSetLayout> hResourceSetLayout);
 void AddToResourceSet(Handle<ResourceSet> hRS, Handle<Buffer> hBuffer, ResourceType bufferType);
-void AddToResourceSet(Handle<ResourceSet> hRS, Handle<Texture> hTexture);
-void AddToResourceSet(Handle<ResourceSet> hRS, Handle<Sampler> hSampler);
-void AddToResourceSet(Handle<ResourceSet> hRS, u32 textureCount, Handle<Texture>* hTextureArray);
+void AddToResourceSet(Handle<ResourceSet> hRS, Handle<Texture> hTexture, Handle<Sampler> hSampler);
+void AddToResourceSet(Handle<ResourceSet> hRS, u32 textureCount, Handle<Texture>* hTextureArray, Handle<Sampler>* hSamplerArray);
+void AddToResourceSet(Handle<ResourceSet> hRS, Array<Handle<Texture>>& hTextureArray, Array<Handle<Sampler>>& hSamplerArray);
 void UpdateResourceSet(Handle<ResourceSet> hRS);
 void DestroyResourceSet(ResourceSet* resourceSet);
 

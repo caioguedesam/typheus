@@ -1290,32 +1290,41 @@ void AddToResourceSet(Handle<ResourceSet> hRS, Handle<Texture> hTexture)
     resourceSet.resources[i].len = 1;
 }
 
-void AddToResourceSet(Handle<ResourceSet> hRS, Handle<Sampler> hSampler)
-{
-    ResourceSet& resourceSet = resourceSets[hRS];
-    u32 i = resourceSet.resourceCount++;
-    resourceSet.hSamplers.Push(hSampler);
-    resourceSet.resources[i].binding = i;
-    resourceSet.resources[i].type = RESOURCE_SAMPLER;
-    resourceSet.resources[i].index = resourceSet.hSamplers.count - 1;
-    resourceSet.resources[i].len = 1;
-}
+//void AddToResourceSet(Handle<ResourceSet> hRS, Handle<Sampler> hSampler)
+//{
+//    ResourceSet& resourceSet = resourceSets[hRS];
+//    u32 i = resourceSet.resourceCount++;
+//    resourceSet.hSamplers.Push(hSampler);
+//    resourceSet.resources[i].binding = i;
+//    resourceSet.resources[i].type = RESOURCE_SAMPLER;
+//    resourceSet.resources[i].index = resourceSet.hSamplers.count - 1;
+//    resourceSet.resources[i].len = 1;
+//}
 
-void AddToResourceSet(Handle<ResourceSet> hRS, u32 textureCount, Handle<Texture>* hTextureArray)
+void AddToResourceSet(Handle<ResourceSet> hRS, u32 textureCount, Handle<Texture>* hTextureArray, Handle<Sampler>* hSamplerArray)
 {
     ASSERT(textureCount > 0);
     ASSERT(hTextureArray);
+    ASSERT(hSamplerArray);
     ResourceSet& resourceSet = resourceSets[hRS];
     u32 i = resourceSet.resourceCount++;
     resourceSet.resources[i].binding = i;
     resourceSet.resources[i].type = RESOURCE_SAMPLED_TEXTURE;
     resourceSet.resources[i].index = resourceSet.hTextures.count;
+    resourceSet.resources[i].index2 = resourceSet.hSamplers.count;
     resourceSet.resources[i].len = textureCount;
 
     for(i32 j = 0; j < textureCount; j++)
     {
         resourceSet.hTextures.Push(hTextureArray[j]);
+        resourceSet.hSamplers.Push(hSamplerArray[j]);
     }
+}
+
+void AddToResourceSet(Handle<ResourceSet> hRS, Array<Handle<Texture>>& hTextureArray, Array<Handle<Sampler>>& hSamplerArray)
+{
+    ASSERT(hTextureArray.count == hSamplerArray.count);
+    return AddToResourceSet(hRS, hTextureArray.count, hTextureArray.data, hSamplerArray.data);
 }
 
 void UpdateResourceSet(Handle<ResourceSet> hRS)
@@ -1356,27 +1365,19 @@ void UpdateResourceSet(Handle<ResourceSet> hRS)
                 write.pBufferInfo = bufferInfo;
                 bufferInfoCursor++;
             } break;
-            case RESOURCE_SAMPLER:
-            {
-                Sampler& sampler = samplers[resourceSet.hSamplers[resource.index]];
-
-                VkDescriptorImageInfo* imageInfo = &imageInfos[imageInfoCursor];
-                *imageInfo = {};
-                imageInfo->sampler = sampler.vkHandle;
-
-                write.pImageInfo = imageInfo;
-                imageInfoCursor++;
-            } break;
             case RESOURCE_SAMPLED_TEXTURE:
             {
                 u32 startImageCursor = imageInfoCursor;
                 for(i32 j = 0; j < resource.len; j++)
                 {
                     Texture& texture = textures[resourceSet.hTextures[resource.index + j]];
+                    Sampler& sampler = samplers[resourceSet.hSamplers[resource.index2 + j]];
+
                     VkDescriptorImageInfo* imageInfo = &imageInfos[imageInfoCursor];
                     *imageInfo = {};
                     imageInfo->imageView = texture.vkImageView;
                     imageInfo->imageLayout = (VkImageLayout)texture.desc.layout;
+                    imageInfo->sampler = sampler.vkHandle;
 
                     imageInfoCursor++;
                 }
@@ -1389,85 +1390,6 @@ void UpdateResourceSet(Handle<ResourceSet> hRS)
     }
     vkUpdateDescriptorSets(ctx.vkDevice, resourceSet.resourceCount, vkDescriptorSetWrites, 0, NULL);
 }
-
-// Handle<ResourceSet> MakeResourceSet(Handle<ResourceSetLayout> hResourceSetLayout, i32 resourceCount, ResourceSet::Entry *resources)
-// {
-//     ASSERT(hResourceSetLayout.IsValid());
-//     ASSERT(ctx.vkDevice != VK_NULL_HANDLE);
-//     mem::SetContext(&renderHeap);
-//     ResourceSetLayout& layout = resourceSetLayouts[hResourceSetLayout];
-// 
-//     VkDescriptorSetAllocateInfo vkDescriptorSetAllocInfo = {};
-//     vkDescriptorSetAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-//     vkDescriptorSetAllocInfo.descriptorPool = ctx.vkDescriptorPool;
-//     vkDescriptorSetAllocInfo.descriptorSetCount = 1;
-//     vkDescriptorSetAllocInfo.pSetLayouts = &layout.vkDescriptorSetLayout;
-//     VkDescriptorSet vkDescriptorSet;
-//     VkResult ret = vkAllocateDescriptorSets(ctx.vkDevice, &vkDescriptorSetAllocInfo, &vkDescriptorSet);
-//     ASSERTVK(ret);
-// 
-//     VkWriteDescriptorSet vkDescriptorSetWrites[resourceCount];
-//     VkDescriptorBufferInfo bufferInfos[resourceCount];
-//     VkDescriptorImageInfo imageInfos[resourceCount];
-//     for(i32 i = 0; i < resourceCount; i++)
-//     {
-//         ResourceSet::Entry resource = resources[i];
-//         VkWriteDescriptorSet write = {};
-//         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-//         write.dstSet = vkDescriptorSet;
-//         write.dstBinding = resource.binding;
-//         write.descriptorCount = 1;
-//         write.descriptorType = (VkDescriptorType)resource.resourceType;
-//         switch(resource.resourceType)
-//         {
-//             case RESOURCE_UNIFORM_BUFFER:
-//             case RESOURCE_STORAGE_BUFFER:
-//             case RESOURCE_DYNAMIC_UNIFORM_BUFFER:
-//             case RESOURCE_DYNAMIC_STORAGE_BUFFER:
-//             {
-//                 ASSERT(resource.hBuffer.IsValid());
-//                 Buffer& buffer = buffers[resource.hBuffer];
-// 
-//                 VkDescriptorBufferInfo* bufferInfo = &bufferInfos[i];
-//                 *bufferInfo = {};
-//                 bufferInfo->buffer = buffer.vkHandle;
-//                 bufferInfo->offset = 0;
-//                 //bufferInfo->range = buffer.size;
-//                 bufferInfo->range = buffer.stride;
-// 
-//                 write.pBufferInfo = bufferInfo;
-//             } break;
-//             case RESOURCE_SAMPLED_TEXTURE:
-//             {
-//                 ASSERT(resource.hTexture.IsValid());
-//                 ASSERT(resource.hSampler.IsValid());
-//                 Texture& texture = textures[resource.hTexture];
-//                 Sampler& sampler = samplers[resource.hSampler];
-// 
-//                 VkDescriptorImageInfo* imageInfo = &imageInfos[i];
-//                 *imageInfo = {};
-//                 imageInfo->imageView = texture.vkImageView;
-//                 imageInfo->sampler = sampler.vkHandle;
-//                 imageInfo->imageLayout = (VkImageLayout)texture.desc.layout;
-// 
-//                 write.pImageInfo = imageInfo;
-//             } break;
-//             default: ASSERT(0);
-//         }
-//         vkDescriptorSetWrites[i] = write;
-//     }
-//     vkUpdateDescriptorSets(ctx.vkDevice, resourceCount, vkDescriptorSetWrites, 0, NULL);
-// 
-//     ResourceSet result = {};
-//     result.vkDescriptorSet = vkDescriptorSet;
-//     result.resources = MakeArray<ResourceSet::Entry>(resourceCount);
-//     for(i32 i = 0; i < resourceCount; i++)
-//     {
-//         result.resources.Push(resources[i]);
-//     }
-// 
-//     return resourceSets.Insert(result);
-// }
 
 void DestroyResourceSet(ResourceSet *resourceSet)
 {
