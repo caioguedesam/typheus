@@ -42,6 +42,10 @@ namespace render
 #define RENDER_MAX_PUSH_CONSTANT_RANGES 4
 #define RENDER_MAX_GRAPHICS_PIPELINES 32
 #define RENDER_MAX_COMPUTE_PIPELINES 32
+#define RENDER_MAX_RESOURCE_SET_ENTRIES 16
+#define RENDER_MAX_RESOURCE_SET_BUFFERS 256
+#define RENDER_MAX_RESOURCE_SET_TEXTURES 4096
+#define RENDER_MAX_RESOURCE_SET_SAMPLERS 16
 
 enum Format
 {
@@ -141,7 +145,8 @@ enum ResourceType
     RESOURCE_DYNAMIC_UNIFORM_BUFFER     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
     RESOURCE_STORAGE_BUFFER             = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
     RESOURCE_DYNAMIC_STORAGE_BUFFER     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
-    RESOURCE_SAMPLED_TEXTURE            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+    RESOURCE_SAMPLED_TEXTURE            = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+    RESOURCE_SAMPLER                    = VK_DESCRIPTOR_TYPE_SAMPLER,
 };
 
 enum Primitive
@@ -363,9 +368,9 @@ struct ResourceSetLayout
 {
     struct Entry
     {
-        ResourceType resourceType;
+        ResourceType type;
         ShaderType shaderStages;
-        i32 bindingCount = 1;   // TODO(caio): Multiple descriptors per binding
+        i32 count = 1;
     };
 
     VkDescriptorSetLayout vkDescriptorSetLayout = VK_NULL_HANDLE;
@@ -380,18 +385,27 @@ struct ResourceSet
     struct Entry
     {
         i32 binding = -1;       // TODO(caio): Multiple descriptors per binding
-        ResourceType resourceType;
-
-        Handle<Buffer> hBuffer;
-        Handle<Texture> hTexture;
-        Handle<Sampler> hSampler;
+        ResourceType type;
+        i32 index = -1;
+        i32 len = 0;
     };
 
     VkDescriptorSet vkDescriptorSet = VK_NULL_HANDLE;
-    Array<Entry> resources;
+
+    Entry resources[RENDER_MAX_RESOURCE_SET_ENTRIES];
+    i32 resourceCount = -1;
+
+    Array<Handle<Buffer>> hBuffers;
+    Array<Handle<Texture>> hTextures;
+    Array<Handle<Sampler>> hSamplers;
 };
 
-Handle<ResourceSet> MakeResourceSet(Handle<ResourceSetLayout> hResourceSetLayout, i32 resourceCount, ResourceSet::Entry* resources);
+Handle<ResourceSet> MakeResourceSet(Handle<ResourceSetLayout> hResourceSetLayout);
+void AddToResourceSet(Handle<ResourceSet> hRS, Handle<Buffer> hBuffer, ResourceType bufferType);
+void AddToResourceSet(Handle<ResourceSet> hRS, Handle<Texture> hTexture);
+void AddToResourceSet(Handle<ResourceSet> hRS, Handle<Sampler> hSampler);
+void AddToResourceSet(Handle<ResourceSet> hRS, u32 textureCount, Handle<Texture>* hTextureArray);
+void UpdateResourceSet(Handle<ResourceSet> hRS);
 void DestroyResourceSet(ResourceSet* resourceSet);
 
 struct RenderTargetDesc
