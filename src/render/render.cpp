@@ -148,7 +148,7 @@ void MakeContext_CreateInstance(Context* ctx)
     appInfo.applicationVersion = VK_MAKE_VERSION(1,0,0);
     appInfo.pEngineName = "vkenginename";
     appInfo.engineVersion = VK_MAKE_VERSION(1,0,0);
-    appInfo.apiVersion = VK_API_VERSION_1_1;
+    appInfo.apiVersion = VK_API_VERSION_1_2;
 
     // Instance info
     VkInstanceCreateInfo instanceInfo = {};
@@ -336,6 +336,9 @@ void MakeContext_CreateDeviceAndCommandQueue(Context* ctx)
 
     VkPhysicalDeviceFeatures features = {};
     features.samplerAnisotropy = VK_TRUE;
+    VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures = {};
+    indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    indexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
 
     const char* extensions[] =
     {
@@ -349,6 +352,7 @@ void MakeContext_CreateDeviceAndCommandQueue(Context* ctx)
     deviceInfo.pEnabledFeatures = &features;
     deviceInfo.enabledExtensionCount = ARR_LEN(extensions);
     deviceInfo.ppEnabledExtensionNames = extensions;
+    deviceInfo.pNext = &indexingFeatures;
 
     VkDevice device;
     VkResult ret = vkCreateDevice(ctx->vkPhysicalDevice, &deviceInfo, NULL, &device);
@@ -1204,6 +1208,7 @@ Handle<ResourceSetLayout> MakeResourceSetLayout(i32 entryCount, ResourceSetLayou
     mem::SetContext(&renderHeap);
 
     VkDescriptorSetLayoutBinding vkLayoutBindings[entryCount];
+    VkDescriptorBindingFlags vkBindingFlags[entryCount];
     for(i32 i = 0; i < entryCount; i++)
     {
         ResourceSetLayout::Entry entry = entries[i];
@@ -1213,11 +1218,24 @@ Handle<ResourceSetLayout> MakeResourceSetLayout(i32 entryCount, ResourceSetLayou
         vkBinding.descriptorType = (VkDescriptorType)entry.type;
         vkBinding.descriptorCount = entry.count;
         vkLayoutBindings[i] = vkBinding;
+
+        vkBindingFlags[i] = 0;
+        if(entry.partiallyBound)
+        {
+            vkBindingFlags[i] = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+        }
     }
+
+    VkDescriptorSetLayoutBindingFlagsCreateInfo flagsInfo = {};
+    flagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+    flagsInfo.bindingCount = entryCount;
+    flagsInfo.pBindingFlags = vkBindingFlags;
+
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = entryCount;   // TODO(caio): Multiple descriptors for single binding
     layoutInfo.pBindings = vkLayoutBindings;
+    layoutInfo.pNext = &flagsInfo;
     VkDescriptorSetLayout vkLayout;
     VkResult ret = vkCreateDescriptorSetLayout(ctx.vkDevice, &layoutInfo, NULL, &vkLayout);
     ASSERTVK(ret);

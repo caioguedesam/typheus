@@ -372,6 +372,7 @@ struct ResourceSetLayout
         ResourceType type;
         ShaderType shaderStages;
         i32 count = 1;
+        bool partiallyBound = false;
     };
 
     VkDescriptorSetLayout vkDescriptorSetLayout = VK_NULL_HANDLE;
