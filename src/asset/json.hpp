@@ -27,7 +27,8 @@ enum JsonValueType
 
 struct JsonValue;
 struct JsonObject;
-typedef List<JsonValue> JsonArray;
+//typedef List<JsonValue> JsonArray;
+typedef DArray<JsonValue> JsonArray;
 
 struct JsonValue
 {
@@ -46,8 +47,8 @@ struct JsonObject
     // Implementing using two lists, key/value pairs are inserted in order.
     // Technically, these are unordered, but this makes it easier to implement.
     // If this implies in any performance concern later, change to hash map.
-    List<String> keys;
-    List<JsonValue> values;
+    DArray<String> keys;
+    DArray<JsonValue> values;
     
     JsonValue* GetValue(const String& key);
 
@@ -59,6 +60,7 @@ struct JsonObject
 
     bool GetStringValue(const String& key, String* out);
     bool GetObjectValue(const String& key, JsonObject* out);
+    bool GetArrayValue(const String& key, JsonArray* out);
     bool GetNumberValue(const String& key, f32* out);
     bool GetNumberValue(const String& key, f64* out);
     bool GetNumberValue(const String& key, u32* out);
@@ -67,20 +69,24 @@ struct JsonObject
     bool GetNumberValue(const String& key, i64* out);
 };
 
-u8* JsonSkipWhitespace(u8* p);
-u8* JsonParseNumber(u8* p, f64* out);
-u8* JsonParseString(u8* p, String* out);
-u8* JsonParseValue(u8* p, JsonValue* out);
-u8* JsonParseArray(u8* p, JsonArray* out);
-u8* JsonParseObject(u8* p, JsonObject* out);
+byte* JsonSkipWhitespace(byte* p);
+byte* JsonParseNumber(byte* p, f64* out);
+byte* JsonParseString(mem::Arena* arena, byte* p, String* out);
+byte* JsonParseValue(mem::Arena* arena, byte* p, JsonValue* out);
+byte* JsonParseArray(mem::Arena* arena, byte* p, JsonArray* out);
+byte* JsonParseObject(mem::Arena* arena, byte* p, JsonObject* out);
 
-void JsonFreeValue(JsonValue* value);
-void JsonFreeArray(JsonArray* jsonArray);
-void JsonFreeObject(JsonObject* jsonObject);
+// void JsonFreeValue(JsonValue* value);
+// void JsonFreeArray(JsonArray* jsonArray);
+// void JsonFreeObject(JsonObject* jsonObject);
 
-JsonObject* MakeJson(String jsonStr);
-JsonObject* MakeJson(file::Path jsonPath);
-void DestroyJson(JsonObject* jsonObject);
+// JsonObject* MakeJson(String jsonStr);
+// JsonObject* MakeJson(file::Path jsonPath);
+// void DestroyJson(JsonObject* jsonObject);
+
+JsonObject* MakeJson(mem::Arena* arena, byte* jsonBuffer);
+JsonObject* MakeJsonFromStr(mem::Arena* arena, String jsonStr);
+JsonObject* MakeJsonFromFile(mem::Arena* arena, String jsonPath);
 
 }
 }

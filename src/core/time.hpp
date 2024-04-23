@@ -17,21 +17,28 @@ namespace time
 
 #define TIMER_INVALID MAX_U64
 
+struct Context
+{
+    u64 ticksPerSecond = TIMER_INVALID;
+};
+
+Context MakeTimeContext();
+
 struct Timer
 {
     u64 startTick     = TIMER_INVALID;
     u64 endTick       = TIMER_INVALID;
-
-    void Start();
-    void Stop();
-
-    u64 GetElapsedTicks();
-    f64 GetElapsedS();
-    f64 GetElapsedMS();
-    f64 GetElapsedNS();
+    u64 frequency     = TIMER_INVALID;
 };
 
-void Init();
+Timer MakeTimer(Context* ctx);
+void StartTimer(Timer* timer);
+void EndTimer(Timer* timer);
+
+u64 GetElapsedTicks(Timer* timer);
+f64 GetElapsedSec(Timer* timer);
+f64 GetElapsedMSec(Timer* timer);
+f64 GetElapsedNSec(Timer* timer);
 
 };
 };

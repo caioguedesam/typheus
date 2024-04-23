@@ -1,15 +1,30 @@
-#include "../core/debug.hpp"
-#include "../core/ds.hpp"
 #include "../core/file.hpp"
 #include "../core/memory.hpp"
 #include "../core/string.hpp"
 #include "./asset.hpp"
+#include "src/core/base.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION    // Just this file (needs to be here for malloc redefines)
-#define STBI_MALLOC(sz) ty::mem::Alloc(sz)
-#define STBI_REALLOC(p, newsz) ty::mem::Realloc(p, newsz)
-#define STBI_FREE(p) ty::mem::Free(p)
+//#define STBI_MALLOC(sz) ty::mem::Alloc(sz)
+//#define STBI_REALLOC(p, newsz) ty::mem::Realloc(p, newsz)
+//#define STBI_FREE(p) ty::mem::Free(p)
+
+namespace ty
+{
+namespace asset
+{
+    // Need this for usage with the STBI memory macros.
+    // TODO(caio): #THREADSAFE This is certainly not thread-safe.
+    mem::Arena* stbiArena = NULL;
+}
+}
+
+#define STBI_MALLOC(sz) ty::mem::ArenaPush(ty::asset::stbiArena, sz)
+// TODO(caio): Verify if this is correct (pseudo realloc implementation, just allocate again and copy the new size over
+#define STBI_REALLOC(p, newsz) ty::mem::ArenaPushCopy(ty::asset::stbiArena, newsz, p, newsz)
+#define STBI_FREE(p)
 #define STBI_ASSERT(x) ASSERT(x)
+
 #include "../third_party/stb/stb_image.h"
 #include "shaderc/shaderc.h"
 
@@ -25,44 +40,51 @@ namespace asset
 #define ASSET_MAX_MODELS 256
 #define ASSET_MAX_ASSETS 2048
 
-#define ASSET_MEMORY GB(1)
+//#define ASSET_MEMORY GB(1)
 
-void Init()
+Context MakeAssetContext(u64 arenaSize, u64 tempArenaSize)
 {
-    assetHeap = mem::MakeHeapAllocator(ASSET_MEMORY);
-    mem::SetContext(&assetHeap);
+    Context ctx = {};
+    ctx.arena = mem::MakeArena(arenaSize);
+    ctx.tempArena = mem::MakeArena(tempArenaSize);
 
-    loadedAssets = MakeMap<String, u64>(ASSET_MAX_ASSETS);
-    shaders = MakeHList<Shader>(ASSET_MAX_SHADERS);
-    images = MakeHList<Image>(ASSET_MAX_IMAGES);
+    ctx.loadedAssets = MakeMap<String, handle>(ctx.arena, ASSET_MAX_ASSETS);
+    ctx.shaders = MakeSArray<Shader>(ctx.arena, ASSET_MAX_SHADERS);
+    ctx.images = MakeSArray<Image>(ctx.arena, ASSET_MAX_IMAGES);
+    ctx.modelsGLTF = MakeSArray<GltfModel>(ctx.arena, ASSET_MAX_MODELS);
 
-    gltfSamplers = MakeHList<GltfSampler>();
-    gltfMaterials = MakeHList<GltfMaterial>();
-    gltfMeshes = MakeHList<GltfMesh>();
-    gltfNodes = MakeHList<GltfNode>();
-    gltfModels = MakeHList<GltfModel>();
+    return ctx;
 }
 
-Handle<Shader> LoadShader(file::Path assetPath)
+bool IsLoaded(Context* ctx, String assetPath)
 {
-    if(IsLoaded(assetPath)) return Handle<Shader>(loadedAssets[assetPath.str]);
-    mem::SetContext(&assetHeap);
+    ASSERT(ctx);
+    return ctx->loadedAssets.HasKey(assetPath);
+}
 
-    String shaderStr = file::ReadFileToString(assetPath);
-    String shaderExt = assetPath.Extension();
+handle LoadShader(Context* ctx, String assetPath)
+{
+    if(IsLoaded(ctx, assetPath))
+    {
+        return ctx->loadedAssets[assetPath];
+    }
+
+    //mem::ArenaClear(ctx->tempArena);
+    String shaderStr = file::ReadFileToString(ctx->tempArena, assetPath);
+    String shaderExt = file::PathExt(assetPath);
     ShaderType type;
     shaderc_shader_kind shadercType;
-    if(shaderExt == IStr(".vert"))
+    if(shaderExt == ".vert")
     {
         type = SHADER_TYPE_VERTEX;
         shadercType = shaderc_vertex_shader;
     }
-    else if(shaderExt == IStr(".frag"))
+    else if(shaderExt == ".frag")
     {
         type = SHADER_TYPE_PIXEL;
         shadercType = shaderc_fragment_shader;
     }
-    else if(shaderExt == IStr(".comp"))
+    else if(shaderExt == ".comp")
     {
         type = SHADER_TYPE_COMPUTE;
         shadercType = shaderc_compute_shader;
@@ -90,8 +112,8 @@ Handle<Shader> LoadShader(file::Path assetPath)
     }
 
     u64 compiledLen = shaderc_result_get_length(compiled);
-    u8* compiledData = (u8*)shaderc_result_get_bytes(compiled);
-    u8* resultData = (u8*)mem::Alloc(compiledLen);
+    byte* compiledData = (byte*)shaderc_result_get_bytes(compiled);
+    byte* resultData = (byte*)mem::ArenaPush(ctx->arena, compiledLen);
     memcpy(resultData, compiledData, compiledLen);
 
     shaderc_result_release(compiled);
@@ -102,53 +124,42 @@ Handle<Shader> LoadShader(file::Path assetPath)
     shader.type = type;
     shader.size = compiledLen;
     shader.data = resultData;
-    MStr(assetPathStr, MAX_PATH);
-    str::Append(assetPathStr, assetPath.str);
-    shader.path = file::MakePath(assetPathStr);
-    Handle<Shader> result = shaders.Insert(shader);
-
-    loadedAssets.Insert(assetPath.str, result.GetData());
+    shader.path = Str(ctx->arena, assetPath);
+    
+    handle result = ctx->shaders.Push(shader);
+    ctx->loadedAssets.Insert(assetPath, result);
     return result;
 }
 
-Handle<Image> LoadImageFile(file::Path assetPath, bool flipVertical)
+handle LoadImageFile(Context* ctx, String assetPath, bool flipVertical)
 {
-    if(IsLoaded(assetPath)) return Handle<Image>(loadedAssets[assetPath.str]);
-    mem::SetContext(&assetHeap);
+    if(IsLoaded(ctx, assetPath))
+    {
+        return ctx->loadedAssets[assetPath];
+    }
 
+    //TODO(caio): This assetFileData memory is not used after parsed into an image asset.
+    // Maybe deal with that waste later.
     u64 assetFileSize = 0;
-    u8* assetFileData = file::ReadFileToBuffer(assetPath, &assetFileSize);
+    //mem::ArenaClear(ctx->tempArena);
+    byte* assetFileData = file::ReadFileToBuffer(ctx->tempArena, assetPath, &assetFileSize);
 
     Image image = {};
-    MStr(assetPathStr, MAX_PATH);
-    str::Append(assetPathStr, assetPath.str);
-    image.path = file::MakePath(assetPathStr);
+    image.path = Str(ctx->arena, assetPath);
 
     i32 width, height, channels;
+    stbiArena = ctx->arena;
     stbi_set_flip_vertically_on_load(flipVertical);
-    u8* data = stbi_load_from_memory(assetFileData, assetFileSize, &width, &height, &channels, STBI_rgb_alpha);     // Hardcoded 4 channels for now
+    byte* data = stbi_load_from_memory(assetFileData, assetFileSize, &width, &height, &channels, STBI_rgb_alpha);     // Hardcoded 4 channels for now
     
     image.width = width;
     image.height = height;
     image.channels = channels;
     image.data = data;
 
-    Handle<Image> result = images.Insert(image);
-    loadedAssets.Insert(assetPath.str, result.GetData());
-
-    mem::Free(assetFileData);
-
+    handle result = ctx->images.Push(image);
+    ctx->loadedAssets.Insert(assetPath, result);
     return result;
-}
-
-void UnloadImage(Handle<Image> hImage)
-{
-    ASSERT(hImage.IsValid());
-    mem::SetContext(&assetHeap);
-
-    Image& image = images[hImage];
-    mem::Free(image.data);
-    images.Remove(hImage);
 }
 
 };

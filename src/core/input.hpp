@@ -14,10 +14,31 @@ namespace input
 {
 
 // ========================================================
+// [CONTEXT]
+
+struct MouseContext
+{
+    math::v2i pos;    // Mouse position in pixels starting from TOP-LEFT of application window.
+    math::v2f delta;  // Current mouse delta direction from last position
+    bool hidden = false;
+    bool locked = false;
+};
+
+// ========================================================
+// [GENERAL]
+#define TY_KEY_COUNT 256
+struct Context
+{
+    u8 currentKeys[TY_KEY_COUNT];
+    u8 previousKeys[TY_KEY_COUNT];
+    MouseContext mouse;
+};
+
+// ========================================================
 // [KEYS]
 // These match Win32 enums, since it's the only supported OS and
 // who knows when this will change.
-enum InputKey : u32
+enum InputKey : u8
 {
     KEY_INVALID         = 0x00,
     KEY_LMB             = 0x01,
@@ -74,44 +95,25 @@ enum InputKey : u32
     //TODO(caio): Add more whenever needed.
 };
 
-bool IsKeyDown      (InputKey key);
-bool IsKeyUp        (InputKey key);
-bool IsKeyJustDown  (InputKey key);
-bool IsKeyJustUp    (InputKey key);
+bool IsKeyDown      (Context* ctx, InputKey key);
+bool IsKeyUp        (Context* ctx, InputKey key);
+bool IsKeyJustDown  (Context* ctx, InputKey key);
+bool IsKeyJustUp    (Context* ctx, InputKey key);
 
-// ========================================================
-// [MOUSE]
+void SetMouseLock(Context* ctx, bool lock);
+void ToggleMouseLock(Context* ctx);
+void SetMouseHide(Context* ctx, bool hide);
+void ToggleMouseHide(Context* ctx);
 
-struct MouseState
-{
-    math::v2i pos;    // Mouse position in pixels starting from TOP-LEFT of application window.
-    math::v2f delta;  // Current mouse delta direction from last position
-    bool hidden = false;
-    bool locked = false;
-};
+math::v2i GetMouseScreenPosition(Context* ctx);
+math::v2f GetMouseDelta(Context* ctx);
+bool IsMouseLocked(Context* ctx);
+bool IsMouseHidden(Context* ctx);
 
-void SetMouseLock(bool lock);
-void ToggleMouseLock();
-void SetMouseHide(bool hide);
-void ToggleMouseHide();
-
-math::v2i GetMouseScreenPosition();
-math::v2f GetMouseDelta();
-bool IsMouseLocked();
-bool IsMouseHidden();
-
-// ========================================================
-// [GENERAL]
-#define TY_KEY_COUNT 256
-struct InputState
-{
-    u8 currentKeys[TY_KEY_COUNT];
-    u8 previousKeys[TY_KEY_COUNT];
-    MouseState mouse;
-};
-
-void Init();
-void Update();
+// void Init();
+// void Update();
+Context MakeInputContext();
+void UpdateInput(Context* ctx);
 
 };
 };

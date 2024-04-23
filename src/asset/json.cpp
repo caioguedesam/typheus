@@ -1,5 +1,6 @@
 #include "../asset/json.hpp"
 #include "src/core/ds.hpp"
+#include "src/core/memory.hpp"
 #include "src/core/string.hpp"
 
 namespace ty
@@ -108,6 +109,16 @@ bool JsonObject::GetObjectValue(const String& key, JsonObject* out)
     return true;
 }
 
+bool JsonObject::GetArrayValue(const String& key, JsonArray* out)
+{
+    ASSERT(out);
+    JsonValue* value = GetValue(key);
+    if(!value) return false;
+
+    *out = *value->AsArray();
+    return true;
+}
+
 #define TY_JSON_SET_NUMBER_VALUE_BODY \
     ASSERT(out); \
     JsonValue* value = GetValue(key); \
@@ -145,7 +156,7 @@ bool JsonObject::GetNumberValue(const String& key, i64* out)
     TY_JSON_SET_NUMBER_VALUE_BODY
 }
 
-u8* JsonSkipWhitespace(u8* p)
+byte* JsonSkipWhitespace(byte* p)
 {
     while(  *p == 0x20       // Space 
         ||  *p == 0x0a       // Line feed 
@@ -158,7 +169,7 @@ u8* JsonSkipWhitespace(u8* p)
     return p;
 }
 
-u8* JsonParseNumber(u8* p, f64* out)
+byte* JsonParseNumber(byte* p, f64* out)
 {
     i32 sign = 1;
     if(*p == '-')
@@ -219,7 +230,7 @@ u8* JsonParseNumber(u8* p, f64* out)
     return p;
 }
 
-u8* JsonParseString(u8* p, String* out)
+byte* JsonParseString(mem::Arena* arena, byte* p, String* out)
 {
     ASSERT(*p == '"');
     p++;
@@ -237,52 +248,55 @@ u8* JsonParseString(u8* p, String* out)
     if(!size)
     {
         p++;
-        *out = IStr("");
+        *out = "";
         return p;
     }
 
-    MStr(result, size + 1);
+    //MStr(result, size + 1);
+    char* buf = (char*)mem::ArenaPushZero(arena, size + 1);
+    u64 index = 0;
     while(true)
     {
         if(*p == '"') break;
 
-        char nextChar[2];
-        nextChar[0] = *p;
-        nextChar[1] = 0;
+        // char nextChar[2];
+        // nextChar[0] = *p;
+        // nextChar[1] = 0;
+        char nextChar = *p;
         if(*p == '\\')
         {
             char special = *(p + 1);
             if(special == '"')
             {
-                nextChar[0] = 0x22;     // Quotation mark
+                nextChar = 0x22;     // Quotation mark
             }
             else if(special == '\\')
             {
-                nextChar[0] = 0x5C;     // Reverse solidus
+                nextChar = 0x5C;     // Reverse solidus
             }
             else if(special == '/')
             {
-                nextChar[0] = 0x2F;     // Solidus
+                nextChar = 0x2F;     // Solidus
             }
             else if(special == 'b')
             {
-                nextChar[0] = 0x08;     // Backspace
+                nextChar = 0x08;     // Backspace
             }
             else if(special == 'f')
             {
-                nextChar[0] = 0x0C;     // Form feed
+                nextChar = 0x0C;     // Form feed
             }
             else if(special == 'n')
             {
-                nextChar[0] = 0x0A;     // Line feed
+                nextChar = 0x0A;     // Line feed
             }
             else if(special == 'r')
             {
-                nextChar[0] = 0x0D;     // Carriage return
+                nextChar = 0x0D;     // Carriage return
             }
             else if(special == 't')
             {
-                nextChar[0] = 0x09;     // Horizontal tab
+                nextChar = 0x09;     // Horizontal tab
             }
             else if(special == 'u')
             {
@@ -296,15 +310,17 @@ u8* JsonParseString(u8* p, String* out)
             p++;
         }
 
-        str::Append(result, nextChar);
+        //str::Append(result, nextChar);
+        buf[index] = nextChar;
+        index++;
     }
 
-    *out = result;
+    *out = Str(buf);
     p++;
     return p;
 }
 
-u8* JsonParseValue(u8* p, JsonValue* out)
+byte* JsonParseValue(mem::Arena* arena, byte* p, JsonValue* out)
 {
     JsonValue result = {};
 
@@ -315,8 +331,8 @@ u8* JsonParseValue(u8* p, JsonValue* out)
         // String
         result.type = JsonValue_String;
         String parsedStr;
-        p = JsonParseString(p, &parsedStr);
-        String* dataStr = (String*)mem::Alloc(sizeof(String));
+        p = JsonParseString(arena, p, &parsedStr);
+        String* dataStr = (String*)mem::ArenaPush(arena, sizeof(String));
         *dataStr = parsedStr;
         result.data = dataStr;
     }
@@ -346,8 +362,8 @@ u8* JsonParseValue(u8* p, JsonValue* out)
         // Object
         result.type = JsonValue_Object;
         JsonObject resultObject;
-        p = JsonParseObject(p, &resultObject);
-        JsonObject* pResult = (JsonObject*)mem::Alloc(sizeof(JsonObject));
+        p = JsonParseObject(arena, p, &resultObject);
+        JsonObject* pResult = (JsonObject*)mem::ArenaPush(arena, sizeof(JsonObject));
         memcpy(pResult, &resultObject, sizeof(JsonObject));
         result.data = pResult;
 
@@ -357,8 +373,8 @@ u8* JsonParseValue(u8* p, JsonValue* out)
         // Array
         result.type = JsonValue_Array;
         JsonArray resultArray;
-        p = JsonParseArray(p, &resultArray);
-        JsonArray* pResult = (JsonArray*)mem::Alloc(sizeof(JsonArray));
+        p = JsonParseArray(arena, p, &resultArray);
+        JsonArray* pResult = (JsonArray*)mem::ArenaPush(arena, sizeof(JsonArray));
         memcpy(pResult, &resultArray, sizeof(JsonArray));
         result.data = pResult;
     }
@@ -377,12 +393,12 @@ u8* JsonParseValue(u8* p, JsonValue* out)
     return p;
 }
 
-u8* JsonParseArray(u8* p, JsonArray* out)
+byte* JsonParseArray(mem::Arena* arena, byte* p, JsonArray* out)
 {
     ASSERT(*p == '[');
     p++;
 
-    JsonArray result = MakeList<JsonValue>();
+    JsonArray result = MakeDArray<JsonValue>(arena);
     p = JsonSkipWhitespace(p);
     if(*p == ']')
     {
@@ -394,7 +410,7 @@ u8* JsonParseArray(u8* p, JsonArray* out)
     while(true)
     {
         JsonValue element;
-        p = JsonParseValue(p, &element);
+        p = JsonParseValue(arena, p, &element);
         result.Push(element);
         if(*p == ']') break;
         p++;    // Comma separating elements
@@ -405,14 +421,14 @@ u8* JsonParseArray(u8* p, JsonArray* out)
     return p;
 }
 
-u8* JsonParseObject(u8* p, JsonObject* out)
+byte* JsonParseObject(mem::Arena* arena, byte* p, JsonObject* out)
 {
     ASSERT(*p == '{');
     p++;
 
     JsonObject result = {};
-    result.keys = MakeList<String>();
-    result.values = MakeList<JsonValue>();
+    result.keys = MakeDArray<String>(arena);
+    result.values = MakeDArray<JsonValue>(arena);
 
     p = JsonSkipWhitespace(p);
     if(*p == '}')
@@ -425,12 +441,12 @@ u8* JsonParseObject(u8* p, JsonObject* out)
     while(true)
     {
         String key;
-        p = JsonParseString(p, &key);
+        p = JsonParseString(arena, p, &key);
         result.keys.Push(key);
         p = JsonSkipWhitespace(p);
         p++;    // Semicolon pairing key with value
         JsonValue value;
-        p = JsonParseValue(p, &value);
+        p = JsonParseValue(arena, p, &value);
         result.values.Push(value);
         if(*p == '}') break;
         p++;    // Comma separating object key/value pairs
@@ -442,94 +458,27 @@ u8* JsonParseObject(u8* p, JsonObject* out)
     return p;
 }
 
-void JsonFreeValue(JsonValue *value)
+JsonObject* MakeJson(mem::Arena* arena, byte* jsonBuffer)
 {
-    ASSERT(value);
-
-    switch(value->type)
-    {
-    case JsonValue_String:
-    {
-        String jsonString = value->AsString();
-        FreeMStr(&jsonString);
-        mem::Free(value->data);
-    } break;
-    case JsonValue_Array:
-    {
-        JsonArray* jsonArray = value->AsArray();
-        JsonFreeArray(jsonArray);
-    } break;
-    case JsonValue_Object:
-    {
-        JsonObject* jsonObject = value->AsObject();
-        JsonFreeObject(jsonObject);
-    } break;
-    case JsonValue_Number:
-    case JsonValue_Bool:
-    case JsonValue_Null:
-        break;
-    default: ASSERT(0);
-    }
-
-    value = NULL;
-}
-
-void JsonFreeArray(JsonArray* jsonArray)
-{
-    for(i64 i = 0; i < jsonArray->count; i++)
-    {
-        JsonValue& value = (*jsonArray)[i];
-        JsonFreeValue(&value);
-    }
-    DestroyList(jsonArray);
-    mem::Free(jsonArray);
-}
-
-void JsonFreeObject(JsonObject* jsonObject)
-{
-    ASSERT(jsonObject);
-    ASSERT(jsonObject->values.count == jsonObject->keys.count);
-
-    // Destroy all values
-    for(i64 i = 0; i < jsonObject->values.count; i++)
-    {
-        String& key = jsonObject->keys[i];
-        FreeMStr(&key);
-        JsonValue& value = jsonObject->values[i];
-        JsonFreeValue(&value);
-    }
-
-    // Destroy main lists
-    DestroyList(&jsonObject->keys);
-    DestroyList(&jsonObject->values);
-
-    // Finally, destroy base object
-    mem::Free(jsonObject);
-    *jsonObject = {};
-}
-
-JsonObject* MakeJson(String jsonStr)
-{
-    JsonObject* result = (JsonObject*)mem::Alloc(sizeof(JsonObject));
-    u8* jsonCursor = (u8*)jsonStr.CStr();
-    JsonParseObject(jsonCursor, result);
+    JsonObject* result = (JsonObject*)mem::ArenaPush(arena, sizeof(JsonObject));
+    byte* jsonCursor = jsonBuffer;
+    JsonParseObject(arena, jsonCursor, result);
     return result;
 }
 
-JsonObject* MakeJson(file::Path jsonPath)
+JsonObject* MakeJsonFromStr(mem::Arena* arena, String jsonStr)
 {
-    u8* jsonBuffer = file::ReadFileToBuffer(jsonPath);
-    u8* jsonCursor = jsonBuffer;
-    JsonObject* result = (JsonObject*)mem::Alloc(sizeof(JsonObject));
-    JsonParseObject(jsonCursor, result);
-    mem::Free(jsonBuffer);
+    JsonObject* result = (JsonObject*)mem::ArenaPush(arena, sizeof(JsonObject));
+    byte* jsonCursor = (byte*)jsonStr.CStr();
+    JsonParseObject(arena, jsonCursor, result);
     return result;
 }
 
-void DestroyJson(JsonObject *jsonObject)
+JsonObject* MakeJsonFromFile(mem::Arena* arena, String jsonPath)
 {
-    JsonFreeObject(jsonObject);
+    byte* jsonBuffer = file::ReadFileToBuffer(arena, jsonPath);
+    return MakeJson(arena, jsonBuffer);
 }
 
-}
-}
+}   // namespace asset
+}   // namespace ty

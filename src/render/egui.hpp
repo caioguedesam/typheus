@@ -16,8 +16,14 @@ namespace ty
 namespace egui
 {
 
-void Init(render::Window* window, Handle<render::RenderPass> hRenderPass);
-void Shutdown();
+struct Context
+{
+    render::Context* renderCtx = NULL;
+    VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
+};
+
+Context MakeEGUIContext(render::Context* renderCtx, handle hRenderPass);
+void DestroyEGUIContext(Context* ctx);
 
 void SameLine();
 void Text(String text);
@@ -39,7 +45,7 @@ void ShowDemo();
 //TODO(caio): Add support for more, such as displaying textures and hierarchies.
 
 void BeginFrame();
-void DrawFrame(Handle<render::CommandBuffer> hCmd);
+void DrawFrame(Context* ctx, handle hCb);
 
 };
 };

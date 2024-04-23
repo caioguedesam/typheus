@@ -7,55 +7,89 @@ namespace ty
 namespace input
 {
 
-InputState state = {};
+Context MakeInputContext()
+{
+    Context ctx = {};
+    return ctx;
+}
 
-bool IsKeyDown(InputKey key) 
+bool IsKeyDown(Context* ctx, InputKey key) 
 { 
-    return state.currentKeys[key] & 0x80;
+    ASSERT(ctx);
+    return ctx->currentKeys[key] & 0x80;
 }
 
-bool IsKeyUp(InputKey key) 
+bool IsKeyUp(Context* ctx, InputKey key) 
 { 
-    return !(state.currentKeys[key] & 0x80);
+    ASSERT(ctx);
+    return !(ctx->currentKeys[key] & 0x80);
 }
 
-bool IsKeyJustDown(InputKey key)
+bool IsKeyJustDown(Context* ctx, InputKey key)
 {
-    return (state.currentKeys[key] & 0x80)
-        && !(state.previousKeys[key] & 0x80);
+    ASSERT(ctx);
+    return  (ctx->currentKeys[key] & 0x80)
+        && !(ctx->previousKeys[key] & 0x80);
 }
 
-bool IsKeyJustUp(InputKey key)
+bool IsKeyJustUp(Context* ctx, InputKey key)
 {
-    return !(state.currentKeys[key] & 0x80)
-        && (state.previousKeys[key] & 0x80);
+    ASSERT(ctx);
+    return !(ctx->currentKeys[key] & 0x80)
+        &&  (ctx->previousKeys[key] & 0x80);
 }
 
-math::v2i GetMouseScreenPosition() { return state.mouse.pos; }
-math::v2f GetMouseDelta() { return state.mouse.delta; }
-bool IsMouseLocked() { return state.mouse.locked; }
-bool IsMouseHidden() { return state.mouse.hidden; }
-
-void SetMouseLock(bool lock) { state.mouse.locked = lock; }
-void ToggleMouseLock() { SetMouseLock(!state.mouse.locked); }
-void SetMouseHide(bool hide)
+math::v2i GetMouseScreenPosition(Context* ctx)
 {
-    if(hide == state.mouse.hidden) return;
-    state.mouse.hidden = hide;
+    ASSERT(ctx);
+    return ctx->mouse.pos; 
+}
+
+math::v2f GetMouseDelta(Context* ctx) 
+{
+    return ctx->mouse.delta; 
+}
+
+bool IsMouseLocked(Context* ctx) 
+{ 
+    ASSERT(ctx);
+    return ctx->mouse.locked; 
+}
+
+bool IsMouseHidden(Context* ctx) 
+{ 
+    ASSERT(ctx);
+    return ctx->mouse.hidden; 
+}
+
+void SetMouseLock(Context* ctx, bool lock) 
+{ 
+    ASSERT(ctx);
+    ctx->mouse.locked = lock; 
+}
+void ToggleMouseLock(Context* ctx) 
+{ 
+    SetMouseLock(ctx, !ctx->mouse.locked); 
+}
+void SetMouseHide(Context* ctx, bool hide)
+{
+    ASSERT(ctx);
+    if(hide == ctx->mouse.hidden) return;
+    ctx->mouse.hidden = hide;
     ShowCursor(!hide);
 }
-void ToggleMouseHide() { SetMouseHide(!state.mouse.hidden); }
-
-void Init()
+void ToggleMouseHide(Context* ctx)
 {
-    state = {};
+    ASSERT(ctx);
+    SetMouseHide(ctx, !ctx->mouse.hidden); 
 }
 
-void Update()
+void UpdateInput(Context* ctx)
 {
+    ASSERT(ctx);
     // Update keyboard button state
-    memcpy(state.previousKeys, state.currentKeys, TY_KEY_COUNT * sizeof(u8));
-    BOOL ret = GetKeyboardState(state.currentKeys);
+    memcpy(ctx->previousKeys, ctx->currentKeys, TY_KEY_COUNT * sizeof(u8));
+    BOOL ret = GetKeyboardState(ctx->currentKeys);
     ASSERT(ret);
 
     // Update mouse state
@@ -69,10 +103,10 @@ void Update()
     ASSERT(ret);
 
     math::v2f currentPos  = {(f32)cursorPoint.x,        (f32)cursorPoint.y};
-    math::v2f lastPos     = {(f32)state.mouse.pos.x,    (f32)state.mouse.pos.y};
-    state.mouse.delta = Normalize(currentPos - lastPos);
+    math::v2f lastPos     = {(f32)ctx->mouse.pos.x,    (f32)ctx->mouse.pos.y};
+    ctx->mouse.delta = Normalize(currentPos - lastPos);
 
-    if(state.mouse.locked)
+    if(ctx->mouse.locked)
     {
         RECT clientRect;
         ret = GetClientRect(GetActiveWindow(), &clientRect);
@@ -88,7 +122,7 @@ void Update()
         cursorPoint = lockPoint;
     }
     
-    state.mouse.pos = { cursorPoint.x, cursorPoint.y };
+    ctx->mouse.pos = { cursorPoint.x, cursorPoint.y };
 }
 
 };

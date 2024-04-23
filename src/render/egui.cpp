@@ -11,17 +11,15 @@ namespace ty
 namespace egui
 {
 
-VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
-
-void Init(render::Window* window, Handle<render::RenderPass> hRenderPass)
+Context MakeEGUIContext(render::Context* renderCtx, handle hRenderPass)
 {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
 
-    render::Context* ctx = &render::ctx;
-    render::SwapChain* swapChain = &render::swapChain;
+    ImGui_ImplWin32_Init(renderCtx->window->winHandle);
 
-    ImGui_ImplWin32_Init(ctx->window->winHandle);
+    Context ctx = {};
+    ctx.renderCtx = renderCtx;
 
     // Descriptor pool just for ImGui
     // Sizes copied from ImGui demo
@@ -45,20 +43,20 @@ void Init(render::Window* window, Handle<render::RenderPass> hRenderPass)
     poolInfo.poolSizeCount = ARR_LEN(poolSizes);
     poolInfo.pPoolSizes = poolSizes;
     poolInfo.maxSets = 1000;
-    VkResult ret = vkCreateDescriptorPool(ctx->vkDevice, &poolInfo, NULL, &vkDescriptorPool);
+    VkResult ret = vkCreateDescriptorPool(renderCtx->vkDevice, &poolInfo, NULL, &ctx.vkDescriptorPool);
     ASSERTVK(ret);
 
     ImGui_ImplVulkan_InitInfo initInfo = {};
-    initInfo.Instance = ctx->vkInstance;
-    initInfo.PhysicalDevice = ctx->vkPhysicalDevice;
-    initInfo.Device = ctx->vkDevice;
-    initInfo.QueueFamily = ctx->vkCommandQueueFamily;
-    initInfo.Queue = ctx->vkCommandQueue;
-    initInfo.DescriptorPool = vkDescriptorPool;
-    initInfo.MinImageCount = swapChain->vkImages.count;
-    initInfo.ImageCount = swapChain->vkImages.count;
+    initInfo.Instance = renderCtx->vkInstance;
+    initInfo.PhysicalDevice = renderCtx->vkPhysicalDevice;
+    initInfo.Device = renderCtx->vkDevice;
+    initInfo.QueueFamily = renderCtx->vkCommandQueueFamily;
+    initInfo.Queue = renderCtx->vkCommandQueue;
+    initInfo.DescriptorPool = ctx.vkDescriptorPool;
+    initInfo.MinImageCount = renderCtx->swapChain.vkImages.count;
+    initInfo.ImageCount = renderCtx->swapChain.vkImages.count;
     initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-    ImGui_ImplVulkan_Init(&initInfo, render::renderPasses[hRenderPass].vkHandle);
+    ImGui_ImplVulkan_Init(&initInfo, renderCtx->renderPasses[hRenderPass].vkHandle);
 
     ImGuiIO& io = ImGui::GetIO();
     io.Fonts->AddFontFromFileTTF("./resources/fonts/CascadiaCode.ttf", 16);
@@ -67,15 +65,15 @@ void Init(render::Window* window, Handle<render::RenderPass> hRenderPass)
     // Likely because ImGui is taking title bar into account when it shouldn't.
     RECT clientRect;
 	//GetClientRect(window->winHandle, &clientRect);
-	GetWindowRect(window->winHandle, &clientRect);
+	GetWindowRect(renderCtx->window->winHandle, &clientRect);
     io.DisplaySize = ImVec2(clientRect.right, clientRect.bottom);
 
     // Create font atlas texture for ImGui
-    Handle<render::CommandBuffer> hCmd = render::GetAvailableCommandBuffer(render::COMMAND_BUFFER_IMMEDIATE);
-    render::BeginCommandBuffer(hCmd);
-    ImGui_ImplVulkan_CreateFontsTexture(render::commandBuffers[hCmd].vkHandle);
-    render::EndCommandBuffer(hCmd);
-    render::SubmitImmediate(hCmd);
+    handle hCb = render::GetAvailableCommandBuffer(renderCtx, render::COMMAND_BUFFER_IMMEDIATE);
+    render::BeginCommandBuffer(renderCtx, hCb);
+    ImGui_ImplVulkan_CreateFontsTexture(renderCtx->commandBuffers[hCb].vkHandle);
+    render::EndCommandBuffer(renderCtx, hCb);
+    render::SubmitImmediate(renderCtx, hCb);
     ImGui_ImplVulkan_DestroyFontUploadObjects();
 
     // Style
@@ -166,14 +164,17 @@ void Init(render::Window* window, Handle<render::RenderPass> hRenderPass)
 	style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.0f, 1.0f, 1.0f, 0.699999988079071f);
 	style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.800000011920929f, 0.800000011920929f, 0.800000011920929f, 0.2000000029802322f);
 	style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.800000011920929f, 0.800000011920929f, 0.800000011920929f, 0.3499999940395355f);
+
+    return ctx;
 }
 
-void Shutdown()
+void DestroyEGUIContext(Context* ctx)
 {
-    vkDeviceWaitIdle(render::ctx.vkDevice);
-    vkDestroyDescriptorPool(render::ctx.vkDevice, vkDescriptorPool, NULL);
+    vkDeviceWaitIdle(ctx->renderCtx->vkDevice);
+    vkDestroyDescriptorPool(ctx->renderCtx->vkDevice, ctx->vkDescriptorPool, NULL);
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplWin32_Shutdown();
+    *ctx = {};
 }
 
 void BeginFrame()
@@ -183,12 +184,11 @@ void BeginFrame()
     ImGui::NewFrame();
 }
 
-void DrawFrame(Handle<render::CommandBuffer> hCmd)
+void DrawFrame(Context* ctx, handle hCb)
 {
-    ASSERT(hCmd.IsValid());
-    render::CommandBuffer& cmd = render::commandBuffers[hCmd];
+    render::CommandBuffer& cb = ctx->renderCtx->commandBuffers[hCb];
     ImGui::Render();
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd.vkHandle);
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cb.vkHandle);
 }
 
 void ShowDemo()

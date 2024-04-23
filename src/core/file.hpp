@@ -14,28 +14,19 @@ namespace ty
 namespace file
 {
 
-struct Path
-{
-    String str = {};
+bool PathExists(String path);
+bool PathIsDir(String path);
+String PathExt(String path);
+String PathNoExt(String path);
+String PathFileName(String path, bool extension = false);
+String PathFileDir(String path);
 
-    char* CStr();
-    bool Exists();
-    bool IsDir();
-    
-    String Extension();
-    String WithoutExtension();
-    String FileName(bool extension = false);
-    String FileDir();
-};
+u64 GetFileSize(String path);
+SArray<String> GetFilesInDir(mem::Arena* arena, String dirPath);
 
-Path MakePath(String s);
-
-u64 GetFileSize(Path path);
-List<Path> GetFilesInDir(Path dir);
-
-u64     ReadFile(Path path, u8* output);
-String  ReadFileToString(Path path);
-u8*     ReadFileToBuffer(Path path, u64* size = NULL);
+u64     ReadFile(String path, byte* output);
+String  ReadFileToString(mem::Arena* arena, String path);
+byte*   ReadFileToBuffer(mem::Arena* arena, String path, u64* size = NULL);
 
 // TODO(caio): Implement file writing
 

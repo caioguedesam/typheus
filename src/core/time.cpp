@@ -6,56 +6,65 @@ namespace ty
 namespace time
 {
 
-u64 ticksPerSecond = TIMER_INVALID;
-
-void Init()
+Context MakeTimeContext()
 {
     LARGE_INTEGER frequency;
     BOOL ret = QueryPerformanceFrequency(&frequency);
     ASSERT(ret);
-    ticksPerSecond = frequency.QuadPart;
+
+    Context result = {};
+    result.ticksPerSecond = frequency.QuadPart;
+    return result;
 }
 
-void Timer::Start()
+Timer MakeTimer(Context* ctx)
 {
+    Timer result = {};
+    result.frequency = ctx->ticksPerSecond;
+    return result;
+}
+
+void StartTimer(Timer* timer)
+{
+    ASSERT(timer);
     LARGE_INTEGER counter;
     BOOL ret = QueryPerformanceCounter(&counter);
     ASSERT(ret);
-    startTick = counter.QuadPart;
+    timer->startTick = counter.QuadPart;
 }
 
-void Timer::Stop()
+void EndTimer(Timer* timer)
 {
-    ASSERT(startTick != TIMER_INVALID);
+    ASSERT(timer && timer->startTick != TIMER_INVALID);
     LARGE_INTEGER counter;
     BOOL ret = QueryPerformanceCounter(&counter);
     ASSERT(ret);
-    endTick = counter.QuadPart;
+    timer->endTick = counter.QuadPart;
 }
 
-u64 Timer::GetElapsedTicks()
+u64 GetElapsedTicks(Timer* timer)
 {
-    ASSERT(startTick != TIMER_INVALID);
-    ASSERT(endTick != TIMER_INVALID);
-    return endTick - startTick;
+    ASSERT(timer->startTick != TIMER_INVALID);
+    ASSERT(timer->endTick != TIMER_INVALID);
+    return timer->endTick - timer->startTick;
 }
 
-f64 Timer::GetElapsedS()
+f64 GetElapsedSec(Timer* timer)
 {
-    ASSERT(ticksPerSecond != TIMER_INVALID);
-    return (f64)(GetElapsedTicks()) / (f64)ticksPerSecond;
+    ASSERT(timer && timer->frequency != TIMER_INVALID);
+    return (f64)(GetElapsedTicks(timer)) / (f64)(timer->frequency);
 }
 
-f64 Timer::GetElapsedMS()
+f64 GetElapsedMSec(Timer* timer)
 {
-    ASSERT(ticksPerSecond != TIMER_INVALID);
-    return (f64)(GetElapsedTicks() * (u64)1e3) / (f64)ticksPerSecond;
+    ASSERT(timer && timer->frequency != TIMER_INVALID);
+    return (f64)(GetElapsedTicks(timer) * (u64)1e3) / (f64)(timer->frequency);
 }
 
-f64 Timer::GetElapsedNS()
+f64 GetElapsedNSec(Timer* timer)
 {
-    ASSERT(ticksPerSecond != TIMER_INVALID);
-    return (f64)(GetElapsedTicks() * (u64)1e9) / (f64)ticksPerSecond;
+    ASSERT(timer && timer->frequency != TIMER_INVALID);
+    return (f64)(GetElapsedTicks(timer) * (u64)1e9) / (f64)(timer->frequency);
 }
 
 };

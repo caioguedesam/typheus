@@ -8,7 +8,6 @@
 #include "../core/base.hpp"
 #include "../core/memory.hpp"
 #include "../core/file.hpp"
-#include "../core/async.hpp"
 #include "../core/math.hpp"
 #include "../core/ds.hpp"
 
@@ -23,7 +22,7 @@ namespace asset
 
 struct Asset
 {
-    file::Path path;
+    String path;
     //TODO(caio): Other relevant attributes (load datetime?)
     //TODO(caio): Maybe store these paths as hashes?
 };
@@ -39,7 +38,7 @@ struct Shader : Asset
 {
     ShaderType type;
     u64 size = 0;
-    u8* data = NULL;
+    byte* data = NULL;
 };
 
 struct Image : Asset
@@ -47,7 +46,7 @@ struct Image : Asset
     u32 width = 0;
     u32 height = 0;
     u32 channels = 0;
-    u8* data = NULL;
+    byte* data = NULL;
 };
 
 // ========================================================
@@ -71,7 +70,6 @@ struct Image : Asset
 #define TY_GLTF_SAMPLER_WRAP_REPEAT 10497
 #define TY_GLTF_MAX_BUFFERS 8
 
-
 struct GltfSampler
 {
     u32 magFilter = 0;
@@ -82,8 +80,8 @@ struct GltfSampler
 
 struct GltfTexture
 {
-    Handle<Image> hImage = HANDLE_INVALID_VALUE;
-    Handle<GltfSampler> hSampler = HANDLE_INVALID_VALUE;
+    handle hImage = HANDLE_INVALID;
+    GltfSampler sampler;
     u32 texCoordIndex = 0;
 };
 
@@ -92,7 +90,7 @@ struct GltfMaterial
     String name;
 
     GltfTexture texBaseColor;
-    math::v4f fBaseColor = {1,1,1,1};
+    Color4f fBaseColor = {1,1,1,1};
 
     GltfTexture texMetallicRoughness;
     f32 fMetallic = 1.f;
@@ -105,12 +103,12 @@ struct GltfMaterial
     f32 fOcclusionStrength = 0.f;
     
     GltfTexture texEmissive;
-    math::v3f fEmissive = {0,0,0};
+    Color3f fEmissive = {0,0,0};
 };
 
 struct GltfPrimitive
 {
-    Handle<GltfMaterial> hMaterial = HANDLE_INVALID_VALUE;
+    handle hMaterial = HANDLE_INVALID;
     
     Range rangeIndices;
     Range rangePositions;
@@ -126,74 +124,58 @@ struct GltfPrimitive
 struct GltfMesh
 {
     String name;
-    List<GltfPrimitive> primitives;
+    SArray<GltfPrimitive> primitives;
 };
 
 struct GltfNode
 {
-    List<Handle<GltfNode>> hChildren;
-    math::m4f transform = math::Identity();
-    Handle<GltfMesh> hMesh;
+    SArray<handle> hChildren;
+    m4f transform = math::Identity();
+    handle hMesh = HANDLE_INVALID;
 };
 
 struct GltfModel : Asset
 {
-    Handle<GltfNode> root = HANDLE_INVALID_VALUE;
+    handle hRootNode = HANDLE_INVALID;
 
-    List<u32> indices = {};
-    List<f32> vPositions = {};
-    List<f32> vNormals = {};
-    List<f32> vTexCoords0 = {};
-    List<f32> vTexCoords1 = {};
-    List<f32> vTexCoords2 = {};
-    List<Handle<Image>> hImages = {};
-    List<Handle<GltfSampler>> hSamplers = {};
-    List<Handle<GltfMaterial>> hMaterials = {};
+    // Internal subassets for GLTF assets are kept within, instead of on separate arrays on asset context.
+    SArray<GltfTexture> textures = {};
+    SArray<GltfMaterial> materials = {};
+    SArray<GltfNode> nodes = {};
+    SArray<GltfMesh> meshes = {};
+
+    SArray<u32> indices = {};
+    SArray<f32> vPositions = {};
+    SArray<f32> vNormals = {};
+    SArray<f32> vTexCoords0 = {};
+    SArray<f32> vTexCoords1 = {};
+    SArray<f32> vTexCoords2 = {};
 };
-
 
 // ========================================================
 // [ASSET LISTS]
 
-inline mem::HeapAllocator assetHeap;
+#define TY_ASSET_MAX_SHADERS 256
+#define TY_ASSET_MAX_IMAGES 4096
+#define TY_ASSET_MAX_GLTF_MODELS 256
+#define TY_ASSET_MAX_ASSETS TY_ASSET_MAX_SHADERS + TY_ASSET_MAX_IMAGES + TY_ASSET_MAX_GLTF_MODELS
 
-inline HList<Shader> shaders;
-inline HList<Image> images;
+struct Context
+{
+    mem::Arena* arena;
+    mem::Arena* tempArena;  // Used for temp allocations within functions. TODO(caio): Make it thread-safe someday.
+    HashMap<String, handle> loadedAssets;
 
-inline Shader& GetShader(Handle<Shader> hAsset) { return shaders[hAsset]; }
-inline Image& GetImage(Handle<Image> hAsset)    { return images[hAsset]; }
+    SArray<Shader> shaders;
+    SArray<Image> images;
+    SArray<GltfModel> modelsGLTF;
+};
 
-inline HList<GltfSampler>   gltfSamplers;
-inline HList<GltfMaterial>  gltfMaterials;
-inline HList<GltfMesh>      gltfMeshes;
-inline HList<GltfNode>      gltfNodes;
-inline HList<GltfModel>     gltfModels;
-
-inline GltfSampler& GetGltfSampler(Handle<GltfSampler> hAsset)      { return gltfSamplers[hAsset]; }
-inline GltfMaterial& GetGltfMaterial(Handle<GltfMaterial> hAsset)   { return gltfMaterials[hAsset]; }
-inline GltfMesh& GetGltfMesh(Handle<GltfMesh> hAsset)               { return gltfMeshes[hAsset]; }
-inline GltfNode& GetGltfNode(Handle<GltfNode> hAsset)               { return gltfNodes[hAsset]; }
-inline GltfModel& GetGltfModel(Handle<GltfModel> hAsset)               { return gltfModels[hAsset]; }
-
-// Index asset handles by path
-inline HashMap<String, u64> loadedAssets;
-
-// ========================================================
-// [ASSET OPERATIONS]
-void Init();
-
-Handle<Shader>      LoadShader(file::Path assetPath);
-Handle<Image>       LoadImageFile(file::Path assetPath, bool flipVertical = true);
-Handle<GltfModel>   LoadGltfModel(file::Path assetPath);
-
-void                UnloadImage(Handle<Image> hImage);
-void                UnloadGltfModel(Handle<GltfModel> hModel);
-
-inline bool         IsLoaded(file::Path assetPath) { return loadedAssets.HasKey(assetPath.str); }
-
-// TODO(caio):
-// - Freeing asset memory
-//      - Shaders
+Context MakeAssetContext(u64 arenaSize, u64 tempArenaSize);
+bool    IsLoaded(Context* ctx, String assetPath);
+handle  LoadShader(Context* ctx, String assetPath);
+handle  LoadImageFile(Context* ctx, String assetPath, bool flipVertical = true);
+handle  LoadModelGLTF(Context* ctx, String assetPath);
 
 };
 };
