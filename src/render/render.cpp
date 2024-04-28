@@ -564,24 +564,46 @@ void SetTextureToArrayResource(Context* ctx, handle hSet, String resourceName, u
     resource.hTextureArray[resourceIndex].hSampler = hSampler;
 
     // Write API resource set
-    VkDescriptorImageInfo vkImageInfo;
-    Texture& texture = ctx->resourceTextures[resource.hTextureArray[resourceIndex].hTexture];
-    Sampler& sampler = ctx->resourceSamplers[resource.hTextureArray[resourceIndex].hSampler];
-    vkImageInfo = {};
-    vkImageInfo.imageView = texture.vkImageView;
-    vkImageInfo.imageLayout = (VkImageLayout)texture.desc.layout;
-    vkImageInfo.sampler = sampler.vkHandle;
+    VkDescriptorImageInfo vkImageInfos[resource.desc.count];
+    for(i32 i = 0; i < resource.desc.count; i++)
+    {
+        Texture& texture = ctx->resourceTextures[resource.hTextureArray[i].hTexture];
+        Sampler& sampler = ctx->resourceSamplers[resource.hTextureArray[i].hSampler];
+        vkImageInfos[i] = {};
+        vkImageInfos[i].imageView = texture.vkImageView;
+        vkImageInfos[i].imageLayout = (VkImageLayout)texture.desc.layout;
+        vkImageInfos[i].sampler = sampler.vkHandle;
+    }
 
     VkWriteDescriptorSet vkDescriptorSetWrite = {};
     vkDescriptorSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     vkDescriptorSetWrite.dstSet = resourceSet.vkDescriptorSet;
     vkDescriptorSetWrite.dstBinding = hResource;
-    vkDescriptorSetWrite.dstArrayElement = resourceIndex;
     vkDescriptorSetWrite.descriptorCount = resource.desc.count;
     vkDescriptorSetWrite.descriptorType = (VkDescriptorType)resource.desc.type;
-    vkDescriptorSetWrite.pImageInfo = &vkImageInfo;
+    vkDescriptorSetWrite.pImageInfo = &vkImageInfos[0];
 
     vkUpdateDescriptorSets(ctx->vkDevice, 1, &vkDescriptorSetWrite, 0, NULL);
+
+    //// Write API resource set
+    //VkDescriptorImageInfo vkImageInfo;
+    //Texture& texture = ctx->resourceTextures[resource.hTextureArray[resourceIndex].hTexture];
+    //Sampler& sampler = ctx->resourceSamplers[resource.hTextureArray[resourceIndex].hSampler];
+    //vkImageInfo = {};
+    //vkImageInfo.imageView = texture.vkImageView;
+    //vkImageInfo.imageLayout = (VkImageLayout)texture.desc.layout;
+    //vkImageInfo.sampler = sampler.vkHandle;
+
+    //VkWriteDescriptorSet vkDescriptorSetWrite = {};
+    //vkDescriptorSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    //vkDescriptorSetWrite.dstSet = resourceSet.vkDescriptorSet;
+    //vkDescriptorSetWrite.dstBinding = hResource;
+    //vkDescriptorSetWrite.dstArrayElement = resourceIndex;
+    //vkDescriptorSetWrite.descriptorCount = resource.desc.count;
+    //vkDescriptorSetWrite.descriptorType = (VkDescriptorType)resource.desc.type;
+    //vkDescriptorSetWrite.pImageInfo = &vkImageInfo;
+
+    //vkUpdateDescriptorSets(ctx->vkDevice, 1, &vkDescriptorSetWrite, 0, NULL);
 }
 
 //#define TY_RENDER_MAX_RESOURCE_ENTRIES 8
