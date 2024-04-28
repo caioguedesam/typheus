@@ -33,6 +33,9 @@ void    ArenaClear(Arena* arena);
 void*   ArenaGetTop(Arena* arena);
 void    ArenaFallback(Arena* arena, u64 newOffset);
 
+#define MEM_ARENA_CHECKPOINT_SET(ARENA, NAME) u64 CONCATENATE(NAME, __fallback) = (ARENA)->offset
+#define MEM_ARENA_CHECKPOINT_RESET(ARENA, NAME) ty::mem::ArenaFallback((ARENA), CONCATENATE(NAME, __fallback))
+
 // // ========================================================
 // // [MEMORY REGION]
 // // Contiguous memory allocated with c malloc/free.

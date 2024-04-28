@@ -288,201 +288,146 @@ u32 GetMaxMipLevels(u32 w, u32 h)
     return (u32)(floorf(log2f(MAX(w, h))));
 }
 
-#define TY_RENDER_MAX_RESOURCE_ENTRIES 8
-ResourceSetLayoutDesc MakeResourceSetLayoutDesc(Context* ctx)
+handle MakeResourceSet(Context* ctx, u32 resourceCount, ResourceDesc* resourceDescs)
 {
-    ResourceSetLayoutDesc desc = {};
-    desc.entries = MakeSArray<ResourceSetLayoutDesc::Entry>(ctx->arena, TY_RENDER_MAX_RESOURCE_ENTRIES);
-    return desc;
-}
-
-void PushResourceLayoutEntry(ResourceSetLayoutDesc* desc, ResourceType type, ShaderType shaderStages, u32 count, bool partiallyBound)
-{
-    ResourceSetLayoutDesc::Entry entry = {};
-    entry.count = count;
-    entry.type = type;
-    entry.shaderStages = shaderStages;
-    entry.partiallyBound = partiallyBound;
-    desc->entries.Push(entry);
-}
-
-handle MakeResourceSetLayout(Context* ctx, ResourceSetLayoutDesc desc)
-{
-    ASSERT(ctx->vkDevice != VK_NULL_HANDLE);
-
-    VkDescriptorSetLayoutBinding vkLayoutBindings[desc.entries.count];
-    VkDescriptorBindingFlags vkBindingFlags[desc.entries.count];
-    for(i32 i = 0; i < desc.entries.count; i++)
+    // Make API resource set layout
+    VkDescriptorSetLayoutBinding vkLayoutBindings[resourceCount];
+    VkDescriptorBindingFlags vkBindingFlags[resourceCount];
+    for(i32 i = 0; i < resourceCount; i++)
     {
-        ResourceSetLayoutDesc::Entry entry = desc.entries[i];
+        ResourceDesc& desc = resourceDescs[i];
         VkDescriptorSetLayoutBinding vkBinding = {};
         vkBinding.binding = i;
-        vkBinding.stageFlags = entry.shaderStages;
-        vkBinding.descriptorType = (VkDescriptorType)entry.type;
-        vkBinding.descriptorCount = entry.count;
+        vkBinding.stageFlags = desc.shaderStages;
+        vkBinding.descriptorType = (VkDescriptorType)desc.type;
+        vkBinding.descriptorCount = desc.count;
         vkLayoutBindings[i] = vkBinding;
 
-        vkBindingFlags[i] = 0;
-        if(entry.partiallyBound)
-        {
-            vkBindingFlags[i] = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-        }
+        vkBindingFlags[i] = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
     }
 
     VkDescriptorSetLayoutBindingFlagsCreateInfo flagsInfo = {};
     flagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
-    flagsInfo.bindingCount = desc.entries.count;
+    flagsInfo.bindingCount = resourceCount;
     flagsInfo.pBindingFlags = vkBindingFlags;
 
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = desc.entries.count;   // TODO(caio): Multiple descriptors for single binding
+    layoutInfo.bindingCount = resourceCount;   // TODO(caio): Multiple descriptors for single binding?
     layoutInfo.pBindings = vkLayoutBindings;
     layoutInfo.pNext = &flagsInfo;
+    layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
     VkDescriptorSetLayout vkLayout;
     VkResult ret = vkCreateDescriptorSetLayout(ctx->vkDevice, &layoutInfo, NULL, &vkLayout);
     ASSERTVK(ret);
 
-    ResourceSetLayout layout = {};
-    layout.vkDescriptorSetLayout = vkLayout;
-    layout.desc = desc;
+    // Make resource set
+    ResourceSet resourceSet = {};
+    resourceSet.resources = MakeSArray<Resource>(ctx->arena, resourceCount, resourceCount, {});
+    resourceSet.vkDescriptorSetLayout = vkLayout;
+    for(u32 i = 0; i < resourceCount; i++)
+    {
+        Resource& resource = resourceSet.resources[i];
+        resource.desc = resourceDescs[i];
 
-    handle hLayout = ctx->resourceSetLayouts.Push(layout);
-    return hLayout;
-}
+        switch(resource.desc.type)
+        {
+            case RESOURCE_SAMPLED_TEXTURE:
+            {
+                if(resource.desc.count > 1)
+                {
+                    resource.hTextureArray = MakeSArray<Resource::TexArrayEntry>(ctx->arena,
+                            resource.desc.count,
+                            resource.desc.count,
+                            {});
+                }
+            } break;
+            default: break;
+        }
+    }
 
-void DestroyResourceSetLayout(Context* ctx, handle hLayout)
-{
-    ASSERT(ctx->vkDevice != VK_NULL_HANDLE);
-    ResourceSetLayout& layout = ctx->resourceSetLayouts[hLayout];
-    vkDestroyDescriptorSetLayout(ctx->vkDevice, layout.vkDescriptorSetLayout, NULL);
-    layout = {};
-}
-
-handle MakeResourceSet(Context* ctx, handle hLayout)
-{
-    ASSERT(ctx->vkDevice != VK_NULL_HANDLE);
-    ResourceSetLayout& layout = ctx->resourceSetLayouts[hLayout];
-
+    // Make API resource set from resource set
     VkDescriptorSetAllocateInfo vkDescriptorSetAllocInfo = {};
     vkDescriptorSetAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     vkDescriptorSetAllocInfo.descriptorPool = ctx->vkDescriptorPool;
     vkDescriptorSetAllocInfo.descriptorSetCount = 1;
-    vkDescriptorSetAllocInfo.pSetLayouts = &layout.vkDescriptorSetLayout;
+    vkDescriptorSetAllocInfo.pSetLayouts = &vkLayout;
     VkDescriptorSet vkDescriptorSet;
-    VkResult ret = vkAllocateDescriptorSets(ctx->vkDevice, &vkDescriptorSetAllocInfo, &vkDescriptorSet);
+    ret = vkAllocateDescriptorSets(ctx->vkDevice, &vkDescriptorSetAllocInfo, &vkDescriptorSet);
     ASSERTVK(ret);
 
-    ResourceSet resourceSet = {};
     resourceSet.vkDescriptorSet = vkDescriptorSet;
-
-    resourceSet.resources = MakeSArray<ResourceSet::Entry>(ctx->arena, TY_RENDER_MAX_RESOURCE_ENTRIES);
-    resourceSet.hBuffers = MakeDArray<handle>(ctx->arena, TY_RENDER_MAX_RESOURCE_ENTRIES);
-    resourceSet.hTextures = MakeDArray<handle>(ctx->arena, TY_RENDER_MAX_RESOURCE_ENTRIES);
-    resourceSet.hSamplers = MakeDArray<handle>(ctx->arena, TY_RENDER_MAX_RESOURCE_ENTRIES);
-
     handle hSet = ctx->resourceSets.Push(resourceSet);
     return hSet;
 }
 
-void PushResource(Context* ctx, handle hSet, ResourceType type, handle* hResources, u32 resourceCount, handle* hResources2)
+void UploadResourceSet(Context* ctx, handle hSet)
 {
     ResourceSet& resourceSet = ctx->resourceSets[hSet];
-    ResourceSet::Entry entry = {};
 
-    u32 i = resourceSet.resources.count;
-    entry.binding = i;
-    entry.type = type;
-    entry.len = resourceCount;
-
-    switch(type)
-    {
-        case RESOURCE_UNIFORM_BUFFER:
-        case RESOURCE_STORAGE_BUFFER:
-        case RESOURCE_DYNAMIC_UNIFORM_BUFFER:
-        case RESOURCE_DYNAMIC_STORAGE_BUFFER:
-        {
-            entry.index = resourceSet.hBuffers.count;
-            for(i32 i = 0; i < resourceCount; i++)
-            {
-                resourceSet.hBuffers.Push(hResources[i]);
-            }
-        } break;
-        case RESOURCE_SAMPLED_TEXTURE:
-        {
-            ASSERT(hResources2);    // Texture resources must always be accompanied by a sampler resource. Maybe I can default this?
-            entry.index = resourceSet.hTextures.count;
-            entry.index2 = resourceSet.hSamplers.count;
-            for(i32 i = 0; i < resourceCount; i++)
-            {
-                resourceSet.hTextures.Push(hResources[i]);
-                resourceSet.hSamplers.Push(hResources2[i]);
-            }
-        } break;
-        default: ASSERT(0);
-    }
-
-    resourceSet.resources.Push(entry);
-}
-
-void UpdateResourceSet(Context* ctx, handle hSet)
-{
-    ResourceSet& resourceSet = ctx->resourceSets[hSet];
+    MEM_ARENA_CHECKPOINT_SET(ctx->arena, check);
 
     VkWriteDescriptorSet vkDescriptorSetWrites[resourceSet.resources.count];
-    VkDescriptorBufferInfo bufferInfos[resourceSet.hBuffers.count];
-    VkDescriptorImageInfo imageInfos[resourceSet.hTextures.count];
-    u32 bufferInfoCursor = 0;
-    u32 imageInfoCursor = 0;
+    DArray<VkDescriptorBufferInfo> bufferInfos = MakeDArray<VkDescriptorBufferInfo>(ctx->arena);
+    DArray<VkDescriptorImageInfo> imageInfos = MakeDArray<VkDescriptorImageInfo>(ctx->arena);
 
     for(i32 i = 0; i < resourceSet.resources.count; i++)
     {
-        ResourceSet::Entry resource = resourceSet.resources[i];
+        Resource& resource = resourceSet.resources[i];
         VkWriteDescriptorSet write = {};
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.dstSet = resourceSet.vkDescriptorSet;
-        write.dstBinding = resource.binding;
-        write.descriptorCount = resource.len;
-        write.descriptorType = (VkDescriptorType)resource.type;
+        write.dstBinding = i;
+        write.descriptorCount = resource.desc.count;
+        write.descriptorType = (VkDescriptorType)resource.desc.type;
 
-        switch(resource.type)
+        switch(resource.desc.type)
         {
             case RESOURCE_UNIFORM_BUFFER:
             case RESOURCE_STORAGE_BUFFER:
             case RESOURCE_DYNAMIC_UNIFORM_BUFFER:
             case RESOURCE_DYNAMIC_STORAGE_BUFFER:
             {
-                Buffer& buffer = ctx->resourceBuffers[resourceSet.hBuffers[resource.index]];
+                Buffer& buffer = ctx->resourceBuffers[resource.hBuffer];
+                VkDescriptorBufferInfo bufferInfo = {};
 
-                VkDescriptorBufferInfo* bufferInfo = &bufferInfos[bufferInfoCursor];
-                *bufferInfo = {};
-                bufferInfo->buffer = buffer.vkHandle;
+                bufferInfo.buffer = buffer.vkHandle;
                 // TODO(caio): This doesn't support offsets and ranges other than [0, size]
-                bufferInfo->offset = 0;
-                //bufferInfo->range = buffer.stride;
-                bufferInfo->range = buffer.size;
-
-                write.pBufferInfo = bufferInfo;
-                bufferInfoCursor++;
+                bufferInfo.offset = 0;
+                bufferInfo.range = buffer.size;
+                u32 index = bufferInfos.Push(bufferInfo);
+                write.pBufferInfo = bufferInfos.data + index;
             } break;
             case RESOURCE_SAMPLED_TEXTURE:
             {
-                u32 startImageCursor = imageInfoCursor;
-                for(i32 j = 0; j < resource.len; j++)
+                if(resource.desc.count == 1)
                 {
-                    Texture& texture = ctx->resourceTextures[resourceSet.hTextures[resource.index + j]];
-                    Sampler& sampler = ctx->resourceSamplers[resourceSet.hSamplers[resource.index2 + j]];
-
-                    VkDescriptorImageInfo* imageInfo = &imageInfos[imageInfoCursor];
-                    *imageInfo = {};
-                    imageInfo->imageView = texture.vkImageView;
-                    imageInfo->imageLayout = (VkImageLayout)texture.desc.layout;
-                    imageInfo->sampler = sampler.vkHandle;
-
-                    imageInfoCursor++;
+                    Texture& texture = ctx->resourceTextures[resource.hTexture];
+                    Sampler& sampler = ctx->resourceSamplers[resource.hSampler];
+                    VkDescriptorImageInfo imageInfo = {};
+                    imageInfo.imageView = texture.vkImageView;
+                    imageInfo.imageLayout = (VkImageLayout)texture.desc.layout;
+                    imageInfo.sampler = sampler.vkHandle;
+                    u32 index = imageInfos.Push(imageInfo);
+                    write.pImageInfo = imageInfos.data + index;
                 }
-
-                write.pImageInfo = &imageInfos[startImageCursor];
+                else
+                {
+                    for(u32 j = 0; j < resource.desc.count; j++)
+                    {
+                        Texture& texture = ctx->resourceTextures[resource.hTextureArray[j].hTexture];
+                        Sampler& sampler = ctx->resourceSamplers[resource.hTextureArray[j].hSampler];
+                        VkDescriptorImageInfo imageInfo = {};
+                        imageInfo.imageView = texture.vkImageView;
+                        imageInfo.imageLayout = (VkImageLayout)texture.desc.layout;
+                        imageInfo.sampler = sampler.vkHandle;
+                        u32 index = imageInfos.Push(imageInfo);
+                        if(j == 0)
+                        {
+                            write.pImageInfo = imageInfos.data + index;
+                        }
+                    }
+                }
             } break;
             default: ASSERT(0);
         }
@@ -490,7 +435,466 @@ void UpdateResourceSet(Context* ctx, handle hSet)
     }
 
     vkUpdateDescriptorSets(ctx->vkDevice, resourceSet.resources.count, vkDescriptorSetWrites, 0, NULL);
+
+    MEM_ARENA_CHECKPOINT_RESET(ctx->arena, check);
 }
+
+void DestroyResourceSet(Context* ctx, handle hSet)
+{
+    ASSERT(ctx->vkDevice != VK_NULL_HANDLE);
+    ResourceSet& resourceSet = ctx->resourceSets[hSet];
+    vkDestroyDescriptorSetLayout(ctx->vkDevice, resourceSet.vkDescriptorSetLayout, NULL);
+    resourceSet = {};
+}
+
+handle GetResource(Context* ctx, handle hSet, String resourceName)
+{
+    ResourceSet& resourceSet = ctx->resourceSets[hSet];
+
+    for(i32 i = 0; i < resourceSet.resources.count; i++)
+    {
+        Resource* resource = &resourceSet.resources[i];
+        if(resourceName == resource->desc.name)
+        {
+            return i;
+        }
+    }
+
+    return HANDLE_INVALID;
+}
+
+void SetBufferResource(Context* ctx, handle hSet, String resourceName, handle hBuffer)
+{
+    ResourceSet& resourceSet = ctx->resourceSets[hSet];
+    handle hResource = GetResource(ctx, hSet, resourceName);
+    ASSERT(hResource != HANDLE_INVALID);
+    Resource& resource = resourceSet.resources[hResource];
+    resource.hBuffer = hBuffer;
+
+    // Write API resource set
+    Buffer& buffer = ctx->resourceBuffers[hBuffer];
+    VkWriteDescriptorSet vkDescriptorSetWrite = {};
+    VkDescriptorBufferInfo vkBufferInfo = {};
+    vkBufferInfo.buffer = buffer.vkHandle;
+    // TODO(caio): This doesn't support offsets and ranges other than [0, size]
+    vkBufferInfo.range = buffer.size;
+    vkBufferInfo.offset = 0;
+    vkDescriptorSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    vkDescriptorSetWrite.dstSet = resourceSet.vkDescriptorSet;
+    vkDescriptorSetWrite.dstBinding = hResource;
+    vkDescriptorSetWrite.descriptorCount = resource.desc.count;
+    vkDescriptorSetWrite.descriptorType = (VkDescriptorType)resource.desc.type;
+    vkDescriptorSetWrite.pBufferInfo = &vkBufferInfo;
+
+    vkUpdateDescriptorSets(ctx->vkDevice, 1, &vkDescriptorSetWrite, 0, NULL);
+}
+
+void SetTextureResource(Context* ctx, handle hSet, String resourceName, handle hTexture, handle hSampler)
+{
+    ResourceSet& resourceSet = ctx->resourceSets[hSet];
+    handle hResource = GetResource(ctx, hSet, resourceName);
+    ASSERT(hResource != HANDLE_INVALID);
+    Resource& resource = resourceSet.resources[hResource];
+    resource.hTexture = hTexture;
+    resource.hSampler = hSampler;
+
+    // Write API resource set
+    Texture& texture = ctx->resourceTextures[hTexture];
+    Sampler& sampler = ctx->resourceSamplers[hSampler];
+    VkWriteDescriptorSet vkDescriptorSetWrite = {};
+    VkDescriptorImageInfo vkImageInfo = {};
+    vkImageInfo.imageView = texture.vkImageView;
+    vkImageInfo.imageLayout = (VkImageLayout)texture.desc.layout;
+    vkImageInfo.sampler = sampler.vkHandle;
+
+    vkDescriptorSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    vkDescriptorSetWrite.dstSet = resourceSet.vkDescriptorSet;
+    vkDescriptorSetWrite.dstBinding = hResource;
+    vkDescriptorSetWrite.descriptorCount = resource.desc.count;
+    vkDescriptorSetWrite.descriptorType = (VkDescriptorType)resource.desc.type;
+    vkDescriptorSetWrite.pImageInfo = &vkImageInfo;
+
+    vkUpdateDescriptorSets(ctx->vkDevice, 1, &vkDescriptorSetWrite, 0, NULL);
+}
+
+void SetTextureArrayResource(Context* ctx, handle hSet, String resourceName, u32 arraySize, handle* hTextures, handle* hSamplers)
+{
+    ResourceSet& resourceSet = ctx->resourceSets[hSet];
+    handle hResource = GetResource(ctx, hSet, resourceName);
+    ASSERT(hResource != HANDLE_INVALID);
+    Resource& resource = resourceSet.resources[hResource];
+    ASSERT(arraySize == resource.desc.count);
+    for(i32 i = 0; i < arraySize; i++)
+    {
+        resource.hTextureArray[i].hTexture = hTextures[i];
+        resource.hTextureArray[i].hSampler = hSamplers[i];
+    }
+
+    // Write API resource set
+    VkDescriptorImageInfo vkImageInfos[arraySize];
+    for(i32 i = 0; i < arraySize; i++)
+    {
+        Texture& texture = ctx->resourceTextures[resource.hTextureArray[i].hTexture];
+        Sampler& sampler = ctx->resourceSamplers[resource.hTextureArray[i].hSampler];
+        vkImageInfos[i] = {};
+        vkImageInfos[i].imageView = texture.vkImageView;
+        vkImageInfos[i].imageLayout = (VkImageLayout)texture.desc.layout;
+        vkImageInfos[i].sampler = sampler.vkHandle;
+    }
+
+    VkWriteDescriptorSet vkDescriptorSetWrite = {};
+    vkDescriptorSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    vkDescriptorSetWrite.dstSet = resourceSet.vkDescriptorSet;
+    vkDescriptorSetWrite.dstBinding = hResource;
+    vkDescriptorSetWrite.descriptorCount = resource.desc.count;
+    vkDescriptorSetWrite.descriptorType = (VkDescriptorType)resource.desc.type;
+    vkDescriptorSetWrite.pImageInfo = &vkImageInfos[0];
+
+    vkUpdateDescriptorSets(ctx->vkDevice, 1, &vkDescriptorSetWrite, 0, NULL);
+}
+
+void SetTextureToArrayResource(Context* ctx, handle hSet, String resourceName, u32 resourceIndex, handle hTexture, handle hSampler)
+{
+    ResourceSet& resourceSet = ctx->resourceSets[hSet];
+    handle hResource = GetResource(ctx, hSet, resourceName);
+    ASSERT(hResource != HANDLE_INVALID);
+    Resource& resource = resourceSet.resources[hResource];
+    ASSERT(resourceIndex < resource.desc.count);
+    resource.hTextureArray[resourceIndex].hTexture = hTexture;
+    resource.hTextureArray[resourceIndex].hSampler = hSampler;
+
+    // Write API resource set
+    VkDescriptorImageInfo vkImageInfo;
+    Texture& texture = ctx->resourceTextures[resource.hTextureArray[resourceIndex].hTexture];
+    Sampler& sampler = ctx->resourceSamplers[resource.hTextureArray[resourceIndex].hSampler];
+    vkImageInfo = {};
+    vkImageInfo.imageView = texture.vkImageView;
+    vkImageInfo.imageLayout = (VkImageLayout)texture.desc.layout;
+    vkImageInfo.sampler = sampler.vkHandle;
+
+    VkWriteDescriptorSet vkDescriptorSetWrite = {};
+    vkDescriptorSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    vkDescriptorSetWrite.dstSet = resourceSet.vkDescriptorSet;
+    vkDescriptorSetWrite.dstBinding = hResource;
+    vkDescriptorSetWrite.dstArrayElement = resourceIndex;
+    vkDescriptorSetWrite.descriptorCount = resource.desc.count;
+    vkDescriptorSetWrite.descriptorType = (VkDescriptorType)resource.desc.type;
+    vkDescriptorSetWrite.pImageInfo = &vkImageInfo;
+
+    vkUpdateDescriptorSets(ctx->vkDevice, 1, &vkDescriptorSetWrite, 0, NULL);
+}
+
+//#define TY_RENDER_MAX_RESOURCE_ENTRIES 8
+//ResourceSetLayoutDesc MakeResourceSetLayoutDesc(Context* ctx)
+//{
+//    ResourceSetLayoutDesc desc = {};
+//    desc.entries = MakeSArray<ResourceSetLayoutDesc::Entry>(ctx->arena, TY_RENDER_MAX_RESOURCE_ENTRIES);
+//    return desc;
+//}
+//
+//void PushResourceLayoutEntry(ResourceSetLayoutDesc* desc, ResourceType type, ShaderType shaderStages, u32 count, bool partiallyBound)
+//{
+//    ResourceSetLayoutDesc::Entry entry = {};
+//    entry.count = count;
+//    entry.type = type;
+//    entry.shaderStages = shaderStages;
+//    entry.partiallyBound = partiallyBound;
+//    desc->entries.Push(entry);
+//}
+//
+//handle MakeResourceSetLayout(Context* ctx, ResourceSetLayoutDesc desc)
+//{
+//    ASSERT(ctx->vkDevice != VK_NULL_HANDLE);
+//
+//    VkDescriptorSetLayoutBinding vkLayoutBindings[desc.entries.count];
+//    VkDescriptorBindingFlags vkBindingFlags[desc.entries.count];
+//    for(i32 i = 0; i < desc.entries.count; i++)
+//    {
+//        ResourceSetLayoutDesc::Entry entry = desc.entries[i];
+//        VkDescriptorSetLayoutBinding vkBinding = {};
+//        vkBinding.binding = i;
+//        vkBinding.stageFlags = entry.shaderStages;
+//        vkBinding.descriptorType = (VkDescriptorType)entry.type;
+//        vkBinding.descriptorCount = entry.count;
+//        vkLayoutBindings[i] = vkBinding;
+//
+//        vkBindingFlags[i] = 0;
+//        if(entry.partiallyBound)
+//        {
+//            vkBindingFlags[i] = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+//        }
+//    }
+//
+//    VkDescriptorSetLayoutBindingFlagsCreateInfo flagsInfo = {};
+//    flagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+//    flagsInfo.bindingCount = desc.entries.count;
+//    flagsInfo.pBindingFlags = vkBindingFlags;
+//
+//    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+//    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+//    layoutInfo.bindingCount = desc.entries.count;   // TODO(caio): Multiple descriptors for single binding
+//    layoutInfo.pBindings = vkLayoutBindings;
+//    layoutInfo.pNext = &flagsInfo;
+//    VkDescriptorSetLayout vkLayout;
+//    VkResult ret = vkCreateDescriptorSetLayout(ctx->vkDevice, &layoutInfo, NULL, &vkLayout);
+//    ASSERTVK(ret);
+//
+//    ResourceSetLayout layout = {};
+//    layout.vkDescriptorSetLayout = vkLayout;
+//    layout.desc = desc;
+//
+//    handle hLayout = ctx->resourceSetLayouts.Push(layout);
+//    return hLayout;
+//}
+//
+//void DestroyResourceSetLayout(Context* ctx, handle hLayout)
+//{
+//    ASSERT(ctx->vkDevice != VK_NULL_HANDLE);
+//    ResourceSetLayout& layout = ctx->resourceSetLayouts[hLayout];
+//    vkDestroyDescriptorSetLayout(ctx->vkDevice, layout.vkDescriptorSetLayout, NULL);
+//    layout = {};
+//}
+//
+//handle MakeResourceSet(Context* ctx, handle hLayout)
+//{
+//    ASSERT(ctx->vkDevice != VK_NULL_HANDLE);
+//    ResourceSetLayout& layout = ctx->resourceSetLayouts[hLayout];
+//
+//    VkDescriptorSetAllocateInfo vkDescriptorSetAllocInfo = {};
+//    vkDescriptorSetAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+//    vkDescriptorSetAllocInfo.descriptorPool = ctx->vkDescriptorPool;
+//    vkDescriptorSetAllocInfo.descriptorSetCount = 1;
+//    vkDescriptorSetAllocInfo.pSetLayouts = &layout.vkDescriptorSetLayout;
+//    VkDescriptorSet vkDescriptorSet;
+//    VkResult ret = vkAllocateDescriptorSets(ctx->vkDevice, &vkDescriptorSetAllocInfo, &vkDescriptorSet);
+//    ASSERTVK(ret);
+//
+//    ResourceSet resourceSet = {};
+//    resourceSet.vkDescriptorSet = vkDescriptorSet;
+//
+//    resourceSet.resources = MakeSArray<ResourceSet::Entry>(ctx->arena, TY_RENDER_MAX_RESOURCE_ENTRIES);
+//    resourceSet.hBuffers = MakeDArray<handle>(ctx->arena, TY_RENDER_MAX_RESOURCE_ENTRIES);
+//    resourceSet.hTextures = MakeDArray<handle>(ctx->arena, TY_RENDER_MAX_RESOURCE_ENTRIES);
+//    resourceSet.hSamplers = MakeDArray<handle>(ctx->arena, TY_RENDER_MAX_RESOURCE_ENTRIES);
+//
+//    handle hSet = ctx->resourceSets.Push(resourceSet);
+//    return hSet;
+//}
+//
+//void PushResource(Context* ctx, handle hSet, ResourceType type, handle* hResources, u32 resourceCount, handle* hResources2)
+//{
+//    ResourceSet& resourceSet = ctx->resourceSets[hSet];
+//    ResourceSet::Entry entry = {};
+//
+//    u32 i = resourceSet.resources.count;
+//    entry.binding = i;
+//    entry.type = type;
+//    entry.len = resourceCount;
+//
+//    switch(type)
+//    {
+//        case RESOURCE_UNIFORM_BUFFER:
+//        case RESOURCE_STORAGE_BUFFER:
+//        case RESOURCE_DYNAMIC_UNIFORM_BUFFER:
+//        case RESOURCE_DYNAMIC_STORAGE_BUFFER:
+//        {
+//            entry.index = resourceSet.hBuffers.count;
+//            for(i32 i = 0; i < resourceCount; i++)
+//            {
+//                resourceSet.hBuffers.Push(hResources[i]);
+//            }
+//        } break;
+//        case RESOURCE_SAMPLED_TEXTURE:
+//        {
+//            ASSERT(hResources2);    // Texture resources must always be accompanied by a sampler resource. Maybe I can default this?
+//            entry.index = resourceSet.hTextures.count;
+//            entry.index2 = resourceSet.hSamplers.count;
+//            for(i32 i = 0; i < resourceCount; i++)
+//            {
+//                resourceSet.hTextures.Push(hResources[i]);
+//                resourceSet.hSamplers.Push(hResources2[i]);
+//            }
+//        } break;
+//        default: ASSERT(0);
+//    }
+//
+//    resourceSet.resources.Push(entry);
+//}
+//
+//void UpdateResource(Context* ctx, handle hSet, u32 resourceIndex, ResourceType type, handle* hResources, u32 resourceCount, handle* hResources2)
+//{
+//    ResourceSet& resourceSet = ctx->resourceSets[hSet];
+//    ASSERT(resourceIndex < resourceSet.resources.count);
+//    ResourceSet::Entry entry = {};
+//
+//    u32 i = resourceSet.resources.count;
+//    entry.binding = i;
+//    entry.type = type;
+//    entry.len = resourceCount;
+//
+//    switch(type)
+//    {
+//        case RESOURCE_UNIFORM_BUFFER:
+//        case RESOURCE_STORAGE_BUFFER:
+//        case RESOURCE_DYNAMIC_UNIFORM_BUFFER:
+//        case RESOURCE_DYNAMIC_STORAGE_BUFFER:
+//        {
+//            entry.index = resourceSet.hBuffers.count;
+//            for(i32 i = 0; i < resourceCount; i++)
+//            {
+//                resourceSet.hBuffers.Push(hResources[i]);
+//            }
+//        } break;
+//        case RESOURCE_SAMPLED_TEXTURE:
+//        {
+//            ASSERT(hResources2);    // Texture resources must always be accompanied by a sampler resource. Maybe I can default this?
+//            entry.index = resourceSet.hTextures.count;
+//            entry.index2 = resourceSet.hSamplers.count;
+//            for(i32 i = 0; i < resourceCount; i++)
+//            {
+//                resourceSet.hTextures.Push(hResources[i]);
+//                resourceSet.hSamplers.Push(hResources2[i]);
+//            }
+//        } break;
+//        default: ASSERT(0);
+//    }
+//
+//    resourceSet.resources[resourceIndex] = entry;
+//}
+//
+//void UpdateResourceSet(Context* ctx, handle hSet)
+//{
+//    ResourceSet& resourceSet = ctx->resourceSets[hSet];
+//
+//    VkWriteDescriptorSet vkDescriptorSetWrites[resourceSet.resources.count];
+//    VkDescriptorBufferInfo bufferInfos[resourceSet.hBuffers.count];
+//    VkDescriptorImageInfo imageInfos[resourceSet.hTextures.count];
+//    u32 bufferInfoCursor = 0;
+//    u32 imageInfoCursor = 0;
+//
+//    for(i32 i = 0; i < resourceSet.resources.count; i++)
+//    {
+//        ResourceSet::Entry resource = resourceSet.resources[i];
+//        VkWriteDescriptorSet write = {};
+//        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+//        write.dstSet = resourceSet.vkDescriptorSet;
+//        write.dstBinding = resource.binding;
+//        write.descriptorCount = resource.len;
+//        write.descriptorType = (VkDescriptorType)resource.type;
+//
+//        switch(resource.type)
+//        {
+//            case RESOURCE_UNIFORM_BUFFER:
+//            case RESOURCE_STORAGE_BUFFER:
+//            case RESOURCE_DYNAMIC_UNIFORM_BUFFER:
+//            case RESOURCE_DYNAMIC_STORAGE_BUFFER:
+//            {
+//                Buffer& buffer = ctx->resourceBuffers[resourceSet.hBuffers[resource.index]];
+//
+//                VkDescriptorBufferInfo* bufferInfo = &bufferInfos[bufferInfoCursor];
+//                *bufferInfo = {};
+//                bufferInfo->buffer = buffer.vkHandle;
+//                // TODO(caio): This doesn't support offsets and ranges other than [0, size]
+//                bufferInfo->offset = 0;
+//                //bufferInfo->range = buffer.stride;
+//                bufferInfo->range = buffer.size;
+//
+//                write.pBufferInfo = bufferInfo;
+//                bufferInfoCursor++;
+//            } break;
+//            case RESOURCE_SAMPLED_TEXTURE:
+//            {
+//                u32 startImageCursor = imageInfoCursor;
+//                for(i32 j = 0; j < resource.len; j++)
+//                {
+//                    Texture& texture = ctx->resourceTextures[resourceSet.hTextures[resource.index + j]];
+//                    Sampler& sampler = ctx->resourceSamplers[resourceSet.hSamplers[resource.index2 + j]];
+//
+//                    VkDescriptorImageInfo* imageInfo = &imageInfos[imageInfoCursor];
+//                    *imageInfo = {};
+//                    imageInfo->imageView = texture.vkImageView;
+//                    imageInfo->imageLayout = (VkImageLayout)texture.desc.layout;
+//                    imageInfo->sampler = sampler.vkHandle;
+//
+//                    imageInfoCursor++;
+//                }
+//
+//                write.pImageInfo = &imageInfos[startImageCursor];
+//            } break;
+//            default: ASSERT(0);
+//        }
+//        vkDescriptorSetWrites[i] = write;
+//    }
+//
+//    vkUpdateDescriptorSets(ctx->vkDevice, resourceSet.resources.count, vkDescriptorSetWrites, 0, NULL);
+//}
+//
+//void UpdateResourceSetEntry(Context* ctx, handle hSet, u32 updatedEntry)
+//{
+//    // TODO(caio): I can likely simplify this a lot
+//    ResourceSet& resourceSet = ctx->resourceSets[hSet];
+//    ASSERT(updatedEntry < resourceSet.resources.count);
+//
+//    VkWriteDescriptorSet vkDescriptorSetWrite;
+//    VkDescriptorBufferInfo bufferInfos[resourceSet.hBuffers.count];
+//    VkDescriptorImageInfo imageInfos[resourceSet.hTextures.count];
+//    u32 bufferInfoCursor = 0;
+//    u32 imageInfoCursor = 0;
+//
+//    {
+//        ResourceSet::Entry resource = resourceSet.resources[updatedEntry];
+//        VkWriteDescriptorSet write = {};
+//        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+//        write.dstSet = resourceSet.vkDescriptorSet;
+//        write.dstBinding = resource.binding;
+//        write.descriptorCount = resource.len;
+//        write.descriptorType = (VkDescriptorType)resource.type;
+//
+//        switch(resource.type)
+//        {
+//            case RESOURCE_UNIFORM_BUFFER:
+//            case RESOURCE_STORAGE_BUFFER:
+//            case RESOURCE_DYNAMIC_UNIFORM_BUFFER:
+//            case RESOURCE_DYNAMIC_STORAGE_BUFFER:
+//            {
+//                Buffer& buffer = ctx->resourceBuffers[resourceSet.hBuffers[resource.index]];
+//
+//                VkDescriptorBufferInfo* bufferInfo = &bufferInfos[bufferInfoCursor];
+//                *bufferInfo = {};
+//                bufferInfo->buffer = buffer.vkHandle;
+//                // TODO(caio): This doesn't support offsets and ranges other than [0, size]
+//                bufferInfo->offset = 0;
+//                bufferInfo->range = buffer.size;
+//
+//                write.pBufferInfo = bufferInfo;
+//                bufferInfoCursor++;
+//            } break;
+//            case RESOURCE_SAMPLED_TEXTURE:
+//            {
+//                u32 startImageCursor = imageInfoCursor;
+//                for(i32 j = 0; j < resource.len; j++)
+//                {
+//                    Texture& texture = ctx->resourceTextures[resourceSet.hTextures[resource.index + j]];
+//                    Sampler& sampler = ctx->resourceSamplers[resourceSet.hSamplers[resource.index2 + j]];
+//
+//                    VkDescriptorImageInfo* imageInfo = &imageInfos[imageInfoCursor];
+//                    *imageInfo = {};
+//                    imageInfo->imageView = texture.vkImageView;
+//                    imageInfo->imageLayout = (VkImageLayout)texture.desc.layout;
+//                    imageInfo->sampler = sampler.vkHandle;
+//
+//                    imageInfoCursor++;
+//                }
+//
+//                write.pImageInfo = &imageInfos[startImageCursor];
+//            } break;
+//            default: ASSERT(0);
+//        }
+//        vkDescriptorSetWrite = write;
+//    }
+//
+//    vkUpdateDescriptorSets(ctx->vkDevice, 1, &vkDescriptorSetWrite, 0, NULL);
+//}
 
 handle MakeRenderTarget(Context* ctx, RenderTargetDesc desc)
 {
@@ -681,7 +1085,7 @@ void ComputePipelineDesc::PushPushConstantRange(PushConstantRange pushConstantRa
 }
 
 #define TY_RENDER_MAX_DESCRIPTOR_SETS_PER_PIPELINE 8
-handle MakeGraphicsPipeline(Context* ctx, handle hRenderPass, GraphicsPipelineDesc desc, u32 resourceSetLayoutCount, handle* hResourceSetLayouts)
+handle MakeGraphicsPipeline(Context* ctx, handle hRenderPass, GraphicsPipelineDesc desc, u32 resourceSetCount, handle* hResourceSets)
 {
     RenderPass& renderPass = ctx->renderPasses[hRenderPass];
     VertexLayout& vertexLayout = ctx->vertexLayouts[desc.hVertexLayout];
@@ -788,10 +1192,10 @@ handle MakeGraphicsPipeline(Context* ctx, handle hRenderPass, GraphicsPipelineDe
     depthStencilInfo.stencilTestEnable = VK_FALSE;
 
     VkDescriptorSetLayout descriptorSetLayouts[TY_RENDER_MAX_DESCRIPTOR_SETS_PER_PIPELINE];
-    for(i32 i = 0; i < resourceSetLayoutCount; i++)
+    for(i32 i = 0; i < resourceSetCount; i++)
     {
-        ResourceSetLayout& layout = ctx->resourceSetLayouts[hResourceSetLayouts[i]];
-        descriptorSetLayouts[i] = layout.vkDescriptorSetLayout;
+        ResourceSet& resourceSet = ctx->resourceSets[hResourceSets[i]];
+        descriptorSetLayouts[i] = resourceSet.vkDescriptorSetLayout;
     }
 
     VkPushConstantRange vkPushConstantRanges[TY_RENDER_MAX_PUSH_CONSTANT_RANGES_PER_PIPELINE];
@@ -804,7 +1208,7 @@ handle MakeGraphicsPipeline(Context* ctx, handle hRenderPass, GraphicsPipelineDe
 
     VkPipelineLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    layoutInfo.setLayoutCount = resourceSetLayoutCount;
+    layoutInfo.setLayoutCount = resourceSetCount;
     layoutInfo.pSetLayouts = descriptorSetLayouts;
     layoutInfo.pushConstantRangeCount = desc.pushConstantRangeCount;
     layoutInfo.pPushConstantRanges = vkPushConstantRanges;
@@ -847,7 +1251,7 @@ void DestroyGraphicsPipeline(Context* ctx, handle hPipeline)
     pipeline = {};
 }
 
-handle MakeComputePipeline(Context* ctx, ComputePipelineDesc desc, u32 resourceSetLayoutCount, handle* hResourceSetLayouts)
+handle MakeComputePipeline(Context* ctx, ComputePipelineDesc desc, u32 resourceSetCount, handle* hResourceSets)
 {
     Shader& cs = ctx->resourceShaders[desc.hShaderCompute];
     ASSERT(cs.type == SHADER_TYPE_COMPUTE);
@@ -859,11 +1263,11 @@ handle MakeComputePipeline(Context* ctx, ComputePipelineDesc desc, u32 resourceS
     csStageInfo.module = cs.vkShaderModule;
     csStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    VkDescriptorSetLayout descriptorSetLayouts[resourceSetLayoutCount];
-    for(i32 i = 0; i < resourceSetLayoutCount; i++)
+    VkDescriptorSetLayout descriptorSetLayouts[resourceSetCount];
+    for(i32 i = 0; i < resourceSetCount; i++)
     {
-        ResourceSetLayout& layout = ctx->resourceSetLayouts[hResourceSetLayouts[i]];
-        descriptorSetLayouts[i] = layout.vkDescriptorSetLayout;
+        ResourceSet& resourceSet = ctx->resourceSets[hResourceSets[i]];
+        descriptorSetLayouts[i] = resourceSet.vkDescriptorSetLayout;
     }
 
     VkPushConstantRange vkPushConstantRanges[TY_RENDER_MAX_PUSH_CONSTANT_RANGES_PER_PIPELINE];
@@ -876,7 +1280,7 @@ handle MakeComputePipeline(Context* ctx, ComputePipelineDesc desc, u32 resourceS
 
     VkPipelineLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    layoutInfo.setLayoutCount = resourceSetLayoutCount;
+    layoutInfo.setLayoutCount = resourceSetCount;
     layoutInfo.pSetLayouts = descriptorSetLayouts;
     layoutInfo.pushConstantRangeCount = desc.pushConstantRangeCount;
     layoutInfo.pPushConstantRanges = vkPushConstantRanges;
@@ -1106,6 +1510,10 @@ void MakeRenderContext_CreateAPIDevice(Context* ctx)
     VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures = {};
     indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
     indexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
+    indexingFeatures.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
+    indexingFeatures.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
+    indexingFeatures.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+    indexingFeatures.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
 
     VkDeviceCreateInfo deviceInfo = {};
     deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -1172,6 +1580,7 @@ void MakeRenderContext_CreateAPIDescriptorPools(Context* ctx)
     descriptorPoolInfo.poolSizeCount = ARR_LEN(descriptorPoolSizes);
     descriptorPoolInfo.pPoolSizes = descriptorPoolSizes;
     descriptorPoolInfo.maxSets = 100;
+    descriptorPoolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
     VkDescriptorPool descriptorPool;
     ret = vkCreateDescriptorPool(ctx->vkDevice, &descriptorPoolInfo, NULL, &descriptorPool);
     ASSERTVK(ret);
@@ -1439,7 +1848,6 @@ Context MakeRenderContext(u64 arenaSize, Window* window)
     ctx.renderTargets = MakeSArray<RenderTarget>(ctx.arena, TY_RENDER_MAX_RENDER_TARGETS);
     ctx.renderPasses = MakeSArray<RenderPass>(ctx.arena, TY_RENDER_MAX_RENDER_PASSES);
     ctx.vertexLayouts = MakeSArray<VertexLayout>(ctx.arena, TY_RENDER_MAX_VERTEX_LAYOUTS);
-    ctx.resourceSetLayouts = MakeSArray<ResourceSetLayout>(ctx.arena, TY_RENDER_MAX_RESOURCE_SET_LAYOUTS);
     ctx.resourceSets = MakeSArray<ResourceSet>(ctx.arena, TY_RENDER_MAX_RESOURCE_SETS);
     ctx.pipelinesGraphics = MakeSArray<GraphicsPipeline>(ctx.arena, TY_RENDER_MAX_GRAPHICS_PIPELINES);
     ctx.pipelinesCompute = MakeSArray<ComputePipeline>(ctx.arena, TY_RENDER_MAX_COMPUTE_PIPELINES);
@@ -1462,7 +1870,7 @@ void DestroyRenderContext(Context* ctx)
     TY_RENDER_DESTROY_CONTEXT_LOOP(BufferResource, ctx->resourceBuffers);
     TY_RENDER_DESTROY_CONTEXT_LOOP(TextureResource, ctx->resourceTextures);
     TY_RENDER_DESTROY_CONTEXT_LOOP(SamplerResource, ctx->resourceSamplers);
-    TY_RENDER_DESTROY_CONTEXT_LOOP(ResourceSetLayout, ctx->resourceSetLayouts);
+    TY_RENDER_DESTROY_CONTEXT_LOOP(ResourceSet, ctx->resourceSets);
     TY_RENDER_DESTROY_CONTEXT_LOOP(GraphicsPipeline, ctx->pipelinesGraphics);
     TY_RENDER_DESTROY_CONTEXT_LOOP(ComputePipeline, ctx->pipelinesCompute);
 

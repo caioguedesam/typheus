@@ -10,6 +10,7 @@
 #include "../core/debug.hpp"
 #include "../core/memory.hpp"
 #include "../core/ds.hpp"
+#include "../core/string.hpp"
 #include "./window.hpp"
 #include "vulkan/vulkan_core.h"
 
@@ -320,45 +321,36 @@ struct VertexLayout
     SArray<VertexAttribute> attributes;
 };
 
-struct ResourceSetLayoutDesc
+struct ResourceDesc
 {
-    struct Entry
-    {
-        ResourceType type;
-        ShaderType shaderStages;
-        i32 count = 1;
-        bool partiallyBound = false;
-    };
-
-    SArray<Entry> entries;
+    // NOTE(caio): All resources are by default partially bound
+    String name;
+    ResourceType type;
+    ShaderType shaderStages;
+    u32 count = 1;
 };
 
-struct ResourceSetLayout
+struct Resource
 {
-    VkDescriptorSetLayout vkDescriptorSetLayout = VK_NULL_HANDLE;
-    ResourceSetLayoutDesc desc = {};
+    ResourceDesc desc = {};
+
+    handle hBuffer = HANDLE_INVALID;
+    handle hTexture = HANDLE_INVALID;
+    handle hSampler = HANDLE_INVALID;
+    struct TexArrayEntry
+    {
+        handle hTexture = HANDLE_INVALID;
+        handle hSampler = HANDLE_INVALID;
+    };
+    SArray<TexArrayEntry> hTextureArray = {};
 };
 
 struct ResourceSet
 {
-    struct Entry
-    {
-        i32 binding = -1;       // TODO(caio): Multiple descriptors per binding
-        ResourceType type;
-        i32 index = -1;
-        i32 index2 = -1;        // Used for samplers when using combined texture samplers
-        i32 len = 0;
-    };
+    SArray<Resource> resources = {};
 
+    VkDescriptorSetLayout vkDescriptorSetLayout = VK_NULL_HANDLE;
     VkDescriptorSet vkDescriptorSet = VK_NULL_HANDLE;
-
-    SArray<Entry> resources;
-
-    // Dynamic arrays for related resource handles, since entries can have thousands of resources,
-    // and these could be undesirably big for regular static arrays.
-    DArray<handle> hBuffers;
-    DArray<handle> hSamplers;
-    DArray<handle> hTextures;
 };
 
 struct PushConstantRange
@@ -451,7 +443,6 @@ struct Context
     SArray<RenderTarget> renderTargets;
     SArray<RenderPass> renderPasses;
     SArray<VertexLayout> vertexLayouts;
-    SArray<ResourceSetLayout> resourceSetLayouts;
     SArray<ResourceSet> resourceSets;
     SArray<GraphicsPipeline> pipelinesGraphics;
     SArray<ComputePipeline> pipelinesCompute;
@@ -474,20 +465,21 @@ void CopyMemoryToBuffer(Context* ctx, handle hDst, u64 dstOffset, u64 srcSize, v
 u32 GetBufferTypeAlignment(Context* ctx, BufferType type);
 u32 GetMaxMipLevels(u32 w, u32 h);
 
-ResourceSetLayoutDesc MakeResourceSetLayoutDesc(Context* ctx);
-void PushResourceLayoutEntry(ResourceSetLayoutDesc* desc, ResourceType type, ShaderType shaderStages, u32 count = 1, bool partiallyBound = false);
-handle MakeResourceSetLayout(Context* ctx, ResourceSetLayoutDesc desc);
-void DestroyResourceSetLayout(Context* ctx, handle hLayout);
-
-handle MakeResourceSet(Context* ctx, handle hLayout);
-void PushResource(Context* ctx, handle hSet, ResourceType type, handle* hResources, u32 resourceCount = 1, handle* hResources2 = NULL);
-void UpdateResourceSet(Context* ctx, handle hSet);
-//void DestroyResourceSet(Context* ctx, handle hSet);
+handle MakeResourceSet(Context* ctx, u32 resourceCount, ResourceDesc* resourceDescs);
+void UploadResourceSet(Context* ctx, handle hSet);
+void DestroyResourceSet(Context* ctx, handle hSet);
+handle GetResource(Context* ctx, handle hSet, String resourceName);
+void SetBufferResource(Context* ctx, handle hSet, String resourceName, handle hBuffer);
+void SetTextureResource(Context* ctx, handle hSet, String resourceName, handle hTexture, handle hSampler);
+void SetTextureArrayResource(Context* ctx, handle hSet, String resourceName, u32 arraySize, handle* hTextures, handle* hSamplers);
+void SetTextureToArrayResource(Context* ctx, handle hSet, String resourceName, u32 resourceIndex, handle hTexture, handle hSampler);
 
 handle MakeRenderTarget(Context* ctx, RenderTargetDesc desc);
 handle MakeRenderPass(Context* ctx, RenderPassDesc desc, handle hRTarget);
-handle MakeGraphicsPipeline(Context* ctx, handle hRenderPass, GraphicsPipelineDesc desc, u32 resourceSetLayoutCount, handle* hResourceSetLayouts);
-handle MakeComputePipeline(Context* ctx, ComputePipelineDesc desc, u32 resourceSetLayoutCount, handle* hResourceSetLayouts);
+//handle MakeGraphicsPipeline(Context* ctx, handle hRenderPass, GraphicsPipelineDesc desc, u32 resourceSetLayoutCount, handle* hResourceSetLayouts);
+//handle MakeComputePipeline(Context* ctx, ComputePipelineDesc desc, u32 resourceSetLayoutCount, handle* hResourceSetLayouts);
+handle MakeGraphicsPipeline(Context* ctx, handle hRenderPass, GraphicsPipelineDesc desc, u32 resourceSetCount, handle* hResourceSets);
+handle MakeComputePipeline(Context* ctx, ComputePipelineDesc desc, u32 resourceSetCount, handle* hResourceSets);
 //void DestroyRenderTarget(Context* ctx, handle hRTarget);
 void DestroyRenderPass(Context* ctx, handle hRPass);
 void DestroyGraphicsPipeline(Context* ctx, handle hPipeline);
