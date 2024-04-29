@@ -27,7 +27,6 @@ enum JsonValueType
 
 struct JsonValue;
 struct JsonObject;
-//typedef List<JsonValue> JsonArray;
 typedef DArray<JsonValue> JsonArray;
 
 struct JsonValue
@@ -75,14 +74,6 @@ byte* JsonParseString(mem::Arena* arena, byte* p, String* out);
 byte* JsonParseValue(mem::Arena* arena, byte* p, JsonValue* out);
 byte* JsonParseArray(mem::Arena* arena, byte* p, JsonArray* out);
 byte* JsonParseObject(mem::Arena* arena, byte* p, JsonObject* out);
-
-// void JsonFreeValue(JsonValue* value);
-// void JsonFreeArray(JsonArray* jsonArray);
-// void JsonFreeObject(JsonObject* jsonObject);
-
-// JsonObject* MakeJson(String jsonStr);
-// JsonObject* MakeJson(file::Path jsonPath);
-// void DestroyJson(JsonObject* jsonObject);
 
 JsonObject* MakeJson(mem::Arena* arena, byte* jsonBuffer);
 JsonObject* MakeJsonFromStr(mem::Arena* arena, String jsonStr);

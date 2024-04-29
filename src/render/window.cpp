@@ -36,10 +36,6 @@ void MakeWindow(Window* window, i32 w, i32 h, const char* title)
     window->h = h;
     window->state = WINDOW_IDLE;
 
-    //// WndProc needs to be able to access and modify the window
-    //LONG_PTR wndprocptr = SetWindowLongPtr(handle, GWLP_USERDATA, (LONG_PTR)window);
-    //ASSERT(wndprocptr);
-
     ShowWindow(handle, SW_SHOWNORMAL);
 }
 

@@ -27,7 +27,7 @@ typedef double      f64;
 
 typedef unsigned char byte;
 
-typedef u32 handle; // TODO(caio): I think this can safely be u32 until I find any use case for u64
+typedef u32 handle;
 
 // ========================================================
 // [GENERAL DEFINES AND MACROS]
@@ -83,83 +83,5 @@ typedef u32 handle; // TODO(caio): I think this can safely be u32 until I find a
 #define ENUM_HAS_FLAG(FLAGS, F) ((FLAGS) & (F))
 
 #define DEFAULT_ARRAY(ARR, SIZE) for(i32 _arr = 0; _arr < (SIZE); _arr++) { (ARR)[_arr] = {}; }
-
-// #define HTYPE_INVALID_VALUE MAX_U64
-// #define HTYPE(TYPE) TYPE::__handle
-// #define MAKE_HTYPE(TYPE, VALUE) TYPE::__handle { .v = (VALUE) }
-// #define DECLARE_HTYPE() struct __handle { u64 v = HTYPE_INVALID_VALUE; };
-// #define PUSH_HTYPE(TYPE, ARR, VALUE) MAKE_HTYPE(TYPE, (ARR).Push((VALUE)))
-// #define HINDEX(H) (H).v
-
-// // ========================================================
-// // [HANDLES]
-// // These are useful for any system that needs type-specific simple handles.
-// 
-// #define HANDLE_INVALID_VALUE MAX_U64
-// #define HANDLE_INVALID_METADATA MAX_U16
-// #define HANDLE_VALID_METADATA 0
-// 
-// struct HandleMetadata
-// {
-//     u16 valid = HANDLE_INVALID_METADATA;
-//     u16 gen = 0;
-// 
-//     inline bool IsValid() const { return valid != HANDLE_INVALID_METADATA; }
-// };
-// inline bool operator==(const HandleMetadata a, const HandleMetadata b) { return a.valid == b.valid && a.gen == b.gen; }
-// 
-// template <typename T>
-// struct Handle
-// {
-//     union U
-//     {
-//         struct
-//         {
-//             HandleMetadata metadata;
-//             i32 index;
-//         };
-//         u64 data = HANDLE_INVALID_VALUE;
-// 
-//         U() { data = HANDLE_INVALID_VALUE; }
-//     } u;
-// 
-// 
-//     inline Handle(HandleMetadata metadata, i32 index)
-//     {
-//         u.metadata = metadata;
-//         u.index = index;
-//     };
-// 
-//     inline Handle(u64 data)
-//     {
-//         u.data = data;
-//     };
-// 
-//     inline Handle() 
-//     {
-//         u.data = HANDLE_INVALID_VALUE;
-//     }
-// 
-//     inline bool IsValid() const { return u.metadata.IsValid(); }
-//     inline u64 GetData() const { return u.data; }
-//     inline HandleMetadata GetMetadata() const { return u.metadata; }
-//     inline i32 GetIndex() const { return u.index; }
-// };
-// typedef u64 HANDLE_SIZE;
-// 
-// template<typename T>
-// inline bool operator==(const Handle<T> a, const Handle<T> b) { return a.GetData() == b.GetData(); }
-// template<typename T>
-// inline bool operator!=(const Handle<T> a, const Handle<T> b) { return a.GetData() != b.GetData(); }
-// 
-// template<typename T>
-// u32 Hash(Handle<T> handle)
-// {
-//     u64 seed = handle.GetData();
-//     seed ^= seed >> 12;
-//     seed ^= seed << 25;
-//     seed ^= seed >> 27;
-//     return (u32)(seed * 0x2545F4914F6CDD1DULL);
-// }
 
 };

@@ -252,16 +252,12 @@ byte* JsonParseString(mem::Arena* arena, byte* p, String* out)
         return p;
     }
 
-    //MStr(result, size + 1);
     char* buf = (char*)mem::ArenaPushZero(arena, size + 1);
     u64 index = 0;
     while(true)
     {
         if(*p == '"') break;
 
-        // char nextChar[2];
-        // nextChar[0] = *p;
-        // nextChar[1] = 0;
         char nextChar = *p;
         if(*p == '\\')
         {
@@ -310,7 +306,6 @@ byte* JsonParseString(mem::Arena* arena, byte* p, String* out)
             p++;
         }
 
-        //str::Append(result, nextChar);
         buf[index] = nextChar;
         index++;
     }

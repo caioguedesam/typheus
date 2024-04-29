@@ -92,46 +92,6 @@ SArray<String> GetFilesInDir(mem::Arena* arena, String dirPath)
     // TODO(caio): Implement me!
     ASSERT(0);
     return {};
-    //ASSERT(dir.Exists());
-    //ASSERT(dir.IsDir());
-
-    //// Create a temp buffer to store query string
-    //char queryBuffer[MAX_PATH];
-    //sprintf(queryBuffer, "%s\\*", dir.CStr());
-
-    //// Loop to find file count for array size
-    //WIN32_FIND_DATAA fData;
-    //HANDLE fHandle = FindFirstFile(queryBuffer, &fData);
-    //u32 fCount = 0;
-    //if(fHandle != INVALID_HANDLE_VALUE)
-    //{
-        //do
-        //{
-            //fCount++;
-        //} while(FindNextFile(fHandle, &fData));
-    //}
-
-    //// Make query for files
-    //HANDLE fileHandle;
-    //WIN32_FIND_DATAA fileData;
-    //DArray<Path> result = MakeDArray<Path>(arena);
-
-    //fileHandle = FindFirstFile(queryBuffer, &fileData);
-    //ASSERT(fileHandle != INVALID_HANDLE_VALUE);
-    //do
-    //{
-        //char fBuffer[MAX_PATH];
-        //sprintf(fBuffer, "%s\\%s", dir.CStr(), fileData.cFileName);
-
-        //MStr(fPathStr, MAX_PATH);
-        //Path fPath = MakePath(fPathStr);
-        //if(!fPath.IsDir())
-        //{
-            //result.Push(fPath);
-        //}
-    //} while(FindNextFile(fileHandle, &fileData));
-
-    //return result;
 }
 
 u64 ReadFile(String path, byte* output)

@@ -5,9 +5,6 @@
 #include "src/core/base.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION    // Just this file (needs to be here for malloc redefines)
-//#define STBI_MALLOC(sz) ty::mem::Alloc(sz)
-//#define STBI_REALLOC(p, newsz) ty::mem::Realloc(p, newsz)
-//#define STBI_FREE(p) ty::mem::Free(p)
 
 namespace ty
 {
@@ -39,8 +36,6 @@ namespace asset
 #define ASSET_MAX_MATERIALS 1024
 #define ASSET_MAX_MODELS 256
 #define ASSET_MAX_ASSETS 2048
-
-//#define ASSET_MEMORY GB(1)
 
 Context MakeAssetContext(u64 arenaSize, u64 tempArenaSize)
 {

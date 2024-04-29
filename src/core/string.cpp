@@ -42,7 +42,6 @@ String::String()
 
 String::String(const char* value)
 {
-    //*this = IStr(value);
     *this = Str(value);
 }
 
@@ -56,31 +55,6 @@ char* String::CStr()
 {
     return (char*)data;
 }
-
-//String IStr(const char* value)
-//{
-    //String result = {};
-    //result.capacity = 0;
-    //result.len = strlen(value);
-    //result.data = (u8*)value;
-    //return result;
-//};
-
-//String IStr(String value)
-//{
-    //String result = {};
-    //result.capacity = 0;
-    //result.len = value.len;
-    //result.data = value.data;
-    //return result;
-//};
-
-//void FreeMStr(String* s)
-//{
-    //ASSERT(IS_MUTABLE(*s));
-    //mem::Free(s->data);
-    //*s = {};
-//}
 
 bool operator==(String s1, String s2)
 {
@@ -165,11 +139,6 @@ i64 StrFind(String s, String target)
     return -1;
 }
 
-//i64 Find(String s, const char* target)
-//{
-    //return Find(s, IStr(target));
-//}
-
 i64 StrRFind(String s, char target)
 {
     for(i64 i = s.len - 1; i >= 0; i--)
@@ -206,11 +175,6 @@ i64 StrRFind(String s, String target)
     }
     return -1;
 }
-
-//i64 RFind(String s, const char* target)
-//{
-    //return RFind(s, IStr(target));
-//}
 
 String Substr(String s, u64 start)
 {
@@ -250,42 +214,6 @@ String StrConcat(mem::Arena* arena, String s1, String s2)
     result.data = buf;
     return result;
 }
-
-//void Clear(String& s)
-//{
-    //ASSERT(IS_MUTABLE(s));
-    //memset(s.data, 0, s.capacity);
-    //s.len = 0;
-//}
-
-//void Append(String& s, String other)
-//{
-    //ASSERT(IS_MUTABLE(s));
-    //ASSERT(s.len + other.len < s.capacity);
-    //memcpy((char*)(s.data + s.len), other.data, other.len);
-    //s.len = s.len + other.len;
-    //// Null term so string is always CStr compatible
-    //*(s.data + s.len) = 0;
-//}
-
-//void Append(String& s, const char* other)
-//{
-    //return Append(s, IStr(other));
-//}
-
-//void Format(String& s, const char* fmt, ...)
-//{
-    //ASSERT(IS_MUTABLE(s));
-    //va_list args;
-    //va_start(args, fmt);
-
-    //Clear(s);
-    //i64 length = vsnprintf((char*)s.data, s.capacity, fmt, args);
-    //ASSERT(length > 0);
-    //s.len = length;
-
-    //va_end(args);
-//}
 
 String StrFmt(mem::Arena* arena, const char* fmt, ...)
 {

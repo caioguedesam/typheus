@@ -124,8 +124,6 @@ enum ResourceType
     RESOURCE_DYNAMIC_UNIFORM_BUFFER     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
     RESOURCE_STORAGE_BUFFER             = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
     RESOURCE_DYNAMIC_STORAGE_BUFFER     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
-    //RESOURCE_SAMPLED_TEXTURE            = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-    //RESOURCE_SAMPLER                    = VK_DESCRIPTOR_TYPE_SAMPLER,
     RESOURCE_SAMPLED_TEXTURE            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 };
 
@@ -477,11 +475,8 @@ void SetTextureToArrayResource(Context* ctx, handle hSet, String resourceName, u
 
 handle MakeRenderTarget(Context* ctx, RenderTargetDesc desc);
 handle MakeRenderPass(Context* ctx, RenderPassDesc desc, handle hRTarget);
-//handle MakeGraphicsPipeline(Context* ctx, handle hRenderPass, GraphicsPipelineDesc desc, u32 resourceSetLayoutCount, handle* hResourceSetLayouts);
-//handle MakeComputePipeline(Context* ctx, ComputePipelineDesc desc, u32 resourceSetLayoutCount, handle* hResourceSetLayouts);
 handle MakeGraphicsPipeline(Context* ctx, handle hRenderPass, GraphicsPipelineDesc desc, u32 resourceSetCount, handle* hResourceSets);
 handle MakeComputePipeline(Context* ctx, ComputePipelineDesc desc, u32 resourceSetCount, handle* hResourceSets);
-//void DestroyRenderTarget(Context* ctx, handle hRTarget);
 void DestroyRenderPass(Context* ctx, handle hRPass);
 void DestroyGraphicsPipeline(Context* ctx, handle hPipeline);
 void DestroyComputePipeline(Context* ctx, handle hPipeline);
@@ -526,138 +521,3 @@ void CmdCopyToSwapChain(Context* ctx, handle hCb, handle hSrc);
 
 };  // namespace render
 };  // namespace ty
-
-//#define RENDER_CONTEXT_MEMORY MB(1)
-//#define RENDER_CONCURRENT_FRAMES 2
-//#define RENDER_MAX_SWAPCHAIN_IMAGES 8
-//#define RENDER_MAX_COMMAND_BUFFERS 16
-//#define RENDER_MAX_SHADERS 32
-//#define RENDER_MAX_BUFFERS 256
-//#define RENDER_MAX_TEXTURES 1024
-//#define RENDER_MAX_SAMPLERS 16
-//#define RENDER_MAX_RENDER_TARGETS 32
-//#define RENDER_MAX_FORMATS_PER_RENDER_TARGET 8
-//#define RENDER_MAX_RENDER_PASSES 8
-//#define RENDER_MAX_VERTEX_LAYOUTS 8
-//#define RENDER_MAX_RESOURCE_SETS 256
-//#define RENDER_MAX_RESOURCE_SET_LAYOUTS 256
-//#define RENDER_MAX_RESOURCE_SET_LAYOUTS_PER_PIPELINE 8
-//#define RENDER_MAX_PUSH_CONSTANT_RANGES 4
-//#define RENDER_MAX_GRAPHICS_PIPELINES 32
-//#define RENDER_MAX_COMPUTE_PIPELINES 32
-//#define RENDER_MAX_RESOURCE_SET_ENTRIES 16
-//#define RENDER_MAX_RESOURCE_SET_BUFFERS 256
-//#define RENDER_MAX_RESOURCE_SET_TEXTURES 4096
-//#define RENDER_MAX_RESOURCE_SET_SAMPLERS 16
-
-
-//Context MakeContext(Window* window);
-//void DestroyContext(Context* ctx);
-
-//void MakeCommandBuffers();
-//Handle<CommandBuffer> GetAvailableCommandBuffer(CommandBufferType type, i32 frame = 0);
-
-//SwapChain MakeSwapChain(Window* window);
-//void DestroySwapChain(SwapChain* swapChain);
-//void ResizeSwapChain(Window* window, SwapChain* swapChain);
-
-
-//Handle<VertexLayout> MakeVertexLayout(u32 attrCount, VertexAttribute* attributes);
-//void DestroyVertexLayout(VertexLayout* vertexLayout);
-//
-//
-//Handle<Shader> MakeShader(ShaderType type, u64 bytecodeSize, u8* bytecode);
-//void DestroyShader(Shader* shader);
-//
-//
-//Handle<Buffer> MakeBuffer(BufferType type, u64 size, u64 stride, void* data = NULL);
-//void DestroyBuffer(Buffer* buffer);
-//void CopyMemoryToBuffer(Handle<Buffer> hDstBuffer, u64 dstOffset, u64 srcSize, void* srcData);
-//u32 GetBufferTypeAlignment(BufferType type);
-//
-//Handle<Texture> MakeTexture(TextureDesc desc);
-//void DestroyTexture(Texture* texture);
-//u32 GetMaxMipLevels(u32 w, u32 h);
-//
-//Handle<Sampler> MakeSampler(SamplerDesc desc);
-//void DestroySampler(Sampler* sampler);
-//
-//Handle<ResourceSetLayout> MakeResourceSetLayout(i32 entryCount, ResourceSetLayout::Entry* entries);
-//void DestroyResourceSetLayout(ResourceSetLayout* resourceSetLayout);
-//
-//
-//Handle<ResourceSet> MakeResourceSet(Handle<ResourceSetLayout> hResourceSetLayout);
-//void AddToResourceSet(Handle<ResourceSet> hRS, Handle<Buffer> hBuffer, ResourceType bufferType);
-//void AddToResourceSet(Handle<ResourceSet> hRS, Handle<Texture> hTexture, Handle<Sampler> hSampler);
-//void AddToResourceSet(Handle<ResourceSet> hRS, u32 textureCount, Handle<Texture>* hTextureArray, Handle<Sampler>* hSamplerArray);
-//void AddToResourceSet(Handle<ResourceSet> hRS, Array<Handle<Texture>>& hTextureArray, Array<Handle<Sampler>>& hSamplerArray);
-//void UpdateResourceSet(Handle<ResourceSet> hRS);
-//void DestroyResourceSet(ResourceSet* resourceSet);
-//
-//Handle<RenderTarget> MakeRenderTarget(RenderTargetDesc desc);
-//void DestroyRenderTarget(RenderTarget* renderTarget);
-//Handle<Texture> GetColorOutput(Handle<RenderTarget> hRenderTarget, u32 outputIndex);
-//Handle<Texture> GetDepthOutput(Handle<RenderTarget> hRenderTarget);
-//
-//Handle<RenderPass> MakeRenderPass(RenderPassDesc desc, Handle<RenderTarget> hRenderTarget);
-//void DestroyRenderPass(RenderPass* renderPass);
-//
-//Handle<GraphicsPipeline> MakeGraphicsPipeline(Handle<RenderPass> hRenderPass, GraphicsPipelineDesc desc, u32 resourceSetLayoutCount, Handle<ResourceSetLayout>* hResourceSetLayouts);
-//void DestroyGraphicsPipeline(GraphicsPipeline* pipeline);
-//
-//Handle<ComputePipeline> MakeComputePipeline(ComputePipelineDesc desc, u32 resourceSetLayoutCount, Handle<ResourceSetLayout>* hResourceSetLayouts);
-//void DestroyComputePipeline(ComputePipeline* pipeline);
-//
-//inline mem::HeapAllocator renderHeap;
-//inline Context ctx;
-//inline SwapChain swapChain;
-//
-//inline HArray<CommandBuffer> commandBuffers;
-//inline HArray<Shader> shaders;
-//inline HArray<Buffer> buffers;
-//inline HArray<Texture> textures;
-//inline HArray<Sampler> samplers;
-//inline HArray<RenderTarget> renderTargets;
-//inline HArray<RenderPass> renderPasses;
-//inline HArray<VertexLayout> vertexLayouts;
-//inline HArray<ResourceSetLayout> resourceSetLayouts;
-//inline HArray<ResourceSet> resourceSets;
-//inline HArray<GraphicsPipeline> graphicsPipelines;
-//inline HArray<ComputePipeline> computePipelines;
-//
-//void Init(Window* window);
-//void Shutdown();
-//
-//void BeginCommandBuffer(Handle<CommandBuffer> hCmd);
-//void EndCommandBuffer(Handle<CommandBuffer> hCmd);
-//void SubmitImmediate(Handle<CommandBuffer> hCmd);
-//
-//void BeginRenderPass(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass);
-//void EndRenderPass(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass);
-//
-//void BeginFrame(u32 frame);
-//void EndFrame(u32 frame, Handle<CommandBuffer> hCmd);
-//void Present(u32 frame);
-//
-//void CmdPipelineBarrier(Handle<CommandBuffer> hCmd, Barrier barrier);
-//void CmdPipelineBarrierTextureLayout(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, ImageLayout newLayout, Barrier barrier);
-////TODO(caio): Should I have each mip's layout tracked? So both these commands can't break
-//void CmdPipelineBarrierTextureMipLayout(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, ImageLayout oldLayout, ImageLayout newLayout, Barrier barrier, u32 mipLevel);
-//void CmdGenerateMipmaps(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture);
-//void CmdCopyBufferToTexture(Handle<CommandBuffer> hCmd, Handle<Buffer> hSrc, Handle<Texture> hDst);
-//void CmdClearColorTexture(Handle<CommandBuffer> hCmd, Handle<Texture> hTexture, f32 r, f32 g, f32 b, f32 a);
-//void CmdBindGraphicsPipeline(Handle<CommandBuffer> hCmd, Handle<GraphicsPipeline> hPipeline);
-//void CmdBindComputePipeline(Handle<CommandBuffer> hCmd, Handle<ComputePipeline> hPipeline);
-//void CmdBindGraphicsResources(Handle<CommandBuffer> hCmd, Handle<GraphicsPipeline> hPipeline, Handle<ResourceSet> hResourceSet, u32 resourceSetIndex, u32 dynamicOffsetCount = 0, u32* dynamicOffsets = NULL);
-//void CmdBindComputeResources(Handle<CommandBuffer> hCmd, Handle<ComputePipeline> hPipeline, Handle<ResourceSet> hResourceSet, u32 resourceSetIndex, u32 dynamicOffsetCount = 0, u32* dynamicOffsets = NULL);
-//void CmdUpdatePushConstantRange(Handle<CommandBuffer> hCmd, u32 rangeIndex, void* data, Handle<GraphicsPipeline> hPipeline);
-//void CmdUpdatePushConstantRange(Handle<CommandBuffer> hCmd, u32 rangeIndex, void* data, Handle<ComputePipeline> hPipeline);
-//void CmdSetViewport(Handle<CommandBuffer> hCmd, f32 offsetX, f32 offsetY, f32 width, f32 height, f32 minDepth = 0, f32 maxDepth = 1);
-//void CmdSetViewport(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass);
-//void CmdSetScissor(Handle<CommandBuffer> hCmd, i32 offsetX, i32 offsetY, i32 width, i32 height);
-//void CmdSetScissor(Handle<CommandBuffer> hCmd, Handle<RenderPass> hRenderPass);
-//void CmdBindVertexBuffer(Handle<CommandBuffer> hCmd, Handle<Buffer> hVB);
-//void CmdBindIndexBuffer(Handle<CommandBuffer> hCmd, Handle<Buffer> hIB);
-//void CmdDrawIndexed(Handle<CommandBuffer> hCmd, Handle<Buffer> hIB, i32 instanceCount);
-//void CmdDispatch(Handle<CommandBuffer> hCmd, u32 x, u32 y, u32 z);
-//void CmdCopyToSwapChain(Handle<CommandBuffer> hCmd, Handle<Texture> hSrc);

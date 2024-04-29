@@ -110,8 +110,6 @@ math::v2f GetMouseDelta(Context* ctx);
 bool IsMouseLocked(Context* ctx);
 bool IsMouseHidden(Context* ctx);
 
-// void Init();
-// void Update();
 Context MakeInputContext();
 void UpdateInput(Context* ctx);
 
