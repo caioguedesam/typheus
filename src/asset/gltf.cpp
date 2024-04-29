@@ -47,7 +47,7 @@ SArray<GltfTexture> LoadModelGLTF_LoadTextures(Context* ctx, JsonObject* gltfJso
                 file::PathFileDir(assetPath), 
                 imageJson->GetStringValue("uri"));
 
-        handle hImage = LoadImageFile(ctx, imagePath);
+        handle hImage = LoadImageFile(ctx, imagePath, false);
         GltfSampler sampler = {};
         sampler.minFilter = (u32)samplerJson->GetNumberValue("minFilter");
         sampler.magFilter = (u32)samplerJson->GetNumberValue("magFilter");

@@ -336,7 +336,7 @@ handle MakeResourceSet(Context* ctx, u32 resourceCount, ResourceDesc* resourceDe
             {
                 if(resource.desc.count > 1)
                 {
-                    resource.hTextureArray = MakeSArray<Resource::TexArrayEntry>(ctx->arena,
+                    resource.hTextureArray = MakeSArray<SampledTextureHandle>(ctx->arena,
                             resource.desc.count,
                             resource.desc.count,
                             {});
@@ -517,7 +517,7 @@ void SetTextureResource(Context* ctx, handle hSet, String resourceName, handle h
     vkUpdateDescriptorSets(ctx->vkDevice, 1, &vkDescriptorSetWrite, 0, NULL);
 }
 
-void SetTextureArrayResource(Context* ctx, handle hSet, String resourceName, u32 arraySize, handle* hTextures, handle* hSamplers)
+void SetTextureArrayResource(Context* ctx, handle hSet, String resourceName, u32 arraySize, SampledTextureHandle* hTextures)
 {
     ResourceSet& resourceSet = ctx->resourceSets[hSet];
     handle hResource = GetResource(ctx, hSet, resourceName);
@@ -526,8 +526,8 @@ void SetTextureArrayResource(Context* ctx, handle hSet, String resourceName, u32
     ASSERT(arraySize == resource.desc.count);
     for(i32 i = 0; i < arraySize; i++)
     {
-        resource.hTextureArray[i].hTexture = hTextures[i];
-        resource.hTextureArray[i].hSampler = hSamplers[i];
+        resource.hTextureArray[i].hTexture = hTextures[i].hTexture;
+        resource.hTextureArray[i].hSampler = hTextures[i].hSampler;
     }
 
     // Write API resource set

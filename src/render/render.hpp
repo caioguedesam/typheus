@@ -330,6 +330,12 @@ struct ResourceDesc
     u32 count = 1;
 };
 
+struct SampledTextureHandle
+{
+    handle hTexture = HANDLE_INVALID;
+    handle hSampler = HANDLE_INVALID;
+};
+
 struct Resource
 {
     ResourceDesc desc = {};
@@ -337,12 +343,7 @@ struct Resource
     handle hBuffer = HANDLE_INVALID;
     handle hTexture = HANDLE_INVALID;
     handle hSampler = HANDLE_INVALID;
-    struct TexArrayEntry
-    {
-        handle hTexture = HANDLE_INVALID;
-        handle hSampler = HANDLE_INVALID;
-    };
-    SArray<TexArrayEntry> hTextureArray = {};
+    SArray<SampledTextureHandle> hTextureArray = {};
 };
 
 struct ResourceSet
@@ -471,7 +472,7 @@ void DestroyResourceSet(Context* ctx, handle hSet);
 handle GetResource(Context* ctx, handle hSet, String resourceName);
 void SetBufferResource(Context* ctx, handle hSet, String resourceName, handle hBuffer);
 void SetTextureResource(Context* ctx, handle hSet, String resourceName, handle hTexture, handle hSampler);
-void SetTextureArrayResource(Context* ctx, handle hSet, String resourceName, u32 arraySize, handle* hTextures, handle* hSamplers);
+void SetTextureArrayResource(Context* ctx, handle hSet, String resourceName, u32 arraySize, SampledTextureHandle* hTextures);
 void SetTextureToArrayResource(Context* ctx, handle hSet, String resourceName, u32 resourceIndex, handle hTexture, handle hSampler);
 
 handle MakeRenderTarget(Context* ctx, RenderTargetDesc desc);
