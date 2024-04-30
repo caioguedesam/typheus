@@ -104,6 +104,8 @@ struct GltfMaterial
     
     GltfTexture texEmissive;
     Color3f fEmissive = {0,0,0};
+
+    f32 fAlphaCutoff = 0.f;
 };
 
 struct GltfPrimitive

@@ -82,6 +82,13 @@ SArray<GltfMaterial> LoadModelGLTF_LoadMaterials(Context* ctx, JsonObject* gltfJ
 
         JsonObject propertyJson;
 
+        // Alpha
+        f32 alphaCutoff;
+        if(materialJson->GetNumberValue("alphaCutoff", &alphaCutoff))
+        {
+            material.fAlphaCutoff = alphaCutoff;
+        }
+
         // PBR Metal/roughness
         if(materialJson->GetObjectValue("pbrMetallicRoughness", &propertyJson))
         {
