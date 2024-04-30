@@ -29,6 +29,8 @@ namespace render
 enum Format
 {
     FORMAT_INVALID              = VK_FORMAT_UNDEFINED,
+    FORMAT_R8_SRGB              = VK_FORMAT_R8_SRGB,
+    FORMAT_RG8_SRGB             = VK_FORMAT_R8G8_SRGB,
     FORMAT_RGB8_SRGB            = VK_FORMAT_R8G8B8_SRGB,
     FORMAT_RGBA8_SRGB           = VK_FORMAT_R8G8B8A8_SRGB,
     FORMAT_BGRA8_SRGB           = VK_FORMAT_B8G8R8A8_SRGB,

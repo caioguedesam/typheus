@@ -177,6 +177,11 @@ Range LoadModelGLTF_LoadAccessorAttributeToTempArray(JsonObject* gltfJson, u32 a
     u64 bufferViewStride = 0;
     bufferViewJson->GetNumberValue("byteStride", &bufferViewStride);
 
+    // NOTE(caio): This only supports float component types (5126)
+    u32 componentType = 0;
+    accessorJson->GetNumberValue("componentType", &componentType);
+    ASSERT(componentType == TY_GLTF_FLOAT);
+
     u32 accessorElementComponents = 0;
     String accessorType = accessorJson->GetStringValue("type");
     if(accessorType == "SCALAR")    accessorElementComponents = 1;
@@ -196,6 +201,7 @@ Range LoadModelGLTF_LoadAccessorAttributeToTempArray(JsonObject* gltfJson, u32 a
         for(i32 j = 0; j < accessorElementComponents; j++)
         {
             f32 accessorElement = *((f32*)bufferCursor);
+            //f32 accessorElement = (f32)(*bufferCursor);
             tempArray.Push(accessorElement);
             bufferCursor += sizeof(f32);
         }
@@ -240,12 +246,32 @@ Range LoadModelGLTF_LoadAccessorIndicesToTempArray(JsonObject* gltfJson, u32 acc
     accessorJson->GetNumberValue("count", &accessorElementCount);
     ASSERT(accessorElementCount != 0);
 
+    // NOTE(caio): This only supports U32 component types (5125)
+    u32 componentType = 0;
+    accessorJson->GetNumberValue("componentType", &componentType);
+    ASSERT(componentType == TY_GLTF_UNSIGNED_INT || TY_GLTF_UNSIGNED_SHORT);
+
     result.start = tempArray.count;
     for(i32 i = 0; i < accessorElementCount; i++)
     {
-        u32 accessorElement = *((u32*)bufferCursor);
-        tempArray.Push(accessorElement);
-        bufferCursor += sizeof(u32);
+        if(componentType == TY_GLTF_UNSIGNED_INT)
+        {
+            u32 accessorElement = *((u32*)bufferCursor);
+            tempArray.Push(accessorElement);
+            bufferCursor += sizeof(u32);
+        }
+        else if(componentType == TY_GLTF_UNSIGNED_SHORT)
+        {
+            // TODO(caio): This is probably overkill
+            u16 accessorElement = *((u16*)bufferCursor);
+            u32 accessorElementU32 = accessorElement;
+            tempArray.Push(accessorElementU32);
+            bufferCursor += sizeof(u16);
+        }
+        else
+        {
+            ASSERT(0);
+        }
         bufferCursor += bufferViewStride;
     }
     result.len = accessorElementCount;

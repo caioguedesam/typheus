@@ -149,7 +149,8 @@ handle LoadImageFile(Context* ctx, String assetPath, bool flipVertical)
     
     image.width = width;
     image.height = height;
-    image.channels = channels;
+    //image.channels = channels;
+    image.channels = 4;
     image.data = data;
 
     handle result = ctx->images.Push(image);

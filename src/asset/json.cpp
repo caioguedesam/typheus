@@ -192,12 +192,17 @@ byte* JsonParseNumber(byte* p, f64* out)
         p++;
         f64 fraction = 0;
         i32 decimal = 1;
+        i32 digitCount = 0;
         while(*p >= '0' && *p <= '9')
         {
-            i32 digit = *p - '0';
-            fraction = fraction * 10 + digit;
-            decimal *= 10;
+            if(digitCount < 7)  // Only supports up to 6 digits of fp precision.
+            {
+                i32 digit = *p - '0';
+                fraction = fraction * 10 + digit;
+                decimal *= 10;
+            }
             p++;
+            digitCount++;
         }
         result += (fraction / decimal);
     }
