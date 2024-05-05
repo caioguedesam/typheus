@@ -1343,7 +1343,7 @@ void MakeSwapChain(Context* ctx)
     colorSpace = formats[0].colorSpace;
     for(i32 i = 0; i < formatCount; i++)
     {
-        if(formats[i].format == VK_FORMAT_B8G8R8A8_SRGB
+        if(formats[i].format == VK_FORMAT_B8G8R8A8_UNORM
             && formats[i].colorSpace == VK_COLORSPACE_SRGB_NONLINEAR_KHR)
         {
             format = formats[i].format;

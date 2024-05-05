@@ -18,12 +18,11 @@ namespace egui
 
 struct Context
 {
-    render::Context* renderCtx = NULL;
     VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
 };
 
 Context MakeEGUIContext(render::Context* renderCtx, handle hRenderPass);
-void DestroyEGUIContext(Context* ctx);
+void DestroyEGUIContext(Context* ctx, render::Context* renderCtx);
 
 void SameLine();
 void Text(String text);
@@ -44,8 +43,8 @@ void ShowDemo();
 
 //TODO(caio): Add support for more, such as displaying textures and hierarchies.
 
-void BeginFrame();
-void DrawFrame(Context* ctx, handle hCb);
+void BeginFrame(render::Context* renderCtx);
+void DrawFrame(render::Context* renderCtx, handle hCb);
 
 };
 };
