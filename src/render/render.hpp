@@ -71,6 +71,7 @@ enum VertexAttribute
     VERTEX_ATTR_INVALID = 0,
     VERTEX_ATTR_V2F,
     VERTEX_ATTR_V3F,
+    VERTEX_ATTR_V4F,
 
     VERTEX_ATTR_COUNT,
 };

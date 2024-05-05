@@ -115,11 +115,11 @@ struct GltfPrimitive
     Range rangeIndices;
     Range rangePositions;
     Range rangeNormals;
+    Range rangeTangents;
     Range rangeTexCoords0;
     Range rangeTexCoords1;
     Range rangeTexCoords2;
 
-    //TODO(caio): Tangents, colors, etc.
     //TODO(caio): Primitive types other than triangle list
 };
 
@@ -149,6 +149,7 @@ struct GltfModel : Asset
     SArray<u32> indices = {};
     SArray<f32> vPositions = {};
     SArray<f32> vNormals = {};
+    SArray<f32> vTangents = {};
     SArray<f32> vTexCoords0 = {};
     SArray<f32> vTexCoords1 = {};
     SArray<f32> vTexCoords2 = {};

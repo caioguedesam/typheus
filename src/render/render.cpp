@@ -43,6 +43,7 @@ u32 vertexAttributeSizes[] =
     0,
     2 * sizeof(f32),
     3 * sizeof(f32),
+    4 * sizeof(f32),
 };
 STATIC_ASSERT(ARR_LEN(vertexAttributeSizes) == VERTEX_ATTR_COUNT);
 VkFormat vertexAttributeFormats[] =
@@ -50,6 +51,7 @@ VkFormat vertexAttributeFormats[] =
     VK_FORMAT_UNDEFINED,
     VK_FORMAT_R32G32_SFLOAT,
     VK_FORMAT_R32G32B32_SFLOAT,
+    VK_FORMAT_R32G32B32A32_SFLOAT,
 };
 STATIC_ASSERT(ARR_LEN(vertexAttributeFormats) == VERTEX_ATTR_COUNT);
 

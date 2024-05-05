@@ -410,6 +410,10 @@ SArray<GltfMesh> LoadModelGLTF_LoadMeshes(Context* ctx, JsonObject* gltfJson, Ra
             {
                 mesh.primitives[j].rangeNormals = accessorRanges[attributeAccessorIndex];
             }
+            if(attributesJson->GetNumberValue("TANGENT", &attributeAccessorIndex))
+            {
+                mesh.primitives[j].rangeTangents = accessorRanges[attributeAccessorIndex];
+            }
             if(attributesJson->GetNumberValue("TEXCOORD_0", &attributeAccessorIndex))
             {
                 mesh.primitives[j].rangeTexCoords0 = accessorRanges[attributeAccessorIndex];
@@ -559,6 +563,7 @@ handle LoadModelGLTF(Context* ctx, String assetPath)
     // TODO(caio): This iterates through all meshes for every separate attribute. This is inefficient, but might not be a problem.
     model.vPositions   = LoadModelGLTF_LoadAttributeArray(ctx, gltfJson, "POSITION", accessorRanges, buffers);
     model.vNormals     = LoadModelGLTF_LoadAttributeArray(ctx, gltfJson, "NORMAL", accessorRanges, buffers);
+    model.vTangents    = LoadModelGLTF_LoadAttributeArray(ctx, gltfJson, "TANGENT", accessorRanges, buffers);
     model.vTexCoords0  = LoadModelGLTF_LoadAttributeArray(ctx, gltfJson, "TEXCOORD_0", accessorRanges, buffers);
     model.vTexCoords1  = LoadModelGLTF_LoadAttributeArray(ctx, gltfJson, "TEXCOORD_1", accessorRanges, buffers);
     model.vTexCoords2  = LoadModelGLTF_LoadAttributeArray(ctx, gltfJson, "TEXCOORD_2", accessorRanges, buffers);
