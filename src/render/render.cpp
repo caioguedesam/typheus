@@ -620,7 +620,9 @@ handle MakeRenderTarget(Context* ctx, RenderTargetDesc desc)
     depthOutputDesc.depth = 1;
     depthOutputDesc.type = IMAGE_TYPE_2D;
     depthOutputDesc.viewType = IMAGE_VIEW_TYPE_2D;
-    depthOutputDesc.usageFlags = ENUM_FLAGS(ImageUsageFlags, IMAGE_USAGE_DEPTH_ATTACHMENT);
+    depthOutputDesc.usageFlags = ENUM_FLAGS(ImageUsageFlags, 
+            IMAGE_USAGE_DEPTH_ATTACHMENT
+            | IMAGE_USAGE_SAMPLED);
     depthOutputDesc.format = desc.depthImageFormat;
     depthOutputDesc.layout = IMAGE_LAYOUT_UNDEFINED;
     handle hDepthOutput = MakeTextureResource(ctx, depthOutputDesc);
@@ -677,7 +679,7 @@ handle MakeRenderPass(Context* ctx, RenderPassDesc desc, handle hRTarget)
     depthAttachment.format = (VkFormat)renderTarget.desc.depthImageFormat;
     depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.storeOp = (VkAttachmentStoreOp)desc.storeOp;
     depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
