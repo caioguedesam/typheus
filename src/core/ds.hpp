@@ -69,11 +69,11 @@ struct SArray
 template<typename T>
 SArray<T> MakeSArray(mem::Arena* arena, u64 capacity)
 {
-    SArray<T> result;
-    result.count = 0;
-    result.data = (T*)mem::ArenaPush(arena, capacity * sizeof(T));
-    result.capacity = capacity;
-    return result;
+    SArray<T>* result = (SArray<T>*)mem::ArenaPush(arena, sizeof(SArray<T>));
+    result->count = 0;
+    result->data = (T*)mem::ArenaPush(arena, capacity * sizeof(T));
+    result->capacity = capacity;
+    return *result;
 }
 
 template<typename T>
@@ -90,11 +90,11 @@ SArray<T> MakeSArray(mem::Arena* arena, u64 capacity, u64 initialCount, T initia
 template<typename T>
 SArray<T> MakeSArrayAlign(mem::Arena* arena, u64 capacity, i64 alignment)
 {
-    SArray<T> result;
-    result.count = 0;
-    result.data = (T*)mem::ArenaPush(arena, capacity * sizeof(T), alignment);
-    result.capacity = capacity;
-    return result;
+    SArray<T>* result = (SArray<T>*)mem::ArenaPush(arena, sizeof(SArray<T>));
+    result->count = 0;
+    result->data = (T*)mem::ArenaPush(arena, capacity * sizeof(T), alignment);
+    result->capacity = capacity;
+    return *result;
 }
 
 template<typename T>
@@ -173,12 +173,12 @@ struct DArray
 template<typename T>
 DArray<T> MakeDArray(mem::Arena* arena, u64 initialCapacity = 1) //TODO(caio): Should I start this at 0?
 {
-    DArray<T> result;
-    result.count = 0;
-    result.data = (T*)mem::ArenaPush(arena, initialCapacity * sizeof(T));
-    result.capacity = initialCapacity;
-    result.arena = arena;
-    return result;
+    DArray<T>* result = (DArray<T>*)mem::ArenaPush(arena, sizeof(DArray<T>));
+    result->count = 0;
+    result->data = (T*)mem::ArenaPush(arena, initialCapacity * sizeof(T));
+    result->capacity = initialCapacity;
+    result->arena = arena;
+    return *result;
 }
 
 template<typename T>

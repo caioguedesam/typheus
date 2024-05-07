@@ -647,8 +647,15 @@ handle GetRenderTargetDepthOutput(Context* ctx, handle hRenderTarget)
     return rt.outputTextures[rt.desc.colorImageCount];
 }
 
+void SetRenderPassViewport(Context* ctx, handle hRenderPass, Viewport viewport)
+{
+    RenderPass& rp = ctx->renderPasses[hRenderPass];
+    rp.desc.viewport = viewport;
+}
+
 handle MakeRenderPass(Context* ctx, RenderPassDesc desc, handle hRTarget)
 {
+    ASSERT(desc.viewport.w != 0 && desc.viewport.h != 0);
     RenderTarget& renderTarget = ctx->renderTargets[hRTarget];
 
     RenderPass renderPass = {};
@@ -1737,6 +1744,11 @@ void BeginRenderPass(Context* ctx, handle hCb, handle hRenderPass)
     handle hDepthOutput = GetRenderTargetDepthOutput(ctx, renderPass.hRenderTarget);
     Texture& depthOutput = ctx->resourceTextures[hDepthOutput];
     depthOutput.desc.layout = IMAGE_LAYOUT_DEPTH_STENCIL_OUTPUT;
+
+    // Set render pass viewport and scissor
+    Viewport viewport = renderPass.desc.viewport;
+    CmdSetViewport(ctx, hCb, viewport.x, viewport.y, viewport.w, viewport.h);
+    CmdSetDefaultScissor(ctx, hCb, hRenderPass);
 }
 
 void EndRenderPass(Context* ctx, handle hCb, handle hRenderPass)
@@ -1939,15 +1951,15 @@ void CmdClearColorTexture(Context* ctx, handle hCb, handle hTexture, f32 r, f32 
     vkCmdClearColorImage(cmd.vkHandle, texture.vkHandle, (VkImageLayout)texture.desc.layout, &clearValue, 1, &imageRange);
 }
 
-void CmdCopyToSwapChain(Context* ctx, handle hCb, handle hSrc)
+void CmdCopyToSwapChain(Context* ctx, handle hCb, handle hSrc, u32 width, u32 height)
 {
     CommandBuffer& cmd = ctx->commandBuffers[hCb];
     Texture& src = ctx->resourceTextures[hSrc];
     ASSERT(src.desc.layout == IMAGE_LAYOUT_GENERAL || src.desc.layout == IMAGE_LAYOUT_TRANSFER_SRC);
 
     VkImage swapChainImage = ctx->swapChain.vkImages[ctx->swapChain.activeImage];
+    CmdSetViewport(ctx, hCb, 0, 0, ctx->swapChain.vkExtents.width, ctx->swapChain.vkExtents.height);
     
-
     // Transition swap chain dst image to transfer dst (manually)
     VkImageMemoryBarrier vkBarrier = {};
     vkBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1976,8 +1988,8 @@ void CmdCopyToSwapChain(Context* ctx, handle hCb, handle hSrc)
 
     // Blit src to swap chain image
     VkOffset3D blitSrcSize = {};
-    blitSrcSize.x = src.desc.width;
-    blitSrcSize.y = src.desc.height;
+    blitSrcSize.x = width;
+    blitSrcSize.y = height;
     blitSrcSize.z = 1;
     VkOffset3D blitDstSize = {};
     blitDstSize.x = ctx->swapChain.vkExtents.width;
@@ -2019,7 +2031,6 @@ void CmdCopyToSwapChain(Context* ctx, handle hCb, handle hSrc)
     vkCmdPipelineBarrier(cmd.vkHandle,
             VK_PIPELINE_STAGE_TRANSFER_BIT,
             VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-            //VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
             0,
             0,
             NULL,
@@ -2028,6 +2039,18 @@ void CmdCopyToSwapChain(Context* ctx, handle hCb, handle hSrc)
             1,
             &vkBarrier);
     ctx->swapChain.imageLayouts[ctx->swapChain.activeImage] = IMAGE_LAYOUT_PRESENT_SRC;
+}
+
+void CmdCopyToSwapChain(Context* ctx, handle hCb, handle hSrc)
+{
+    Texture& src = ctx->resourceTextures[hSrc];
+    CmdCopyToSwapChain(ctx, hCb, hSrc, src.desc.width, src.desc.height);
+}
+
+void CmdCopyRenderPassOutputToSwapChain(Context* ctx, handle hCb, handle hRenderPass, u32 outputIndex)
+{
+    RenderPass& renderPass = ctx->renderPasses[hRenderPass];
+    CmdCopyToSwapChain(ctx, hCb, GetRenderTargetOutput(ctx, renderPass.hRenderTarget, outputIndex), renderPass.desc.viewport.w, renderPass.desc.viewport.h);
 }
 
 void CmdBindGraphicsPipeline(Context* ctx, handle hCb, handle hPipeline)

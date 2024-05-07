@@ -301,12 +301,22 @@ struct RenderTarget
     SArray<handle> outputTextures;
 };
 
+struct Viewport
+{
+    u32 x = 0;
+    u32 y = 0;
+    u32 w = 0;
+    u32 h = 0;
+};
+
 struct RenderPassDesc
 {
     LoadOp      loadOp          = LOAD_OP_DONT_CARE;
     StoreOp     storeOp         = STORE_OP_DONT_CARE;
     ImageLayout initialLayout   = IMAGE_LAYOUT_UNDEFINED;
     ImageLayout finalLayout     = IMAGE_LAYOUT_UNDEFINED;
+
+    Viewport viewport = {};
 };
 
 struct RenderPass
@@ -428,6 +438,7 @@ struct Context
     VmaAllocator vkAllocator = VK_NULL_HANDLE;
 
     i32 vkCommandQueueFamily = -1;
+    u32 padding0;
     VkQueue vkCommandQueue = VK_NULL_HANDLE;
     VkCommandPool vkCommandPool = VK_NULL_HANDLE;
     VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
@@ -489,6 +500,7 @@ void DestroyComputePipeline(Context* ctx, handle hPipeline);
 
 handle GetRenderTargetOutput(Context* ctx, handle hRenderTarget, u32 outputIndex);
 handle GetRenderTargetDepthOutput(Context* ctx, handle hRenderTarget);
+void SetRenderPassViewport(Context* ctx, handle hRenderPass, Viewport viewport);
 
 handle GetAvailableCommandBuffer(Context* ctx, CommandBufferType type, i32 frame = 0);
 void BeginCommandBuffer(Context* ctx, handle hCb);
@@ -523,7 +535,9 @@ void CmdBindVertexBuffer(Context* ctx, handle hCb, handle hVB);
 void CmdBindIndexBuffer(Context* ctx, handle hCb, handle hIB);
 void CmdDrawIndexed(Context* ctx, handle hCb, handle hIB, i32 instanceCount);
 void CmdDispatch(Context* ctx, handle hCb, u32 x, u32 y, u32 z);
+void CmdCopyToSwapChain(Context* ctx, handle hCb, handle hSrc, u32 width, u32 height);
 void CmdCopyToSwapChain(Context* ctx, handle hCb, handle hSrc);
+void CmdCopyRenderPassOutputToSwapChain(Context* ctx, handle hCb, handle hRenderPass, u32 outputIndex);
 
 };  // namespace render
 };  // namespace ty

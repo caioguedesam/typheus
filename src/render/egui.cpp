@@ -20,8 +20,6 @@ Context MakeEGUIContext(render::Context* renderCtx, handle hRenderPass)
     RECT clientRect;
 	GetWindowRect(renderCtx->window->winHandle, &clientRect);
     io.DisplaySize = ImVec2((f32)(clientRect.right - clientRect.left), (f32)(clientRect.bottom - clientRect.top));
-    io.DisplayFramebufferScale = ImVec2(io.DisplaySize.x/renderCtx->window->w,
-        io.DisplaySize.y/renderCtx->window->h);
 
     ImGui_ImplWin32_Init(renderCtx->window->winHandle);
 
