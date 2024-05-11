@@ -217,13 +217,13 @@ String StrConcat(mem::Arena* arena, String s1, String s2)
 
 String StrFmt(mem::Arena* arena, const char* fmt, ...)
 {
-    ASSERT(0);  // TODO(caio): This is broken with String, fix it before using
+    // NOTE(caio): If using this with String, use String::CStr();
     va_list args;
     va_start(args, fmt);
 
     i64 len = vsnprintf(0, 0, fmt, args);
     byte* buf = (byte*)mem::ArenaPush(arena, len + 1);
-    vsnprintf((char*)buf, len, fmt, args);
+    vsnprintf((char*)buf, len + 1, fmt, args);
     buf[len] = 0;   // Null terminator for c-string compatibility
 
     va_end(args);

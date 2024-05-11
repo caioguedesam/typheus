@@ -38,6 +38,8 @@ void SliderAngle(String label, f32* result_radians);
 void Color(String label, f32* r, f32* g, f32* b);
 void Color(String label, f32* r, f32* g, f32* b, f32* a);
 void Tooltip(String text);
+bool TreeNode(String nodeName);
+void TreePop();
 
 void ShowDemo();
 

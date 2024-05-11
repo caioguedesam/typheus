@@ -185,5 +185,15 @@ void Tooltip(String text)
     }
 }
 
+bool TreeNode(String nodeName)
+{
+    return ImGui::TreeNode(nodeName.CStr());
+}
+
+void TreePop()
+{
+    ImGui::TreePop();
+}
+
 };
 };

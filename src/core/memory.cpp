@@ -90,5 +90,11 @@ void ArenaFallback(Arena* arena, u64 newOffset)
     arena->offset = newOffset;
 }
 
+Arena* GetScratchArena()
+{
+    static Arena* threadScratchArena = MakeArena(MB(256));
+    return threadScratchArena;
+}
+
 };
 };

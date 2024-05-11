@@ -464,7 +464,7 @@ struct Context
     SArray<ComputePipeline> pipelinesCompute;
 };
 
-Context MakeRenderContext(u64 arenaSize, Window* window);
+Context* MakeRenderContext(u64 arenaSize, Window* window);
 void DestroyRenderContext(Context* ctx);
 
 handle MakeShaderResource(Context* ctx, ShaderType type, u64 bytecodeSize, byte* bytecode);

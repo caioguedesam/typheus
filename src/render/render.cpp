@@ -1520,38 +1520,40 @@ void MakeRenderContext_CreateCommandBuffers(Context* ctx)
 #define TY_RENDER_MAX_RESOURCE_SET_LAYOUTS 256
 #define TY_RENDER_MAX_GRAPHICS_PIPELINES 32
 #define TY_RENDER_MAX_COMPUTE_PIPELINES 32
-Context MakeRenderContext(u64 arenaSize, Window* window)
+Context* MakeRenderContext(u64 arenaSize, Window* window)
 {
-    Context ctx = {};
-    ctx.arena = mem::MakeArena(arenaSize);
-    ctx.window = window;
+    mem::Arena* arena = mem::MakeArena(arenaSize);
+    Context* ctx = (Context*)mem::ArenaPush(arena, sizeof(Context));
+    *ctx = {};
+    ctx->arena = arena;
+    ctx->window = window;
 
     // API context
-    MakeRenderContext_CreateAPIInstance(&ctx);
-    MakeRenderContext_SetupAPIValidation(&ctx);
-    MakeRenderContext_CreateAPISurface(&ctx);
-    MakeRenderContext_CreateAPIDevice(&ctx);
-    MakeRenderContext_CreateAPIResourceAllocator(&ctx);
-    MakeRenderContext_CreateAPIDescriptorPools(&ctx);
-    MakeRenderContext_CreateAPISyncPrimitives(&ctx);
+    MakeRenderContext_CreateAPIInstance(ctx);
+    MakeRenderContext_SetupAPIValidation(ctx);
+    MakeRenderContext_CreateAPISurface(ctx);
+    MakeRenderContext_CreateAPIDevice(ctx);
+    MakeRenderContext_CreateAPIResourceAllocator(ctx);
+    MakeRenderContext_CreateAPIDescriptorPools(ctx);
+    MakeRenderContext_CreateAPISyncPrimitives(ctx);
 
     // Swap chain
-    MakeSwapChain(&ctx);
+    MakeSwapChain(ctx);
 
     // Command Buffers
-    MakeRenderContext_CreateCommandBuffers(&ctx);
+    MakeRenderContext_CreateCommandBuffers(ctx);
 
     // Render context
-    ctx.resourceShaders = MakeSArray<Shader>(ctx.arena, TY_RENDER_MAX_SHADERS);
-    ctx.resourceBuffers = MakeSArray<Buffer>(ctx.arena, TY_RENDER_MAX_BUFFERS);
-    ctx.resourceTextures = MakeSArray<Texture>(ctx.arena, TY_RENDER_MAX_TEXTURES);
-    ctx.resourceSamplers = MakeSArray<Sampler>(ctx.arena, TY_RENDER_MAX_SAMPLERS);
-    ctx.renderTargets = MakeSArray<RenderTarget>(ctx.arena, TY_RENDER_MAX_RENDER_TARGETS);
-    ctx.renderPasses = MakeSArray<RenderPass>(ctx.arena, TY_RENDER_MAX_RENDER_PASSES);
-    ctx.vertexLayouts = MakeSArray<VertexLayout>(ctx.arena, TY_RENDER_MAX_VERTEX_LAYOUTS);
-    ctx.resourceSets = MakeSArray<ResourceSet>(ctx.arena, TY_RENDER_MAX_RESOURCE_SETS);
-    ctx.pipelinesGraphics = MakeSArray<GraphicsPipeline>(ctx.arena, TY_RENDER_MAX_GRAPHICS_PIPELINES);
-    ctx.pipelinesCompute = MakeSArray<ComputePipeline>(ctx.arena, TY_RENDER_MAX_COMPUTE_PIPELINES);
+    ctx->resourceShaders = MakeSArray<Shader>(ctx->arena, TY_RENDER_MAX_SHADERS);
+    ctx->resourceBuffers = MakeSArray<Buffer>(ctx->arena, TY_RENDER_MAX_BUFFERS);
+    ctx->resourceTextures = MakeSArray<Texture>(ctx->arena, TY_RENDER_MAX_TEXTURES);
+    ctx->resourceSamplers = MakeSArray<Sampler>(ctx->arena, TY_RENDER_MAX_SAMPLERS);
+    ctx->renderTargets = MakeSArray<RenderTarget>(ctx->arena, TY_RENDER_MAX_RENDER_TARGETS);
+    ctx->renderPasses = MakeSArray<RenderPass>(ctx->arena, TY_RENDER_MAX_RENDER_PASSES);
+    ctx->vertexLayouts = MakeSArray<VertexLayout>(ctx->arena, TY_RENDER_MAX_VERTEX_LAYOUTS);
+    ctx->resourceSets = MakeSArray<ResourceSet>(ctx->arena, TY_RENDER_MAX_RESOURCE_SETS);
+    ctx->pipelinesGraphics = MakeSArray<GraphicsPipeline>(ctx->arena, TY_RENDER_MAX_GRAPHICS_PIPELINES);
+    ctx->pipelinesCompute = MakeSArray<ComputePipeline>(ctx->arena, TY_RENDER_MAX_COMPUTE_PIPELINES);
 
     return ctx;
 }

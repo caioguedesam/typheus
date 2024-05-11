@@ -174,7 +174,7 @@ struct Context
     SArray<GltfModel> modelsGLTF;
 };
 
-Context MakeAssetContext(u64 arenaSize, u64 tempArenaSize);
+Context* MakeAssetContext(u64 arenaSize, u64 tempArenaSize);
 bool    IsLoaded(Context* ctx, String assetPath);
 handle  LoadShader(Context* ctx, String assetPath);
 handle  LoadImageFile(Context* ctx, String assetPath, bool flipVertical = true);

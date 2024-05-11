@@ -36,5 +36,10 @@ void    ArenaFallback(Arena* arena, u64 newOffset);
 #define MEM_ARENA_CHECKPOINT_SET(ARENA, NAME) u64 CONCATENATE(NAME, __fallback) = (ARENA)->offset
 #define MEM_ARENA_CHECKPOINT_RESET(ARENA, NAME) ty::mem::ArenaFallback((ARENA), CONCATENATE(NAME, __fallback))
 
+Arena* GetScratchArena();
+
+#define MEM_ARENA_SCRATCH_START(ARENA) ty::mem::Arena* ARENA = ty::mem::GetScratchArena(); MEM_ARENA_CHECKPOINT_SET((ARENA), scratch);
+#define MEM_ARENA_SCRATCH_END(ARENA) MEM_ARENA_CHECKPOINT_RESET((ARENA), scratch);
+
 };
 };

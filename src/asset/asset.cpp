@@ -37,16 +37,19 @@ namespace asset
 #define ASSET_MAX_MODELS 256
 #define ASSET_MAX_ASSETS 2048
 
-Context MakeAssetContext(u64 arenaSize, u64 tempArenaSize)
+Context* MakeAssetContext(u64 arenaSize, u64 tempArenaSize)
 {
-    Context ctx = {};
-    ctx.arena = mem::MakeArena(arenaSize);
-    ctx.tempArena = mem::MakeArena(tempArenaSize);
+    mem::Arena* arena = mem::MakeArena(arenaSize);
+    mem::Arena* tempArena = mem::MakeArena(tempArenaSize);
+    Context* ctx = (Context*)mem::ArenaPush(arena, sizeof(Context));
+    *ctx = {};
+    ctx->arena = arena;
+    ctx->tempArena = tempArena;
 
-    ctx.loadedAssets = MakeMap<String, handle>(ctx.arena, ASSET_MAX_ASSETS);
-    ctx.shaders = MakeSArray<Shader>(ctx.arena, ASSET_MAX_SHADERS);
-    ctx.images = MakeSArray<Image>(ctx.arena, ASSET_MAX_IMAGES);
-    ctx.modelsGLTF = MakeSArray<GltfModel>(ctx.arena, ASSET_MAX_MODELS);
+    ctx->loadedAssets = MakeMap<String, handle>(ctx->arena, ASSET_MAX_ASSETS);
+    ctx->shaders = MakeSArray<Shader>(ctx->arena, ASSET_MAX_SHADERS);
+    ctx->images = MakeSArray<Image>(ctx->arena, ASSET_MAX_IMAGES);
+    ctx->modelsGLTF = MakeSArray<GltfModel>(ctx->arena, ASSET_MAX_MODELS);
 
     return ctx;
 }
