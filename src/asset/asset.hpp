@@ -94,7 +94,7 @@ struct GltfMaterial
 
     GltfTexture texMetallicRoughness;
     f32 fMetallic = 1.f;
-    f32 fRoughness = 0.f;
+    f32 fRoughness = 1.f;
 
     GltfTexture texNormal;
     f32 fNormalScale = 1.f;
