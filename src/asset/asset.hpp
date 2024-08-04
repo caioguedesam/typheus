@@ -121,6 +121,9 @@ struct GltfPrimitive
     Range rangeTexCoords2;
 
     //TODO(caio): Primitive types other than triangle list
+
+    v3f min = {0,0,0};
+    v3f max = {0,0,0};
 };
 
 struct GltfMesh

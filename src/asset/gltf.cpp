@@ -376,7 +376,7 @@ SArray<u32> LoadModelGLTF_LoadIndexArray(Context* ctx, JsonObject* gltfJson, Ran
     return result;
 }
 
-SArray<GltfMesh> LoadModelGLTF_LoadMeshes(Context* ctx, JsonObject* gltfJson, Range* accessorRanges)
+SArray<GltfMesh> LoadModelGLTF_LoadMeshes(Context* ctx, JsonObject* gltfJson, Range* accessorRanges, SArray<f32>& vPositions)
 {
     JsonArray& meshesJson = *gltfJson->GetArrayValue("meshes");
     SArray<GltfMesh> result = MakeSArray<GltfMesh>(ctx->arena, meshesJson.count);
@@ -404,7 +404,25 @@ SArray<GltfMesh> LoadModelGLTF_LoadMeshes(Context* ctx, JsonObject* gltfJson, Ra
             u32 attributeAccessorIndex = 0;
             if(attributesJson->GetNumberValue("POSITION", &attributeAccessorIndex))
             {
-                mesh.primitives[j].rangePositions = accessorRanges[attributeAccessorIndex];
+                Range rangePos = accessorRanges[attributeAccessorIndex];
+                mesh.primitives[j].rangePositions = rangePos;
+                // POSITION attribute require min and max properties for AABB.
+                // Simple implementation: iterate on primitive vertices and find them manually instead
+                // of using GLTF provided values.
+                v3f pMin = {MAX_F32, MAX_F32, MAX_F32};
+                v3f pMax = {0,0,0};
+                for(i64 iPos = rangePos.start; iPos < rangePos.start + rangePos.len; iPos += 3)
+                {
+                    v3f vPos = { vPositions[iPos], vPositions[iPos + 1], vPositions[iPos + 2] };
+                    pMin.x = MIN(pMin.x, vPos.x);
+                    pMin.y = MIN(pMin.y, vPos.y);
+                    pMin.z = MIN(pMin.z, vPos.z);
+                    pMax.x = MAX(pMax.x, vPos.x);
+                    pMax.y = MAX(pMax.y, vPos.y);
+                    pMax.z = MAX(pMax.z, vPos.z);
+                }
+                mesh.primitives[j].min = pMin;
+                mesh.primitives[j].max = pMax;
             }
             if(attributesJson->GetNumberValue("NORMAL", &attributeAccessorIndex))
             {
@@ -570,7 +588,7 @@ handle LoadModelGLTF(Context* ctx, String assetPath)
     model.indices      = LoadModelGLTF_LoadIndexArray(ctx, gltfJson, accessorRanges, buffers);
 
     // Load meshes and primitives using accessor ranges
-    model.meshes = LoadModelGLTF_LoadMeshes(ctx, gltfJson, accessorRanges);
+    model.meshes = LoadModelGLTF_LoadMeshes(ctx, gltfJson, accessorRanges, model.vPositions);
 
     // Load mesh nodes and scene hierarchy
     model.nodes = LoadModelGLTF_LoadNodes(ctx, gltfJson);
