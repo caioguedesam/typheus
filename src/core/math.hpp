@@ -202,6 +202,14 @@ i32 RandomUniformI32(i32 start, i32 end);
 
 //TODO(caio): More random distributions if needed
 
+// ========================================================
+// [AABB]
+struct AABB
+{
+    v3f min = {0,0,0};
+    v3f max = {0,0,0};
+};
+
 };
 
 typedef math::v2f v2f;

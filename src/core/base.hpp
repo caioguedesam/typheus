@@ -56,6 +56,7 @@ typedef u32 handle;
 #define CLAMP_CEIL(V, A) MIN(V, A)
 #define CLAMP_FLOOR(V, A) MAX(V, A)
 #define ABS(V) ((V) < 0 ? -(V) : (V))
+#define WITHIN(A, X, B) ((A) <= (X) && (X) <= (B))
 
 #define HANDLE_INVALID MAX_U32
 
