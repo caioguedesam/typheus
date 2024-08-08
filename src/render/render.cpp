@@ -1164,6 +1164,8 @@ void MakeRenderContext_CreateAPIDevice(Context* ctx)
         vkGetPhysicalDeviceFeatures(device, &features);
         if(properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) continue;
         if(!features.samplerAnisotropy) continue;
+        if(!features.fillModeNonSolid) continue;
+        if(!features.wideLines) continue;
 
         selectedDevice = i;
         break;
@@ -1208,6 +1210,8 @@ void MakeRenderContext_CreateAPIDevice(Context* ctx)
 
     VkPhysicalDeviceFeatures features = {};
     features.samplerAnisotropy = VK_TRUE;
+    features.fillModeNonSolid = VK_TRUE;
+    features.wideLines = VK_TRUE;
     VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures = {};
     indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
     indexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;

@@ -706,5 +706,25 @@ i32 RandomUniformI32(i32 start, i32 end)
     return start + RandomUniformF32() * (end + 1 - start);
 }
 
+v3f RandomUniformV3F()
+{
+    return
+    {
+        RandomUniformF32(),
+        RandomUniformF32(),
+        RandomUniformF32()
+    };
+}
+
+v3f RandomUniformV3F(f32 start, f32 end)
+{
+    return
+    {
+        RandomUniformF32(start, end),
+        RandomUniformF32(start, end),
+        RandomUniformF32(start, end)
+    };
+}
+
 };
 };

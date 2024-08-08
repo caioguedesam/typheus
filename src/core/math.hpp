@@ -200,6 +200,9 @@ f32 RandomUniformF32();
 f32 RandomUniformF32(f32 start, f32 end);
 i32 RandomUniformI32(i32 start, i32 end);
 
+v3f RandomUniformV3F();
+v3f RandomUniformV3F(f32 start, f32 end);
+
 //TODO(caio): More random distributions if needed
 
 // ========================================================
