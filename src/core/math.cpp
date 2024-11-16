@@ -33,6 +33,15 @@ v2f operator-(v2f a, v2f b)
     };
 }
 
+v2f operator-(v2f a)
+{
+    return
+    {
+        -a.x,
+        -a.y,
+    };
+}
+
 v2f operator*(v2f a, v2f b)
 {
     return
@@ -156,6 +165,16 @@ v3f operator-(v3f a, v3f b)
     };
 }
 
+v3f operator-(v3f a)
+{
+    return
+    {
+        -a.x,
+        -a.y,
+        -a.z,
+    };
+}
+
 v3f operator*(v3f a, v3f b)
 {
     return
@@ -218,7 +237,7 @@ v3f Normalize(v3f v)
     return v * (1.f/l);
 }
 
-v3f v4f::AsXYZ() { return { x, y, z}; }
+v3f v4f::AsXYZ() { return { x, y, z }; }
 
 bool operator==(v4f a, v4f b)
 {
@@ -314,6 +333,25 @@ v4f Normalize(v4f v)
     f32 l = Len(v);
     if(l < EPSILON_F32) return {0.f, 0.f};
     return v * (1.f/l);
+}
+
+plane GetPlane(v3f point, v3f normal)
+{
+    plane P;
+    normal = math::Normalize(normal);
+    P.x = normal.x;
+    P.y = normal.y;
+    P.z = normal.z;
+    P.w = -(math::Dot(normal, point));
+    return P;
+}
+
+plane GetPlane(v3f p0, v3f A, v3f B)
+{
+    A = math::Normalize(A);
+    B = math::Normalize(B);
+    v3f N = math::Normalize(math::Cross(A, B));
+    return GetPlane(p0, N);
 }
 
 bool operator==(m4f a, m4f b)
@@ -545,6 +583,35 @@ m4f RotationMatrix(f32 angle, v3f axis)
     };
 }
 
+void GetAngleAxis(m4f rotation, f32* angle, v3f* axis)
+{
+    //  Note: rotation matrix must be a pure rotation.
+    //  https://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToAngle/derivation/index.htm
+    // Edge cases:
+    f32 e = 0.001f;
+    if(rotation.m01 - rotation.m10 < e
+       && rotation.m02 - rotation.m20 < e
+       && rotation.m12 - rotation.m21 < e)
+    {
+        // Edge case angle = 0
+        *angle = 0;
+        *axis = {0,0,1};
+        return;
+
+        // Edge case angle = 180 (TODO(caio))
+    }
+
+    // No edge cases
+    *angle = acosf((rotation.m00 + rotation.m11 + rotation.m22 - 1) / 2.f);
+    f32 term1 = rotation.m21 - rotation.m12;
+    f32 term2 = rotation.m02 - rotation.m20;
+    f32 term3 = rotation.m10 - rotation.m01;
+    f32 denom = sqrtf(term1 * term1 + term2 * term2 + term3 * term3);
+    axis->x = term1 / denom;
+    axis->y = term2 / denom;
+    axis->z = term3 / denom;
+}
+
 m4f TranslationMatrix(v3f move)
 {
     return
@@ -570,88 +637,37 @@ v3f TransformDirection(v3f direction, m4f transform)
     return v.AsXYZ();
 }
 
-m4f LookAtLH(v3f center, v3f target, v3f up)
+m4f ViewRH(v3f axisX, v3f axisY, v3f axisZ, v3f position)
 {
-    v3f lookZ = Normalize(target - center);
-    v3f lookX = Normalize(Cross(up, lookZ));
-    v3f lookY = Normalize(Cross(lookZ, lookX));
-
-    // View-to-world matrix:
-    // Transform point in view coordinate space to world coordinate space
-    // Columns are view coordinate system axes (and origin)
-    m4f result =
-    {
-        lookX.x, lookY.x, lookZ.x, center.x,
-        lookX.y, lookY.y, lookZ.y, center.y,
-        lookX.z, lookY.z, lookZ.z, center.z,
-        0, 0, 0, 1,
-    };
-    // World-to-view matrix
-    // Transform point in world coordinate space to view coordinate space
-    result = Inverse(result);
-    return result;
-}
-
-m4f LookAtRH(v3f center, v3f target, v3f up)
-{
-    v3f lookZ = Normalize(center - target);
-    v3f lookX = Normalize(Cross(up, lookZ));
-    v3f lookY = Normalize(Cross(lookZ, lookX));
-
-    // View-to-world matrix:
-    // Transform point in view coordinate space to world coordinate space
-    // Columns are view coordinate system axes (and origin)
-    m4f result =
-    {
-        lookX.x, lookY.x, lookZ.x, center.x,
-        lookX.y, lookY.y, lookZ.y, center.y,
-        lookX.z, lookY.z, lookZ.z, center.z,
-        0, 0, 0, 1,
-    };
-    // World-to-view matrix
-    // Transform point in world coordinate space to view coordinate space
-    result = Inverse(result);
-    return result;
-}
-
-m4f PerspectiveLH(f32 fov, f32 aspect, f32 zNear, f32 zFar)
-{
-    // Perspective projection matrix for LH coordinate system
-    // aspect is W/H
-    // fov is fovY
-    f32 a = 1 / aspect;
-    f32 f = 1 / tan(fov/2);
-    m4f result = {};
-    result.m00 = a * f;
-    result.m11 = f;
-
-    result.m22 = zFar / (zFar - zNear);
-    result.m23 = -(zFar * zNear) / (zFar - zNear);
-    result.m32 = 1;
-
-    // Vulkan
-    result.m11 = -result.m11;
-    
+    //https://learnopengl.com/Getting-started/Camera
+    // View matrix is inverse of composed camera coordinate space matrix and translation matrix, set directly here.
+    m4f result = math::Identity();
+    result.m00 = axisX.x;
+    result.m01 = axisX.y;
+    result.m02 = axisX.z;
+    result.m10 = axisY.x;
+    result.m11 = axisY.y;
+    result.m12 = axisY.z;
+    result.m20 = axisZ.x;
+    result.m21 = axisZ.y;
+    result.m22 = axisZ.z;
+    result.m03 = -Dot(axisX, position);
+    result.m13 = -Dot(axisY, position);
+    result.m23 = -Dot(axisZ, position);
     return result;
 }
 
 m4f PerspectiveRH(f32 fov, f32 aspect, f32 zNear, f32 zFar)
 {
-    // Perspective projection matrix for LH coordinate system
-    // aspect is W/H
-    // fov is fovY
-    f32 a = 1 / aspect;
-    f32 f = 1 / tan(fov/2);
+    // https://www.vincentparizet.com/blog/posts/vulkan_perspective_matrix/
+    f32 y = 1.f / tan(fov/2.f);
+    f32 x = y / aspect;
     m4f result = {};
-    result.m00 = a * f;
-    result.m11 = f;
-
+    result.m00 = x;
+    result.m11 = -y;
     result.m22 = zFar / (zNear - zFar);
-    result.m23 = -(zFar * zNear) / (zFar - zNear);
+    result.m23 = (zNear * zFar) / (zNear - zFar);
     result.m32 = -1;
-
-    // Vulkan
-    result.m11 = -result.m11;
     
     return result;
 }
@@ -724,6 +740,147 @@ v3f RandomUniformV3F(f32 start, f32 end)
         RandomUniformF32(start, end),
         RandomUniformF32(start, end)
     };
+}
+
+AABB TransformAABB(AABB aabb, m4f transform)
+{
+    // TODO(caio): This performs a lot of calculations that could be optimized to less
+    // transforming, and no idea if this works for non uniform scaling.
+    // Verify if this works
+
+    // Compute all 8 vertices of AABB
+    v4f aabbVertices[8] =
+    {
+        {aabb.min.x, aabb.min.y, aabb.min.z, 1.f},
+        {aabb.max.x, aabb.min.y, aabb.min.z, 1.f},
+        {aabb.min.x, aabb.max.y, aabb.min.z, 1.f},
+        {aabb.max.x, aabb.max.y, aabb.min.z, 1.f},
+        {aabb.min.x, aabb.min.y, aabb.max.z, 1.f},
+        {aabb.max.x, aabb.min.y, aabb.max.z, 1.f},
+        {aabb.min.x, aabb.max.y, aabb.max.z, 1.f},
+        {aabb.max.x, aabb.max.y, aabb.max.z, 1.f},
+    };
+
+    // Transform all vertices
+    v4f aabbTransformedVertices[8] =
+    {
+        transform * aabbVertices[0],
+        transform * aabbVertices[1],
+        transform * aabbVertices[2],
+        transform * aabbVertices[3],
+        transform * aabbVertices[4],
+        transform * aabbVertices[5],
+        transform * aabbVertices[6],
+        transform * aabbVertices[7],
+    };
+
+    // Find min/max of new vertices and create new AABB
+    AABB result = {};
+    result.min = aabbTransformedVertices[0].AsXYZ();
+    result.max = aabbTransformedVertices[0].AsXYZ();
+    for(u32 i = 1; i < 8; i++)
+    {
+        result.min.x = MIN(result.min.x, aabbTransformedVertices[i].x);
+        result.min.y = MIN(result.min.y, aabbTransformedVertices[i].y);
+        result.min.z = MIN(result.min.z, aabbTransformedVertices[i].z);
+
+        result.max.x = MAX(result.max.x, aabbTransformedVertices[i].x);
+        result.max.y = MAX(result.max.y, aabbTransformedVertices[i].y);
+        result.max.z = MAX(result.max.z, aabbTransformedVertices[i].z);
+    }
+    return result;
+}
+
+v3f GetAABBCenter(AABB aabb)
+{
+    return aabb.min + 0.5f * GetAABBSize(aabb);
+}
+
+v3f GetAABBSize(AABB aabb)
+{
+    return (aabb.max - aabb.min);
+}
+
+v3f ClipToWorldSpace(v3f p, m4f invView, m4f invProj)
+{
+    v4f P = {p.x, p.y, p.z, 1};
+    // To view space (multiply by inverse projection then revert perspective divide).
+    P = invProj * P;
+    P = P * (1.f / P.w);
+    // To world space (multiply by inverse view).
+    P = invView * P;
+    return P.AsXYZ();
+}
+
+Frustum GetFrustum(m4f view, m4f proj)
+{
+    // Derives frustum points in world space out of view and projection matrices.
+    Frustum result = {};
+    for(i32 i = 0; i < 8; i++)
+    {
+        result.points[i] = {0,0,0};
+    }
+
+    m4f invProj = math::Inverse(proj);
+    m4f invView = math::Inverse(view);
+
+    result.points[0] = ClipToWorldSpace({-1, -1, 0}, invView, invProj);
+    result.points[1] = ClipToWorldSpace({ 1, -1, 0}, invView, invProj);
+    result.points[2] = ClipToWorldSpace({ 1,  1, 0}, invView, invProj);
+    result.points[3] = ClipToWorldSpace({-1,  1, 0}, invView, invProj);
+    result.points[4] = ClipToWorldSpace({-1, -1, 1}, invView, invProj);
+    result.points[5] = ClipToWorldSpace({ 1, -1, 1}, invView, invProj);
+    result.points[6] = ClipToWorldSpace({ 1,  1, 1}, invView, invProj);
+    result.points[7] = ClipToWorldSpace({-1,  1, 1}, invView, invProj);
+
+    // Deriving frustum planes out of frustum points
+    // Left (F_03 x F_04)
+    result.planes[0] = GetPlane(result.points[0], result.points[3] - result.points[0], result.points[4] - result.points[0]);
+    // Right (F_51 x F_21)
+    result.planes[1] = GetPlane(result.points[1], result.points[1] - result.points[5], result.points[1] - result.points[2]);
+    // Bottom (F_26 x F_27)
+    result.planes[2] = GetPlane(result.points[2], result.points[6] - result.points[2], result.points[7] - result.points[2]);
+    // Top (F_14 x F15)
+    result.planes[3] = GetPlane(result.points[1], result.points[4] - result.points[1], result.points[5] - result.points[1]);
+    // Near (F_01 x F_03)
+    result.planes[4] = GetPlane(result.points[0], result.points[1] - result.points[0], result.points[3] - result.points[0]);
+    // Far (F_47 x F_45)
+    result.planes[5] = GetPlane(result.points[4], result.points[7] - result.points[4], result.points[5] - result.points[4]);
+
+    return result;
+}
+
+bool IsInFrustum(v3f p, Frustum f)
+{
+    // Point is in frustum if it's inside half-space of all planes (using SDF).
+    for(i32 i = 0; i < 6; i++)
+    {
+        f32 sdf = math::Dot(f.planes[i].AsXYZ(), p) + f.planes[i].w;
+        if(sdf < 0.f)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool IsInFrustum(AABB aabb, Frustum f)
+{
+    // AABB is in frustum if, for each plane, the point furthest along the plane's normal
+    // is inside its half-space.
+    for(i32 i = 0; i < 6; i++)
+    {
+        v3f p;
+        p.x = f.planes[i].x < 0.f ? aabb.min.x : aabb.max.x;
+        p.y = f.planes[i].y < 0.f ? aabb.min.y : aabb.max.y;
+        p.z = f.planes[i].z < 0.f ? aabb.min.z : aabb.max.z;
+        f32 sdf = math::Dot(f.planes[i].AsXYZ(), p) + f.planes[i].w;
+        if(sdf < 0.f)
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 };

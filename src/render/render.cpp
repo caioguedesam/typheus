@@ -848,7 +848,7 @@ handle MakeGraphicsPipeline(Context* ctx, handle hRenderPass, GraphicsPipelineDe
     rasterizationInfo.cullMode = (VkCullModeFlags)desc.cullMode;
     rasterizationInfo.frontFace = (VkFrontFace)desc.frontFace;
     rasterizationInfo.depthClampEnable = VK_FALSE;
-    rasterizationInfo.lineWidth = 1;
+    rasterizationInfo.lineWidth = desc.fillMode == FILL_MODE_LINE ? desc.lineWidth : 1;
     rasterizationInfo.depthBiasClamp = VK_FALSE;
 
     // Blending
@@ -2188,6 +2188,13 @@ void CmdBindIndexBuffer(Context* ctx, handle hCb, handle hIB)
     ASSERT(ib.type == BUFFER_TYPE_INDEX);
 
     vkCmdBindIndexBuffer(cmd.vkHandle, ib.vkHandle, 0, VK_INDEX_TYPE_UINT32);
+}
+
+void CmdDraw(Context* ctx, handle hCb, i32 vertexCount, i32 instanceCount)
+{
+    CommandBuffer& cmd = ctx->commandBuffers[hCb];
+
+    vkCmdDraw(cmd.vkHandle, vertexCount, instanceCount, 0, 0);
 }
 
 void CmdDrawIndexed(Context* ctx, handle hCb, handle hIB, i32 instanceCount)

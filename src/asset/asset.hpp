@@ -135,7 +135,7 @@ struct GltfMesh
 struct GltfNode
 {
     SArray<handle> hChildren;
-    m4f transform = math::Identity();
+    m4f mTransform = math::Identity();
     handle hMesh = HANDLE_INVALID;
 };
 

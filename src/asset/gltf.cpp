@@ -472,21 +472,39 @@ SArray<GltfNode> LoadModelGLTF_LoadNodes(Context* ctx, JsonObject* gltfJson)
         m4f nodeTransform = math::Identity();
         if(nodeJson->GetArrayValue("matrix", &matrixJson))
         {
+            //nodeTransform.m00 = matrixJson[0].AsNumber();
+            //nodeTransform.m01 = matrixJson[1].AsNumber();
+            //nodeTransform.m02 = matrixJson[2].AsNumber();
+            //nodeTransform.m03 = matrixJson[3].AsNumber();
+            //nodeTransform.m10 = matrixJson[4].AsNumber();
+            //nodeTransform.m11 = matrixJson[5].AsNumber();
+            //nodeTransform.m12 = matrixJson[6].AsNumber();
+            //nodeTransform.m13 = matrixJson[7].AsNumber();
+            //nodeTransform.m20 = matrixJson[8].AsNumber();
+            //nodeTransform.m21 = matrixJson[9].AsNumber();
+            //nodeTransform.m22 = matrixJson[10].AsNumber();
+            //nodeTransform.m23 = matrixJson[11].AsNumber();
+            //nodeTransform.m30 = matrixJson[12].AsNumber();
+            //nodeTransform.m31 = matrixJson[13].AsNumber();
+            //nodeTransform.m32 = matrixJson[14].AsNumber();
+            //nodeTransform.m33 = matrixJson[15].AsNumber();
+
+            // Column-major:
             nodeTransform.m00 = matrixJson[0].AsNumber();
-            nodeTransform.m01 = matrixJson[1].AsNumber();
-            nodeTransform.m02 = matrixJson[2].AsNumber();
-            nodeTransform.m03 = matrixJson[3].AsNumber();
-            nodeTransform.m10 = matrixJson[4].AsNumber();
+            nodeTransform.m10 = matrixJson[1].AsNumber();
+            nodeTransform.m20 = matrixJson[2].AsNumber();
+            nodeTransform.m30 = matrixJson[3].AsNumber();
+            nodeTransform.m01 = matrixJson[4].AsNumber();
             nodeTransform.m11 = matrixJson[5].AsNumber();
-            nodeTransform.m12 = matrixJson[6].AsNumber();
-            nodeTransform.m13 = matrixJson[7].AsNumber();
-            nodeTransform.m20 = matrixJson[8].AsNumber();
-            nodeTransform.m21 = matrixJson[9].AsNumber();
+            nodeTransform.m21 = matrixJson[6].AsNumber();
+            nodeTransform.m31 = matrixJson[7].AsNumber();
+            nodeTransform.m02 = matrixJson[8].AsNumber();
+            nodeTransform.m12 = matrixJson[9].AsNumber();
             nodeTransform.m22 = matrixJson[10].AsNumber();
-            nodeTransform.m23 = matrixJson[11].AsNumber();
-            nodeTransform.m30 = matrixJson[12].AsNumber();
-            nodeTransform.m31 = matrixJson[13].AsNumber();
-            nodeTransform.m32 = matrixJson[14].AsNumber();
+            nodeTransform.m32 = matrixJson[11].AsNumber();
+            nodeTransform.m03 = matrixJson[12].AsNumber();
+            nodeTransform.m13 = matrixJson[13].AsNumber();
+            nodeTransform.m23 = matrixJson[14].AsNumber();
             nodeTransform.m33 = matrixJson[15].AsNumber();
         }
         else
@@ -517,7 +535,7 @@ SArray<GltfNode> LoadModelGLTF_LoadNodes(Context* ctx, JsonObject* gltfJson)
 
             nodeTransform = translation * rotation * scale;
         }
-        node.transform = nodeTransform;
+        node.mTransform = nodeTransform;
 
         JsonArray childrenList;
         if(nodeJson->GetArrayValue("children", &childrenList))

@@ -390,6 +390,7 @@ struct GraphicsPipelineDesc
     FillMode fillMode = FILL_MODE_SOLID;
     CullMode cullMode = CULL_MODE_BACK;
     FrontFace frontFace = FRONT_FACE_CCW;
+    f32 lineWidth = 1.f;
     //TODO(caio): Blending modes, depth testing modes...
 
     u32 pushConstantRangeCount = 0;
@@ -534,6 +535,7 @@ void CmdSetScissor(Context* ctx, handle hCb, i32 offsetX, i32 offsetY, i32 width
 void CmdSetDefaultScissor(Context* ctx, handle hCb, handle hRenderPass);
 void CmdBindVertexBuffer(Context* ctx, handle hCb, handle hVB);
 void CmdBindIndexBuffer(Context* ctx, handle hCb, handle hIB);
+void CmdDraw(Context* ctx, handle hCb, i32 vertexCount, i32 instanceCount);
 void CmdDrawIndexed(Context* ctx, handle hCb, handle hIB, i32 instanceCount);
 void CmdDispatch(Context* ctx, handle hCb, u32 x, u32 y, u32 z);
 void CmdCopyToSwapChain(Context* ctx, handle hCb, handle hSrc, u32 width, u32 height);

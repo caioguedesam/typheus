@@ -47,6 +47,7 @@ bool operator==(v2f a, v2f b);
 bool operator!=(v2f a, v2f b);
 v2f  operator+ (v2f a, v2f b);
 v2f  operator- (v2f a, v2f b);
+v2f  operator- (v2f a);
 v2f  operator* (v2f a, v2f b);
 v2f  operator* (v2f a, f32 b);
 v2f  operator* (f32 a, v2f b);
@@ -96,6 +97,7 @@ bool operator==(v3f a, v3f b);
 bool operator!=(v3f a, v3f b);
 v3f  operator+ (v3f a, v3f b);
 v3f  operator- (v3f a, v3f b);
+v3f  operator- (v3f a);
 v3f  operator* (v3f a, v3f b);
 v3f  operator* (v3f a, f32 b);
 v3f  operator* (f32 a, v3f b);
@@ -137,6 +139,13 @@ f32 Len         (v4f v);
 v4f Normalize   (v4f v);
 
 // ========================================================
+// [PLANES]
+// Planes are v4f that each represent a coefficient of the plane equation.
+typedef v4f plane;
+plane GetPlane(v3f point, v3f normal);
+plane GetPlane(v3f p0, v3f A, v3f B);
+
+// ========================================================
 // [MATRIX]
 // All matrix types have data stored in a contiguous array, and are row-major in memory.
 
@@ -172,13 +181,15 @@ m4f ScaleMatrix         (v3f scale);
 m4f RotationMatrix      (f32 angle, v3f axis);
 m4f TranslationMatrix   (v3f move);
 
+void GetAngleAxis(m4f rotation, f32* angle, v3f* axis);
+
 v3f TransformPosition   (v3f position,  m4f transform);
 v3f TransformDirection  (v3f direction, m4f transform);
 
-m4f LookAtLH        (v3f center, v3f target, v3f up);
-m4f LookAtRH        (v3f center, v3f target, v3f up);
-m4f PerspectiveLH   (f32 fov, f32 aspect, f32 zNear, f32 zFar);
+// NOTE(caio): Only implement RH coordinate system for consistency purposes.
+m4f ViewRH          (v3f axisX, v3f axisY, v3f axisZ, v3f position);
 m4f PerspectiveRH   (f32 fov, f32 aspect, f32 zNear, f32 zFar);
+v3f ClipToWorldSpace(v3f p, m4f invView, m4f invProj);
 
 //TODO(caio): Implement orthogonal projection
 //TODO(caio): Implement quaternions
@@ -212,6 +223,32 @@ struct AABB
     v3f min = {0,0,0};
     v3f max = {0,0,0};
 };
+
+AABB TransformAABB(AABB aabb, m4f transform);
+v3f GetAABBCenter(AABB aabb);
+v3f GetAABBSize(AABB aabb);
+
+// ========================================================
+// [FRUSTUM]
+struct Frustum
+{
+    // TODO(caio): Not sure if I need all this point data.
+    // Frustum points:
+    //
+    //                  4 ------------- 5
+    //  0 ----- 1       |               |
+    //  |   N   |       |       F       |
+    //  3 ----- 2       |               |
+    //                  7 ------------- 6
+    //
+    v3f points[8];
+    // Frustum planes (in order): left, right, bottom, top, near, far
+    plane planes[6];
+};
+
+Frustum GetFrustum(m4f view, m4f proj);
+bool IsInFrustum(v3f p, Frustum f);
+bool IsInFrustum(AABB aabb, Frustum f);
 
 };
 
