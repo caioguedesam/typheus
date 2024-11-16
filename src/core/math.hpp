@@ -139,6 +139,16 @@ f32 Len         (v4f v);
 v4f Normalize   (v4f v);
 
 // ========================================================
+// [QUATERNIONS]
+// Quaternions are v4f that each represent a basis coefficient.
+typedef v4f quat;
+quat GetQuat(f32 angle, v3f axis);
+quat GetInvQuat(quat q);
+quat QuatMul(quat a, quat b);
+v3f Rotate(v3f p, quat q);
+v3f Rotate(v3f p, f32 angle, v3f axis);
+
+// ========================================================
 // [PLANES]
 // Planes are v4f that each represent a coefficient of the plane equation.
 typedef v4f plane;
@@ -178,6 +188,7 @@ m4f Transpose       (m4f m);
 m4f Inverse         (m4f m);
 
 m4f ScaleMatrix         (v3f scale);
+m4f RotationMatrix      (quat q);
 m4f RotationMatrix      (f32 angle, v3f axis);
 m4f TranslationMatrix   (v3f move);
 
@@ -192,7 +203,6 @@ m4f PerspectiveRH   (f32 fov, f32 aspect, f32 zNear, f32 zFar);
 v3f ClipToWorldSpace(v3f p, m4f invView, m4f invProj);
 
 //TODO(caio): Implement orthogonal projection
-//TODO(caio): Implement quaternions
 
 // ========================================================
 // [EASING]

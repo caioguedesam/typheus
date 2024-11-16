@@ -335,6 +335,51 @@ v4f Normalize(v4f v)
     return v * (1.f/l);
 }
 
+quat GetQuat(f32 angle, v3f axis)
+{
+    f32 s = sin(angle / 2.f);
+    f32 c = cos(angle / 2.f);
+    quat q =
+    {
+        s * axis.x,
+        s * axis.y,
+        s * axis.z,
+        c
+    };
+    return math::Normalize(q);
+}
+
+quat GetInvQuat(quat q)
+{
+    return
+    {
+        -q.x, -q.y, -q.z, q.w
+    };
+}
+
+quat QuatMul(quat a, quat b)
+{
+    return
+    {
+        a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,  // i
+        a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,  // j
+        a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,  // k
+        a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z   // 1
+    };
+}
+
+v3f Rotate(v3f p, quat q)
+{
+    quat pure = {p.x, p.y, p.z, 0};
+    quat result = QuatMul(QuatMul(q, pure), GetInvQuat(q));
+    return result.AsXYZ();
+}
+
+v3f Rotate(v3f p, f32 angle, v3f axis)
+{
+    return Rotate(p, GetQuat(angle, axis));
+}
+
 plane GetPlane(v3f point, v3f normal)
 {
     plane P;
@@ -571,16 +616,35 @@ m4f ScaleMatrix(v3f scale)
     };
 };
 
+m4f RotationMatrix(quat q)
+{
+    // https://www.songho.ca/opengl/gl_quaternion.html
+    m4f result = math::Identity();
+    result.m00 = 1 - (2 * q.y * q.y) - (2 * q.z * q.z);
+    result.m01 = (2 * q.x * q.y) - (2 * q.w * q.z);
+    result.m02 = (2 * q.x * q.z) + (2 * q.w * q.y);
+    result.m10 = (2 * q.x * q.y) + (2 * q.w * q.z);
+    result.m11 = 1 - (2 * q.x * q.x) - (2 * q.z * q.z);
+    result.m12 = (2 * q.y * q.z) - (2 * q.w * q.x);
+    result.m20 = (2 * q.x * q.z) - (2 * q.w * q.y);
+    result.m21 = (2 * q.y * q.z) + (2 * q.w * q.x);
+    result.m22 = 1 - (2 * q.x * q.x) - (2 * q.y * q.y);
+
+    return result;
+}
+
 m4f RotationMatrix(f32 angle, v3f axis)
 {
-    f32 angSin = sinf(angle); f32 angCos = cosf(angle); f32 invCos = 1.f - angCos;
-    return
-    {
-        axis.x * axis.x * invCos + angCos,          axis.y * axis.x * invCos - axis.z * angSin, axis.z * axis.x * invCos + axis.y * angSin, 0.f,
-        axis.x * axis.y * invCos + axis.z * angSin, axis.y * axis.y * invCos + angCos,          axis.z * axis.y * invCos - axis.x * angSin, 0.f,
-        axis.x * axis.z * invCos - axis.y * angSin, axis.y * axis.z * invCos + axis.x * angSin, axis.z * axis.z * invCos + angCos,          0.f,
-        0.f, 0.f, 0.f, 1.f,
-    };
+    quat q = GetQuat(angle, axis);
+    return RotationMatrix(q);
+    //f32 angSin = sinf(angle); f32 angCos = cosf(angle); f32 invCos = 1.f - angCos;
+    //return
+    //{
+    //    axis.x * axis.x * invCos + angCos,          axis.y * axis.x * invCos - axis.z * angSin, axis.z * axis.x * invCos + axis.y * angSin, 0.f,
+    //    axis.x * axis.y * invCos + axis.z * angSin, axis.y * axis.y * invCos + angCos,          axis.z * axis.y * invCos - axis.x * angSin, 0.f,
+    //    axis.x * axis.z * invCos - axis.y * angSin, axis.y * axis.z * invCos + axis.x * angSin, axis.z * axis.z * invCos + angCos,          0.f,
+    //    0.f, 0.f, 0.f, 1.f,
+    //};
 }
 
 void GetAngleAxis(m4f rotation, f32* angle, v3f* axis)
