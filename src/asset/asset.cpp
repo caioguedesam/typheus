@@ -60,6 +60,33 @@ bool IsLoaded(Context* ctx, String assetPath)
     return ctx->loadedAssets.HasKey(assetPath);
 }
 
+shaderc_include_result* ResolveShaderInclude(void* userData, const char* requested, i32 requestType,
+        const char* requesting, size_t includeDepth)
+{
+    ASSERT(requestType == shaderc_include_type_relative);
+    mem::Arena* tempArena = (mem::Arena*)userData;
+
+    String assetDir = file::PathFileDir(requesting);
+    String assetName = StrConcat(tempArena, assetDir, requested);
+    String assetStr = file::ReadFileToString(tempArena, assetName);
+
+    shaderc_include_result result = {};
+    result.source_name = assetName.CStr();
+    result.source_name_length = assetName.len;
+    result.content = assetStr.CStr();
+    result.content_length = assetStr.len;
+
+    shaderc_include_result* include = (shaderc_include_result*)mem::ArenaPush(tempArena, sizeof(shaderc_include_result));
+    memcpy(include, &result, sizeof(shaderc_include_result));
+
+    return include;
+}
+
+void ReleaseShaderInclude(void* userData, shaderc_include_result* result)
+{
+    // Empty
+}
+
 handle LoadShader(Context* ctx, String assetPath)
 {
     if(IsLoaded(ctx, assetPath))
@@ -94,6 +121,7 @@ handle LoadShader(Context* ctx, String assetPath)
 #if TY_DEBUG
     shaderc_compile_options_set_generate_debug_info(options);
 #endif
+    shaderc_compile_options_set_include_callbacks(options, ResolveShaderInclude, ReleaseShaderInclude, ctx->tempArena);
     shaderc_compilation_result_t compiled = shaderc_compile_into_spv(
             compiler,
             (char*)shaderStr.data,
