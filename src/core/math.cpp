@@ -948,5 +948,15 @@ bool IsInFrustum(AABB aabb, Frustum f)
     return true;
 }
 
+v3f FromPolarCoordinates(f32 radius, f32 theta, f32 phi)
+{
+    return
+    {
+        radius * sinf(theta) * cosf(phi),
+        radius * sinf(theta) * sinf(phi),
+        radius * cosf(theta)
+    };
+}
+
 };
 };

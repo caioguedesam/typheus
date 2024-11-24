@@ -260,6 +260,10 @@ Frustum GetFrustum(m4f view, m4f proj);
 bool IsInFrustum(v3f p, Frustum f);
 bool IsInFrustum(AABB aabb, Frustum f);
 
+// ========================================================
+// [MISC]
+v3f FromPolarCoordinates(f32 radius, f32 theta, f32 phi);
+
 };
 
 typedef math::v2f v2f;
