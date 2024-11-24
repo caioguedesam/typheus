@@ -620,6 +620,7 @@ m4f RotationMatrix(quat q)
 {
     // https://www.songho.ca/opengl/gl_quaternion.html
     m4f result = math::Identity();
+    q = math::Normalize(q); // Making sure
     result.m00 = 1 - (2 * q.y * q.y) - (2 * q.z * q.z);
     result.m01 = (2 * q.x * q.y) - (2 * q.w * q.z);
     result.m02 = (2 * q.x * q.z) + (2 * q.w * q.y);
