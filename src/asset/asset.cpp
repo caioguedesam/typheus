@@ -120,6 +120,9 @@ handle LoadShader(Context* ctx, String assetPath)
     shaderc_compile_options_t options = shaderc_compile_options_initialize();
 #if TY_DEBUG
     shaderc_compile_options_set_generate_debug_info(options);
+    shaderc_compile_options_set_optimization_level(options, shaderc_optimization_level_zero);
+#else
+    shaderc_compile_options_set_optimization_level(options, shaderc_optimization_level_performance);
 #endif
     shaderc_compile_options_set_include_callbacks(options, ResolveShaderInclude, ReleaseShaderInclude, ctx->tempArena);
     shaderc_compilation_result_t compiled = shaderc_compile_into_spv(

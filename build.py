@@ -51,10 +51,11 @@ def build_engine(output_dir, build_type, cc_flags):
     if build_type == 'd':
         build_command += f' --debug -O0'
         build_command += f' -DTY_DEBUG=1'
+        build_command += f' -include-pch {output_dir}/stdafx_d.hpp.pch'
     elif build_type == 'r':
         build_command += f' -Ofast'
         build_command += f' -DTY_NDEBUG=1'
-    build_command += f' -include-pch {output_dir}/stdafx_d.hpp.pch'
+        build_command += f' -include-pch {output_dir}/stdafx_r.hpp.pch'
     build_command += f' ./src/main.cpp'
     build_command += f' -fms-runtime-lib=dll'
     build_command += f' --output={output_dir}/{typheus_lib_name}.obj'
