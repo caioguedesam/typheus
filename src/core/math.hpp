@@ -199,10 +199,9 @@ v3f TransformDirection  (v3f direction, m4f transform);
 
 // NOTE(caio): Only implement RH coordinate system for consistency purposes.
 m4f ViewRH          (v3f axisX, v3f axisY, v3f axisZ, v3f position);
+m4f OrthoRH         (f32 l, f32 r, f32 b, f32 t, f32 n, f32 f);
 m4f PerspectiveRH   (f32 fov, f32 aspect, f32 zNear, f32 zFar);
 v3f ClipToWorldSpace(v3f p, m4f invView, m4f invProj);
-
-//TODO(caio): Implement orthogonal projection
 
 // ========================================================
 // [EASING]

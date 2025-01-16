@@ -722,6 +722,22 @@ m4f ViewRH(v3f axisX, v3f axisY, v3f axisZ, v3f position)
     return result;
 }
 
+m4f OrthoRH(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f)
+{
+    // Reference: GLM orthoRH_ZO
+    m4f result = {};
+    result.m00 = 2.f / (r - l);
+    result.m11 = 2.f / (t - b);
+    result.m11 = -result.m11;   // VK
+    result.m22 = -1.f / (f - n);
+    result.m30 = - (r + l) / (r - l);
+    result.m31 = - (t + b) / (t - b);
+    result.m32 = - n / (f - n);
+    result.m33 = 1;
+
+    return result;
+}
+
 m4f PerspectiveRH(f32 fov, f32 aspect, f32 zNear, f32 zFar)
 {
     // https://www.vincentparizet.com/blog/posts/vulkan_perspective_matrix/
