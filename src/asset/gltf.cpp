@@ -51,8 +51,12 @@ SArray<GltfTexture> LoadModelGLTF_LoadTextures(Context* ctx, JsonObject* gltfJso
         GltfSampler sampler = {};
         sampler.minFilter = (u32)samplerJson->GetNumberValue("minFilter");
         sampler.magFilter = (u32)samplerJson->GetNumberValue("magFilter");
-        sampler.wrapS = (u32)samplerJson->GetNumberValue("wrapS");
-        sampler.wrapT = (u32)samplerJson->GetNumberValue("wrapT");
+        u32 samplerValueS = 10497;   // Default wrapping is REPEAT.
+        u32 samplerValueT = 10497;   // Default wrapping is REPEAT.
+        samplerJson->GetNumberValue("wrapS", &samplerValueS);
+        sampler.wrapS = samplerValueS;
+        samplerJson->GetNumberValue("wrapT", &samplerValueT);
+        sampler.wrapT = samplerValueT;
 
         GltfTexture texture = {};
         texture.hImage = hImage;
