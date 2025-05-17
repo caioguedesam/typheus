@@ -2,3 +2,5 @@
 src/third_party/optick/
 build/*
 imgui.ini
+**/.cache
+**/compile_commands.json
