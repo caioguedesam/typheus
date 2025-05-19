@@ -60,26 +60,37 @@ Context MakeEGUIContext(render::Context* renderCtx, handle hRenderPass)
     initInfo.MinImageCount = renderCtx->swapChain.vkImages.count;
     initInfo.ImageCount = renderCtx->swapChain.vkImages.count;
     initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-    ImGui_ImplVulkan_Init(&initInfo, renderCtx->renderPasses[hRenderPass].vkHandle);
+    initInfo.RenderPass = renderCtx->renderPasses[hRenderPass].vkHandle;
+    ImGui_ImplVulkan_Init(&initInfo);
 
 
     // Create font atlas texture for ImGui
-    handle hCb = render::GetAvailableCommandBuffer(renderCtx, render::COMMAND_BUFFER_IMMEDIATE);
-    render::BeginCommandBuffer(renderCtx, hCb);
-    ImGui_ImplVulkan_CreateFontsTexture(renderCtx->commandBuffers[hCb].vkHandle);
-    render::EndCommandBuffer(renderCtx, hCb);
-    render::SubmitImmediate(renderCtx, hCb);
-    ImGui_ImplVulkan_DestroyFontUploadObjects();
+    ImGui_ImplVulkan_CreateFontsTexture();
+
+    // Make hash map to store intermediate descriptors for ImGui images
+    ctx.textureToVkDescriptors = MakeMap<u64, u64>(renderCtx->arena, 100);
+
+    // Setting EGUI default style
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.WindowBorderSize = 1;
+    style.TabBorderSize = 1;
+    style.TabRounding = 0;
+    style.FrameBorderSize = 1;
+    style.WindowTitleAlign = ImVec2(0.5f, 0.5f);
+    ImGui::StyleColorsClassic();
 
     return ctx;
 }
 
 void DestroyEGUIContext(Context* ctx, render::Context* renderCtx)
 {
+    // Shutdown order from ImGui's vulkan examples.
     vkDeviceWaitIdle(renderCtx->vkDevice);
-    vkDestroyDescriptorPool(renderCtx->vkDevice, ctx->vkDescriptorPool, NULL);
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplWin32_Shutdown();
+    ImGui::DestroyContext();
+    vkDestroyDescriptorPool(renderCtx->vkDevice, ctx->vkDescriptorPool, NULL);
+
     *ctx = {};
 }
 
@@ -101,6 +112,56 @@ void DrawFrame(render::Context* renderCtx, handle hCb)
 void ShowDemo()
 {
     ImGui::ShowDemoWindow();
+}
+
+bool PushWindow(String name, f32 x, f32 y, f32 w, f32 h)
+{
+    ImVec2 displaySize = ImGui::GetIO().DisplaySize;
+
+    if(x < 0) x = displaySize.x + x;
+    if(y < 0) y = displaySize.y + y;
+
+    if(w == 0) w = displaySize.x;
+    if(h == 0) h = displaySize.y;
+
+    ImGui::SetNextWindowPos(ImVec2(x, y));
+    ImGui::SetNextWindowSize(ImVec2(w, h));
+    return ImGui::Begin(name.CStr());
+}
+
+void PopWindow()
+{
+    return ImGui::End();
+}
+
+bool PushTabBar(String name)
+{
+    return ImGui::BeginTabBar(name.CStr());
+}
+
+void PopTabBar()
+{
+    ImGui::EndTabBar();
+}
+
+bool PushTab(String name)
+{
+    return ImGui::BeginTabItem(name.CStr());
+}
+
+void PopTab()
+{
+    ImGui::EndTabItem();
+}
+
+void Separator()
+{
+    ImGui::Separator();
+}
+
+void Separator(String name)
+{
+    ImGui::SeparatorText(name.CStr());
 }
 
 void SameLine()
@@ -138,9 +199,19 @@ void SliderI32(String label, i32* result, i32 start, i32 end)
     ImGui::SliderInt(label.CStr(), result, start, end);
 }
 
+void SliderI32Log(String label, i32* result, i32 start, i32 end)
+{
+    ImGui::SliderInt(label.CStr(), result, start, end, "%d", ImGuiSliderFlags_Logarithmic);
+}
+
 void SliderF32(String label, f32* result, f32 start, f32 end)
 {
     ImGui::SliderFloat(label.CStr(), result, start, end);
+}
+
+void SliderF32Log(String label, f32* result, f32 start, f32 end)
+{
+    ImGui::SliderFloat(label.CStr(), result, start, end, "%.3f", ImGuiSliderFlags_Logarithmic);
 }
 
 void SliderV2F(String label, math::v2f* result, f32 start, f32 end)
@@ -193,6 +264,29 @@ bool TreeNode(String nodeName)
 void TreePop()
 {
     ImGui::TreePop();
+}
+
+void Image(Context* ctx, render::Context* renderCtx, handle hTexture, handle hSampler, u64 w, u64 h)
+{
+    render::Texture& texture = renderCtx->resourceTextures[hTexture];
+    render::Sampler& sampler = renderCtx->resourceSamplers[hSampler];
+    VkDescriptorSet vkDescriptor;
+    if(!ctx->textureToVkDescriptors.HasKey(hTexture))
+    {
+        vkDescriptor = ImGui_ImplVulkan_AddTexture(sampler.vkHandle, texture.vkImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        ctx->textureToVkDescriptors.Insert(hTexture, (u64)vkDescriptor);
+    }
+    else
+    {
+        vkDescriptor = (VkDescriptorSet)ctx->textureToVkDescriptors[hTexture];
+    }
+    ImGui::Image((ImTextureID)vkDescriptor, ImVec2(w, h));
+}
+
+v2f GetDisplaySize()
+{
+    ImVec2 displaySize = ImGui::GetIO().DisplaySize;
+    return { displaySize.x, displaySize.y };
 }
 
 };

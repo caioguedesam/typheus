@@ -2,6 +2,12 @@
 
 namespace ty
 {
+
+u32 Hash(u64 v)
+{
+    return (u32)v;
+}
+
 namespace math
 {
 

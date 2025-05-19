@@ -201,6 +201,8 @@ DArray<T> MakeDArray(mem::Arena* arena, u64 initialCount, T initialValue)
 // Will raise compile error if there's no hash implemented for the type.
 #define HASH(v) Hash((v))
 
+u32 Hash(u64 v);
+
 template<typename Tk, typename Tv>
 struct HashMap
 {
@@ -293,5 +295,4 @@ HashMap<Tk, Tv> MakeMap(mem::Arena* arena, u64 capacity)
     }
     return result;
 }
-
 };
