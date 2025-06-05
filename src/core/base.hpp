@@ -37,6 +37,7 @@ typedef u32 handle;
 #define MAX_U32 (0xFFFFFFFFUL)
 #define MAX_U64 (0xFFFFFFFFFFFFFFFFULL)
 #define MAX_F32 (FLT_MAX)
+#define MIN_F32 (FLT_MIN)
 
 #define EPSILON_F32 FLT_EPSILON
 #define EPSILON_F64 DBL_EPSILON
