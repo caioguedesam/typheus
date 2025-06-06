@@ -198,7 +198,7 @@ handle MakeSamplerResource(Context* ctx, SamplerDesc desc)
     VkPhysicalDeviceProperties vkPhysicalDeviceProperties;
     vkGetPhysicalDeviceProperties(ctx->vkPhysicalDevice, &vkPhysicalDeviceProperties);
     samplerInfo.maxAnisotropy = vkPhysicalDeviceProperties.limits.maxSamplerAnisotropy;
-    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.borderColor = (VkBorderColor)desc.borderColor;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
     samplerInfo.compareEnable = VK_FALSE;
     samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
